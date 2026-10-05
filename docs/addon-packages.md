@@ -1,4 +1,4 @@
-# File-based addons (1.10.2)
+# File-based addons (1.10.3)
 
 The installed core contains accounts, authentication, the portal shell, artifact
 transport, and the addon installer/supervisors. Voice screens and XML services,
@@ -11,15 +11,15 @@ The Addons page lists only uploaded packages; reinstalling requires the package 
 application data and uploads remain for reinstallation. There are no enable-only
 installation buttons. Workers stop serving when their package is removed.
 
-Official packages are in `packages/addons/1.10.2/` in the repository:
+Official packages are in `packages/addons/1.10.3/` in the repository:
 
-- `downloads-1.10.2.sraddon`
-- `voice-1.10.2.sraddon`
-- `server-management-1.10.2.sraddon`
-- `ftp-updates-1.10.2.sraddon`
-- `pxe-1.10.2.sraddon`
-- `esxi-1.10.2.sraddon`
-- `smtp-notifications-1.10.2.sraddon`
+- `downloads-1.10.3.sraddon`
+- `voice-1.10.3.sraddon`
+- `server-management-1.10.3.sraddon`
+- `ftp-updates-1.10.3.sraddon`
+- `pxe-1.10.3.sraddon`
+- `esxi-1.10.3.sraddon`
+- `smtp-notifications-1.10.3.sraddon`
 
 Packages contain executable code. The installer accepts only packages whose ID,
 version, API and payload SHA-256 match the catalog shipped with this core release.
@@ -37,7 +37,7 @@ builds and publishes downloadable build artifacts on repository pushes.
 CLI installation is also available:
 
 ```sh
-python3 -m voiceservices --config config.json install-addon packages/addons/1.10.2/downloads-1.10.2.sraddon
+python3 -m voiceservices --config config.json install-addon packages/addons/1.10.3/downloads-1.10.3.sraddon
 python3 -m voiceservices --config config.json uninstall-addon downloads
 ```
 
@@ -68,3 +68,5 @@ remain unverified. PXE and disk restoration also need actual testbed validation.
 
 API references: [vSphere SessionManager](https://developer.broadcom.com/xapis/vsphere-web-services-api/latest/vim.SessionManager.html),
 [VirtualMachine controls](https://developer.broadcom.com/xapis/vsphere-web-services-api/latest/vim.VirtualMachine.html).
+
+Package release numbers need not exactly match the portal. Installation requires the same addon API and code checksum approved by the running portal. An older package with changed code still requires a current package or a compatible portal release.

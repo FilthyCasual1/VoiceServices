@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -41,7 +42,11 @@ class Modules:
                     if any(item.file_size>2*1024**2 for item in archive.infolist()): raise ValueError('Package is too large.')
                     manifest=json.loads(archive.read('manifest.json'));code=archive.read('module.py')
                 key=manifest['id']
-                if key not in self.approved or manifest!=dict(self.approved[key],id=key): raise ValueError('Package is not compatible with this core release.')
+                if key not in self.approved: raise ValueError('Unknown addon package.')
+                if set(manifest)!={'id','version','api','sha256'} or not isinstance(manifest['version'],str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',manifest['version']): raise ValueError('Invalid addon manifest.')
+                approved=self.approved[key]
+                if type(manifest['api']) is not int or manifest['api']!=approved['api']: raise ValueError('Addon API is incompatible with this portal. Upload a package supporting API '+str(approved['api'])+'.')
+                if manifest['sha256']!=approved['sha256']: raise ValueError('Addon code is not approved by this portal release. Use a current package or update the portal.')
                 if hashlib.sha256(code).hexdigest()!=manifest['sha256']: raise ValueError('Package checksum is not approved.')
                 compile(code,'module.py','exec')
             except (KeyError,TypeError,SyntaxError,zipfile.BadZipFile,json.JSONDecodeError,UnicodeError,RuntimeError,EOFError) as exc: raise ValueError('Invalid addon package.') from exc

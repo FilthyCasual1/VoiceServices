@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.3 — 2026-10-05
+
+Accept addon packages across portal release versions when their API and approved code checksum match; explain incompatible API and code failures.
+
 ## 1.10.2 — 2026-10-05
 
 Format portal and host uptime as days, hours, minutes and seconds; show rounded RAM and storage capacities in MB, GB or TB.

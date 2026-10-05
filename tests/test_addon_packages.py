@@ -96,3 +96,18 @@ class PackageTests(unittest.TestCase):
             data=voice.axl_user(self.app,'alice');self.assertEqual(data['extension'],'1234')
             request=send.call_args.args[0];self.assertIn('getUser',request.headers['Soapaction'])
             ET.fromstring(request.data);self.assertNotIn(b'axl-secret',request.data)
+
+    def test_release_version_differs_but_api_and_code_must_match(self):
+        self.app.modules.change('downloads',False)
+        def altered(**changes):
+            out=io.BytesIO()
+            with zipfile.ZipFile(io.BytesIO(package('downloads'))) as original,zipfile.ZipFile(out,'w') as archive:
+                manifest=json.loads(original.read('manifest.json'));manifest.update(changes)
+                archive.writestr('manifest.json',json.dumps(manifest))
+                archive.writestr('module.py',original.read('module.py'))
+            return out.getvalue()
+        self.app.modules.install(altered(version='1.0.0'))
+        self.assertTrue(self.app.modules.installed('downloads'))
+        self.app.modules.change('downloads',False)
+        for changes in ({'api':2},{'sha256':'0'*64},{'version':'invalid'}):
+            with self.assertRaises(ValueError): self.app.modules.install(altered(**changes))
