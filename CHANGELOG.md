@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 — 2026-10-05
+
+Show only uploaded addon packages in Administration; uninstall removes the addon listing.
+
 ## 1.0.0 — 2026-10-05
 
 CrystalBlue: CasualNetworks branding, custom-brand attribution, and a legend for home-page block controls.

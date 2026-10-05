@@ -18,6 +18,15 @@ class PackageTests(unittest.TestCase):
         install(self.app,module)
         self.assertTrue((directory/'module.py').is_file())
         self.assertEqual(self.request('/downloads')['status'],'200 OK')
+    def test_addon_listing_follows_upload_and_uninstall(self):
+        token,user=self.user('admin')
+        self.assertIn('<h3>Downloads</h3>',self.request('/admin/addons',token=token)['body'])
+        response=self.request('/admin/addons','POST',{'csrf':user['csrf'],'action':'remove','module':'downloads'},token)
+        self.assertNotIn('<h3>Downloads</h3>',response['body'])
+        self.assertIn('Install package',response['body'])
+        self.assertNotIn('Not installed',response['body'])
+        install(self.app,'downloads')
+        self.assertIn('<h3>Downloads</h3>',self.request('/admin/addons',token=token)['body'])
     def test_rejects_tampering_and_archive_traversal(self):
         self.app.modules.change('downloads',False)
         for name in ('module.py','../outside.py'):

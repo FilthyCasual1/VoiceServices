@@ -76,7 +76,8 @@ class CoreAdminTests(unittest.TestCase):
         body=self.request()['body']
         self.assertIn('<strong>CasualNetworks</strong>',body)
         self.assertIn('<footer>CasualNetworks Service Ready',body)
-        self.assertIn('1.0.0 CrystalBlue',body)
+        from voiceservices.version import __version__,__codename__
+        self.assertIn(__version__+' '+__codename__,body)
         token,user=self.user('admin')
         legend=self.request('/admin/home',token=token)['body']
         for phrase in ('Controls legend','Visible / Hidden','Always / selected addon','Hidden blocks stay hidden'): self.assertIn(phrase,legend)

@@ -4,7 +4,7 @@ from .modules import CATALOG
 from . import branding,overview,user_management
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Installable addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Portal branding','home':'Home page blocks'}
+HEADINGS={'voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Portal branding','home':'Home page blocks'}
 def password_form(user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     return '<div class="panel login"><form method="post">'+csrf+'<input type="hidden" name="action" value="password"><label>Current password</label><input name="current_password" type="password" autocomplete="current-password" required><label>New password</label><input name="new_password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm new password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><br><button>Change password</button></form></div>'
@@ -30,8 +30,10 @@ def render(app,path,user,data,method,services):
     elif section=='addons':
         content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'
         for key,(name,description) in CATALOG.items():
-            installed=app.modules.installed(key);present=(app.modules.root/key).exists()
-            content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement' if present else 'Not installed')+'</p>'
+            present=(app.modules.root/key).exists()
+            if not present: continue
+            installed=app.modules.installed(key)
+            content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     links=[('/admin','Overview'),('/admin/users','Users and passwords'),('/admin/addons','Addons'),('/admin/branding','Branding'),('/admin/home','Home page blocks')]
