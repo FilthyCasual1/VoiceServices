@@ -114,3 +114,16 @@ class CoreAdminTests(unittest.TestCase):
         asset=b''.join(self.app({'PATH_INFO':'/branding/masthead','REQUEST_METHOD':'GET'},start))
         self.assertEqual(response['status'],'200 OK')
         self.assertTrue(asset.startswith(b'\x89PNG'))
+
+    def test_masthead_layout_selection(self):
+        token,user=self.user('admin')
+        self.assertIn('class="masthead-wide"',self.request()['body'])
+        data={'csrf':user['csrf'],'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'compact'}
+        self.assertEqual(self.request('/admin/branding','POST',data,token)['status'],'200 OK')
+        body=self.request()['body']
+        self.assertIn('class="masthead-compact"',body)
+        self.assertIn('class="masthead-image"',body)
+        data['masthead_layout']='wide';self.request('/admin/branding','POST',data,token)
+        self.assertNotIn('class="masthead-image"',self.request()['body'])
+        data['masthead_layout']='invalid'
+        self.assertEqual(self.request('/admin/branding','POST',data,token)['status'],'400 Bad Request')

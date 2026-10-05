@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4 — 2026-10-05
+
+Selectable wide and compact mastheads; wide stays left aligned and visible, compact retains responsive hiding.
+
 ## 1.0.3 — 2026-10-05
 
 Full-width brand-side masthead, administrator image replacement, and home-block page link legend.

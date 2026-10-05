@@ -1,4 +1,4 @@
-# File-based addons (1.0.3)
+# File-based addons (1.0.4)
 
 The installed core contains accounts, authentication, the portal shell, artifact
 transport, and the addon installer/supervisors. Voice screens and XML services,
@@ -11,14 +11,14 @@ The Addons page lists only uploaded packages; reinstalling requires the package 
 application data and uploads remain for reinstallation. There are no enable-only
 installation buttons. Workers stop serving when their package is removed.
 
-Official packages are in `packages/addons/1.0.3/` in the repository:
+Official packages are in `packages/addons/1.0.4/` in the repository:
 
-- `downloads-1.0.3.sraddon`
-- `voice-1.0.3.sraddon`
-- `server-management-1.0.3.sraddon`
-- `ftp-updates-1.0.3.sraddon`
-- `pxe-1.0.3.sraddon`
-- `esxi-1.0.3.sraddon`
+- `downloads-1.0.4.sraddon`
+- `voice-1.0.4.sraddon`
+- `server-management-1.0.4.sraddon`
+- `ftp-updates-1.0.4.sraddon`
+- `pxe-1.0.4.sraddon`
+- `esxi-1.0.4.sraddon`
 
 Packages contain executable code. The installer accepts only packages whose ID,
 version, API and payload SHA-256 match the catalog shipped with this core release.
@@ -36,7 +36,7 @@ builds and publishes downloadable build artifacts on repository pushes.
 CLI installation is also available:
 
 ```sh
-python3 -m voiceservices --config config.json install-addon packages/addons/1.0.3/downloads-1.0.3.sraddon
+python3 -m voiceservices --config config.json install-addon packages/addons/1.0.4/downloads-1.0.4.sraddon
 python3 -m voiceservices --config config.json uninstall-addon downloads
 ```
 

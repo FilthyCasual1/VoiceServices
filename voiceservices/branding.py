@@ -12,7 +12,7 @@ def initialize(app):
             db.executemany('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',blocks)
             db.execute("INSERT INTO module_metadata VALUES('home-blocks-seeded')")
 def defaults(app):
-    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP'},**app.config.get('branding',{}))
+    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide'},**app.config.get('branding',{}))
     if value['title']=='ServiceReady': value['title']='CasualNetworks'
     return value
 def valid_url(value):
@@ -26,6 +26,9 @@ def change(app,section,data):
         title=data.get('title','').strip();subtitle=data.get('subtitle','').strip()
         if not 1<=len(title)<=80 or len(subtitle)>160: raise ValueError('Enter a title of 1–80 characters and a subtitle of at most 160 characters.')
         value=defaults(app);value.update(title=title,subtitle=subtitle)
+        layout=data.get('masthead_layout',value.get('masthead_layout','wide'))
+        if layout not in ('wide','compact'): raise ValueError('Choose a valid masthead layout.')
+        value['masthead_layout']=layout
         if data.get('reset_logo')=='yes': value.pop('logo',None)
         if data.get('reset_masthead')=='yes': value.pop('masthead',None)
         save(app,value);return 'Branding saved.'
@@ -79,7 +82,7 @@ def render(app,section,user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     if section=='branding':
         value=defaults(app)
-        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
+        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead layout</label><select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
     from .modules import CATALOG
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'">'
