@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4 — 2026-10-05
+
+Style account creation with the same centered appliance panel and banner as sign-in.
+
 ## 1.2.3 — 2026-10-05
 
 Detect the host distribution and fetch its logo with a sanitized local cache and offline fallback.
