@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 — 2026-10-05
+
+Add Alpine installer, supervised OpenRC service, and installed Waitress server.
+
 ## 0.2.2 — 2026-10-05
 
 Use form-bound login tokens for proxied previews instead of comparing browser origins.

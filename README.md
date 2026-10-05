@@ -83,3 +83,10 @@ source. Every subsequent change increments the release version and gets a short
 entry in `CHANGELOG.md`. Use `python3 tools/bump_version.py patch "Description"`
 for fixes and small edits; use `minor` for new features and `major` for breaking
 changes. Current release: 0.2.0.
+
+### Alpine testbed installation
+
+See [Alpine / ESXi installation](docs/alpine-install.md). Clone the current
+`initial-portal` branch on an Alpine VM and run `sh install-alpine.sh` as root.
+The installer preserves configuration and accounts on updates and installs an
+OpenRC-managed service using Waitress.

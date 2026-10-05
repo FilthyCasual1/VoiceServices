@@ -17,3 +17,7 @@ voiceservices = ["static/*.css", "static/*.png", "static/*.svg"]
 
 [tool.setuptools.dynamic]
 version = {attr = "voiceservices.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["voiceservices*"]
+namespaces = false
