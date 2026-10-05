@@ -2,9 +2,10 @@
 from datetime import datetime,timedelta,timezone
 from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 import html,json,time
+from . import regional
 E=lambda v:html.escape(str(v),quote=True)
 KINDS={'insap':'Portal updates','os':'Operating system updates'}
-DEFAULT={'enabled':False,'frequency':'weekly','weekday':6,'time':'03:00','timezone':'America/Chicago'}
+DEFAULT={'enabled':False,'frequency':'weekly','weekday':6,'time':'03:00','timezone':'portal'}
 def initialize(app):
     with app.store.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS update_schedule_runs(kind TEXT PRIMARY KEY,next_run INTEGER NOT NULL,last_run INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT \'Waiting\',message TEXT NOT NULL DEFAULT \'\')')
@@ -13,9 +14,11 @@ def settings(app):
     initialize(app)
     with app.store.connect() as db: row=db.execute("SELECT value FROM portal_settings WHERE key='update_schedules'").fetchone()
     values=json.loads(row[0]) if row else {}
-    return {kind:dict(DEFAULT,**values.get(kind,{})) for kind in KINDS}
+    result={kind:dict(DEFAULT,**values.get(kind,{})) for kind in KINDS}
+    for s in result.values(): s['effective_timezone']=regional.settings(app)['timezone'] if s['timezone']=='portal' else s['timezone']
+    return result
 def next_run(s,now):
-    zone=ZoneInfo(s['timezone']);local=datetime.fromtimestamp(now,zone);hour,minute=map(int,s['time'].split(':'))
+    zone=ZoneInfo(s.get('effective_timezone',s['timezone']));local=datetime.fromtimestamp(now,zone);hour,minute=map(int,s['time'].split(':'))
     for offset in range(16):
         day=local.date()+timedelta(days=offset)
         if s['frequency']=='weekly' and day.weekday()!=s['weekday']: continue
@@ -38,7 +41,8 @@ def change(app,user,data):
             if len(s['time'])!=5 or s['time'][2]!=':': raise ValueError()
             hour,minute=map(int,s['time'].split(':'))
             if not 0<=hour<24 or not 0<=minute<60: raise ValueError()
-            ZoneInfo(s['timezone']);next_run(s,now)
+            s['effective_timezone']=regional.settings(app)['timezone'] if s['timezone']=='portal' else s['timezone']
+            ZoneInfo(s['effective_timezone']);next_run(s,now)
         except (ValueError,ZoneInfoNotFoundError): raise ValueError('Choose a daily/weekly schedule, valid time, weekday and IANA time zone.')
         new[kind]=s
     with app.store.connect() as db:
@@ -53,9 +57,9 @@ def render(app,user):
         rows={r['kind']:dict(r) for r in db.execute('SELECT * FROM update_schedule_runs')};heartbeat=db.execute('SELECT at FROM scheduler_heartbeat WHERE id=1').fetchone()
     text='<p>Run automatic portal and OS updates separately. Schedules are disabled by default and use the installed host update provider.</p><p>Scheduler: '+('Running' if heartbeat and heartbeat[0]>time.time()-90 else 'Not running or heartbeat unavailable')+'. Host update provider: '+('Configured' if app.store.accounts else 'Unavailable on this deployment')+'.</p><div class="panel"><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     for kind,label in KINDS.items():
-        s=schedules[kind];text+='<h3>'+label+'</h3><label>Automatic updates</label><select name="'+kind+'_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if s['enabled'] else '')+'>On</option></select><label>Frequency</label><select name="'+kind+'_frequency"><option value="daily">Daily</option><option value="weekly"'+(' selected' if s['frequency']=='weekly' else '')+'>Weekly</option></select><label>Weekday (weekly schedules)</label><select name="'+kind+'_weekday">'+''.join('<option value="'+str(n)+'"'+(' selected' if n==s['weekday'] else '')+'>'+day+'</option>' for n,day in enumerate(('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')))+'</select><label>Time</label><input type="time" name="'+kind+'_time" value="'+E(s['time'])+'" required><label>Time zone</label><input name="'+kind+'_timezone" value="'+E(s['timezone'])+'" required>'
+        s=schedules[kind];text+='<h3>'+label+'</h3><label>Automatic updates</label><select name="'+kind+'_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if s['enabled'] else '')+'>On</option></select><label>Frequency</label><select name="'+kind+'_frequency"><option value="daily">Daily</option><option value="weekly"'+(' selected' if s['frequency']=='weekly' else '')+'>Weekly</option></select><label>Weekday (weekly schedules)</label><select name="'+kind+'_weekday">'+''.join('<option value="'+str(n)+'"'+(' selected' if n==s['weekday'] else '')+'>'+day+'</option>' for n,day in enumerate(('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')))+'</select><label>Time</label><input type="time" name="'+kind+'_time" value="'+E(s['time'])+'" required><label>Time zone (portal = global setting)</label><input name="'+kind+'_timezone" value="'+E(s['timezone'])+'" required>'
         row=rows.get(kind,{});due=row.get('next_run',0)
-        text+='<p>Next run: '+(E(datetime.fromtimestamp(due,ZoneInfo(s['timezone'])).strftime('%Y-%m-%d %H:%M %Z')) if s['enabled'] and due else 'Disabled')+'. Last result: '+E(row.get('status','No runs yet'))+' '+E(row.get('message',''))+'</p>'
+        text+='<p>Next run: '+(E(regional.format_timestamp(app,due,s['effective_timezone'])) if s['enabled'] and due else 'Disabled')+'. Last result: '+E(row.get('status','No runs yet'))+' '+E(row.get('message',''))+'</p>'
     return text+'<button>Save update schedules</button></form></div><p>Portal updates briefly restart services and preserve settings. OS updates upgrade installed packages without an automatic reboot. If an update is already running, other due jobs wait. Missed occurrences run once after the scheduler returns; failed requests wait for the next occurrence. Session and security policies remain separate.</p>'
 def tick(app,now=None):
     now=int(time.time()) if now is None else int(now);schedules=settings(app)
@@ -82,3 +86,10 @@ def tick(app,now=None):
         except ValueError as exc:
             with app.store.connect() as db: db.execute("UPDATE update_schedule_runs SET status='Failed',message=? WHERE kind=?",(str(exc),kind))
         return
+
+def rebase_global(app):
+    schedules=settings(app);now=int(time.time())
+    with app.store.connect() as db:
+        for kind,s in schedules.items():
+            if s['timezone']=='portal':
+                db.execute("UPDATE update_schedule_runs SET next_run=?,status='Waiting',message='Global time zone changed' WHERE kind=?",(next_run(s,now) if s['enabled'] else 0,kind))

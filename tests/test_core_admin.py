@@ -234,3 +234,16 @@ class CoreAdminTests(unittest.TestCase):
             result=self.request('/admin/users','POST',{'csrf':admin['csrf'],'action':'authorize-recovery','username':'alice'},token)
             self.assertIn('Recovery authorized',result['body']);issue.assert_called_once()
         self.assertEqual(self.request('/admin/recovery',token=token)['headers']['Location'],'/admin/users#recovery')
+
+    def test_global_timezone_and_date_time_formats(self):
+        from voiceservices import branding,regional,update_schedule
+        from datetime import datetime,timezone
+        values={'title':'CasualNetworks','subtitle':'ServiceReady INSAP','global_timezone':'America/Chicago','date_format':'day-first','time_format':'12-hour'}
+        branding.change(self.app,'branding',values)
+        stamp=int(datetime(2026,1,2,15,4,tzinfo=timezone.utc).timestamp())
+        self.assertEqual(regional.format_timestamp(self.app,stamp),'02/01/2026 09:04 AM CST')
+        self.assertEqual(update_schedule.settings(self.app)['os']['effective_timezone'],'America/Chicago')
+        token,user=self.user('admin');page=self.request('/admin/branding',token=token)['body']
+        self.assertIn('name="global_timezone"',page);self.assertIn('name="date_format"',page)
+        with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,date_format='unsafe'))
+        with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,global_timezone='Invalid/Zone'))

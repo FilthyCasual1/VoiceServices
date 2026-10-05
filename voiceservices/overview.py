@@ -2,6 +2,7 @@
 import html,json,os,shutil,socket,time,platform
 from pathlib import Path
 from .modules import CATALOG
+from . import regional
 from .version import __version__
 E=lambda value:html.escape(str(value),quote=True)
 
@@ -51,6 +52,6 @@ def render(app):
                 status+='; '+(host+' configured; connection unverified' if host else 'Host not configured')
             elif key=='server-management': status+='; '+str(sum(bool(v) for v in app.config.get('services',{}).values()))+' configured service links; remote health unverified'
             rows.append((title,status))
-    portal_rows=resources[:5]+resources[-3:]
+    portal_rows=resources[:5]+[('Current date and time',regional.format_timestamp(app,now)+' ('+regional.settings(app)['timezone']+')')]+resources[-3:]
     host_rows=resources[5:-3]
     return '<div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'

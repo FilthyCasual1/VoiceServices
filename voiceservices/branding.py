@@ -3,6 +3,7 @@ import html,json,re,secrets,struct
 from datetime import datetime
 from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 from pathlib import Path
+from . import regional
 from urllib.parse import urlsplit
 E=lambda value:html.escape(str(value),quote=True)
 
@@ -29,6 +30,8 @@ SESSION_TEXT = {
 def defaults(app):
     value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Your network services, in one place.','create_subtitle':'Your starting point for network services.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC','login_disclaimer_enabled':False,'login_disclaimer':''},**app.config.get('branding',{}))
     if value['title']=='ServiceReady': value['title']='CasualNetworks'
+    value.setdefault('global_timezone',value.get('greeting_timezone','UTC'))
+    value.setdefault('date_format','iso');value.setdefault('time_format','24-hour')
     for key, (_, text) in SESSION_TEXT.items(): value.setdefault(key,text)
     return value
 def valid_url(value):
@@ -41,7 +44,7 @@ def change(app,section,data):
     if section=='branding':
         title=data.get('title','').strip();subtitle=data.get('subtitle','').strip()
         if not 1<=len(title)<=80 or len(subtitle)>160: raise ValueError('Enter a title of 1–80 characters and a subtitle of at most 160 characters.')
-        value=defaults(app);value.update(title=title,subtitle=subtitle)
+        value=defaults(app);previous_zone=value['global_timezone'];value.update(title=title,subtitle=subtitle)
         layout=data.get('masthead_layout',value.get('masthead_layout','wide'))
         if layout not in ('wide','compact'): raise ValueError('Choose a valid masthead layout.')
         value['masthead_layout']=layout
@@ -53,10 +56,14 @@ def change(app,section,data):
             entry=data.get(key,value[key])
             if entry not in ('custom','time'): raise ValueError('Choose custom or time-based greeting.')
             value[key]=entry
-        zone=data.get('greeting_timezone',value['greeting_timezone']).strip()
+        zone=data.get('global_timezone',data.get('greeting_timezone',value['global_timezone'])).strip()
         try: ZoneInfo(zone)
         except (ZoneInfoNotFoundError,ValueError): raise ValueError('Choose a valid IANA greeting time zone.')
-        value['greeting_timezone']=zone
+        value['global_timezone']=zone;value['greeting_timezone']=zone
+        for key,options in [('date_format',regional.DATE_FORMATS),('time_format',regional.TIME_FORMATS)]:
+            entry=data.get(key,value[key])
+            if entry not in options: raise ValueError('Choose a supported date and time format.')
+            value[key]=entry
         enabled=data.get('login_disclaimer_enabled','yes' if value['login_disclaimer_enabled'] else 'no')
         if enabled not in ('yes','no'): raise ValueError('Choose whether to show the login disclaimer.')
         disclaimer=data.get('login_disclaimer',value['login_disclaimer']).strip()
@@ -65,7 +72,11 @@ def change(app,section,data):
         if data.get('reset_logo')=='yes': value.pop('logo',None)
         if data.get('reset_masthead')=='yes': value.pop('masthead',None)
         if data.get('reset_header_fill')=='yes': value.pop('header-fill',None)
-        save(app,value);return 'Look and Feel saved.'
+        save(app,value)
+        if previous_zone!=zone:
+            from . import update_schedule
+            update_schedule.rebase_global(app)
+        return 'Look and Feel saved.'
     action=data.get('action','save')
     with app.store.connect() as db:
         if action=='delete': db.execute('DELETE FROM home_blocks WHERE id=?',(int(data.get('block','')),));return 'Block removed.'
@@ -128,10 +139,13 @@ def render(app,section,user):
         for key,label,reset in [('reset_logo','Logo','Use default arrow'),('reset_masthead','Masthead image','Use default image'),('reset_header_fill','Secondary masthead','Clear secondary masthead')]:
             identity+=field(label,'<select name="'+key+'"><option value="no">Keep current image</option><option value="yes">'+reset+'</option></select>')
         groups=group('Brand and masthead',identity,True)
+        locale=text_field('global_timezone','Global time zone (IANA, e.g. America/Chicago)')
+        for key,label,options in [('date_format','Date format',regional.DATE_FORMATS),('time_format','Time format',regional.TIME_FORMATS)]:
+            locale+=field(label,'<select name="'+key+'">'+''.join('<option value="'+code+'"'+(' selected' if value[key]==code else '')+'>'+E(item[1])+'</option>' for code,item in options.items())+'</select>')
+        groups+=group('Date, time and time zone',locale)
         for kind,label in [('login','Sign-in box'),('create','Create-account box')]:
             body=text_field(kind+'_title','Heading')+text_field(kind+'_subtitle','Subtitle')
             body+=field('Greeting','<select name="'+kind+'_greeting"><option value="custom">Use custom heading</option><option value="time"'+(' selected' if value[kind+'_greeting']=='time' else '')+'>Good morning / afternoon / evening</option></select>')
-            if kind=='login': body+=text_field('greeting_timezone','Greeting time zone')
             groups+=group(label,body)
         body=field('Show disclaimer','<select name="login_disclaimer_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if value['login_disclaimer_enabled'] else '')+'>On</option></select>')
         body+='<div class="setting-field setting-wide"><label>Disclaimer text</label><textarea name="login_disclaimer" maxlength="4000" rows="3">'+E(value['login_disclaimer'])+'</textarea></div>'
@@ -164,6 +178,6 @@ def render(app,section,user):
 def box_text(app,kind):
     value=defaults(app);title=value[kind+'_title']
     if value[kind+'_greeting']=='time':
-        hour=datetime.now(ZoneInfo(value['greeting_timezone'])).hour
+        hour=datetime.now(regional.zone(app)).hour
         title='Good morning' if hour<12 else 'Good afternoon' if hour<18 else 'Good evening'
     return title,value[kind+'_subtitle']

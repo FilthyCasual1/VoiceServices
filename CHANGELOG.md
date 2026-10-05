@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.1 — 2026-10-05
+
+Show the current date and time on the administration overview using global regional settings.
+
+## 1.9.0 — 2026-10-05
+
+Add portal-wide timezone and date/time format controls; use them for greetings, inbox and session timestamps and inherited update schedules.
+
 ## 1.8.2 — 2026-10-05
 
 Combine user management, passwords and account recovery under Users and Accounts.

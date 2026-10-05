@@ -1,4 +1,4 @@
-# Core administration (1.8.2)
+# Core administration (1.9.1)
 
 These controls are part of the permanent core and work without any addons.
 
@@ -36,3 +36,5 @@ accounts and unenrolled accounts are refused. Account deletion preserves any
 home directory. Portal administrator roles do not grant operating-system root
 access. Broker integration has policy/mock tests but still needs real Alpine
 validation. OS and portal database deletion cannot be one atomic transaction.
+
+Look and Feel → Date, time and time zone sets the portal-wide IANA timezone and date/time presets (ISO, day-first, month-first or named dates; 12/24-hour time with optional seconds). Inbox and session timestamps and time-based greetings follow these settings. Update schedules use `portal` to inherit the global timezone; changing it recalculates their next occurrence. Explicit schedule timezone overrides remain in effect. These settings format portal data and do not change the host OS clock.

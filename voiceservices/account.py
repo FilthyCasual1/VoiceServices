@@ -1,6 +1,7 @@
 """Profile, security, sessions and addon-linked identities in the core account page."""
 import html,re,time
 from datetime import datetime,timezone
+from . import regional
 from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 E=lambda value:html.escape(str(value),quote=True)
 def initialize(app):
@@ -92,12 +93,12 @@ def render(app,user,token,note='',section='profile'):
     content+='<div class="panel inbox-summary"><p>'+str(sum(not m['is_read'] for m in messages))+' unread · '+str(len(messages))+' messages</p><form method="post">'+csrf+'<button name="action" value="read-all-notifications">Mark all read</button></form></div>'
     if not messages: content+='<p>Your inbox is empty.</p>'
     for message in messages:
-        content+='<div class="panel notification-'+E(message['priority'])+'"><span class="priority priority-'+E(message['priority'])+'">'+E(message['priority'].title())+'</span> <strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
+        content+='<div class="panel notification-'+E(message['priority'])+'"><span class="priority priority-'+E(message['priority'])+'">'+E(message['priority'].title())+'</span> <strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(regional.format_timestamp(app,message['created']))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
     inbox_content=content;content=''
-    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
+    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT token,expires FROM sessions WHERE user_id=? AND expires>? ORDER BY expires DESC',(user['id'],int(time.time()))):
-            content+='<tr><td>'+('This session' if row['token']==token else 'Other session')+'</td><td>'+E(datetime.fromtimestamp(row['expires'],timezone.utc).strftime('%Y-%m-%d %H:%M'))+'</td></tr>'
+            content+='<tr><td>'+('This session' if row['token']==token else 'Other session')+'</td><td>'+E(regional.format_timestamp(app,row['expires']))+'</td></tr>'
     content+='</table><form method="post">'+csrf+'<button name="action" value="revoke-sessions">Sign out other sessions</button></form></div></section></div>'
     security_content=content;content='<h2 id="services">Linked services</h2>'
     panels=[]
