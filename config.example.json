@@ -1,0 +1,37 @@
+{
+  "database": "data/voiceservices.sqlite3",
+  "public_url": "http://127.0.0.1:8080",
+  "secure_cookies": false,
+  "tftp_host": "",
+  "jabber_domain": "",
+  "services": {
+    "cucm_admin": "",
+    "cucm_serviceability": "",
+    "cucm_os": "",
+    "cucm_drs": "",
+    "self_care": "",
+    "cuc_admin": "",
+    "cuc_serviceability": "",
+    "imp_admin": "",
+    "imp_serviceability": "",
+    "openwrt": ""
+  },
+  "downloads": {
+    "jabber": {
+      "version": "",
+      "url": ""
+    },
+    "ip_communicator": {
+      "version": "",
+      "url": ""
+    }
+  },
+  "self_provisioning": {
+    "ivr_number": "",
+    "network": "",
+    "users": {}
+  },
+  "auth_backend": "local",
+  "account_socket": "/run/serviceready-accounts/socket",
+  "update_upload_limit": 8589934592
+}

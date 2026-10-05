@@ -1,0 +1,9 @@
+{
+  "database": "data/serviceready.sqlite3",
+  "public_url": "http://127.0.0.1:8080",
+  "secure_cookies": false,
+  "auth_backend": "local",
+  "account_socket": "/run/serviceready-accounts/socket",
+  "initial_modules": [],
+  "update_upload_limit": 8589934592
+}
