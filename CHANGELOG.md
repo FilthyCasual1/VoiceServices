@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.1 — 2026-10-05
+
+Use direct setup-before-production guidance in default home blocks and account subtitles, preserving custom wording.
+
 ## 1.12.0 — 2026-10-05
 
 Separate guest and signed-in home blocks with independent editing and automatic session-based selection.
