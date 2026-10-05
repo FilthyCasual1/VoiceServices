@@ -6,6 +6,23 @@ from . import regional
 from .version import __version__
 E=lambda value:html.escape(str(value),quote=True)
 
+def readable_uptime(seconds):
+    remaining=max(0,int(seconds))
+    parts=[]
+    for size,label in ((86400,'day'),(3600,'hour'),(60,'minute'),(1,'second')):
+        value,remaining=divmod(remaining,size)
+        if value: parts.append(f'{value} {label}'+('s' if value!=1 else ''))
+    return ', '.join(parts) or '0 seconds'
+
+def readable_size(size):
+    size=max(0,int(size))
+    for divisor,label in ((10**12,'TB'),(10**9,'GB'),(10**6,'MB')):
+        if size>=divisor or label=='MB': return f'{size/divisor:,.1f} {label}'
+
+def memory_size(value):
+    try: return readable_size(int(value.split()[0])*1024)
+    except (ValueError,IndexError,AttributeError): return 'Unknown'
+
 def oem_info():
     values={}
     for key in ('sys_vendor','product_name','product_version','product_serial','board_vendor','board_name','bios_vendor','bios_version','bios_date'):
@@ -22,7 +39,7 @@ def render(app):
     now=time.time()
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
     usage=shutil.disk_usage(Path(app.store.path).parent)
-    resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',str(int(now-app.started_at))+' seconds'),('Data disk',str(usage.free//1024**2)+' MiB available of '+str(usage.total//1024**2)+' MiB'),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
+    resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',readable_uptime(now-app.started_at)),('Data disk',readable_size(usage.free)+' available of '+readable_size(usage.total)),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
     resources.extend([('Operating system',platform.freedesktop_os_release().get('PRETTY_NAME',platform.system()) if hasattr(platform,'freedesktop_os_release') and Path('/etc/os-release').is_file() else platform.system()),('Kernel',platform.release()),('Architecture',platform.machine()),('Logical CPUs',str(os.cpu_count() or 'Unknown')),('Python',platform.python_version())])
     try:
         cpu=next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith(('model name','Hardware'))),'Unknown')
@@ -32,9 +49,9 @@ def render(app):
     except OSError: pass
     try:
         info={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in Path('/proc/meminfo').read_text().splitlines()}
-        resources.append(('Host memory',info.get('MemAvailable','Unknown')+' available of '+info.get('MemTotal','Unknown')))
+        resources.append(('Host memory',memory_size(info.get('MemAvailable'))+' available of '+memory_size(info.get('MemTotal'))))
     except OSError: pass
-    try: resources.append(('Host uptime',str(int(float(Path('/proc/uptime').read_text().split()[0])))+' seconds'))
+    try: resources.append(('Host uptime',readable_uptime(float(Path('/proc/uptime').read_text().split()[0]))))
     except (OSError,ValueError): pass
     resources.extend(oem_info())
     with app.store.connect() as db:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.2 — 2026-10-05
+
+Format portal and host uptime as days, hours, minutes and seconds; show rounded RAM and storage capacities in MB, GB or TB.
+
 ## 1.10.1 — 2026-10-05
 
 Show available host OEM manufacturer, model, serial, board and BIOS identity on Overview.
