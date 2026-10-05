@@ -36,3 +36,5 @@ header{grid-template-columns:minmax(332px,1fr) 600px 250px}
 @media(max-width:1182px){header{grid-template-columns:minmax(0,1fr) 250px}.masthead-image{display:none}}
 @media(max-width:720px){header{grid-template-columns:1fr 190px}}
 @media(max-width:420px){header{grid-template-columns:1fr}}
+
+.login{margin:24px auto}
