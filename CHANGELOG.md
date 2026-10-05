@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5 — 2026-10-05
+
+Keep a thin white divider at the right edge of the wide masthead image.
+
 ## 1.0.4 — 2026-10-05
 
 Selectable wide and compact mastheads; wide stays left aligned and visible, compact retains responsive hiding.
