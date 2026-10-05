@@ -50,4 +50,6 @@ def render(app):
                 status+='; '+(host+' configured; connection unverified' if host else 'Host not configured')
             elif key=='server-management': status+='; '+str(sum(bool(v) for v in app.config.get('services',{}).values()))+' configured service links; remote health unverified'
             rows.append((title,status))
-    return '<p>Local measurements describe the portal host. External systems have their own status; a configured address does not confirm availability.</p><h2>Portal and host</h2>'+table(resources)+'<h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')
+    portal_rows=resources[:5]+resources[-3:]
+    host_rows=resources[5:-3]
+    return '<div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'

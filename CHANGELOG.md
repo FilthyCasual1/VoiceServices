@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1 — 2026-10-05
+
+Compact the overview into side-by-side portal and host tables with tighter spacing and update controls.
+
 ## 1.4.0 — 2026-10-05
 
 Add Info, Caution and Urgent notification priorities and a user-scoped unread indicator in the account panel.

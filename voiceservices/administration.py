@@ -24,7 +24,7 @@ def render(app,path,user,data,method,services):
         elif section in ('branding','home'): note=branding.change(app,section,data)
         elif section in OPTIONAL: note=app.modules.load(OPTIONAL[section]).admin_change(app,data,services)
         else: raise ValueError('Unknown administration action.')
-    content='<h2>'+HEADINGS[section]+'</h2>'
+    content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview': content+=overview.render(app)+maintenance.render(app,user)
     elif section in ('branding','home'): content+=branding.render(app,section,user)
@@ -51,4 +51,4 @@ def render(app,path,user,data,method,services):
     def tree(label,links):
         return '<details class="admin-tree" open><summary>'+label+'</summary><div>'+''.join(navigation_link(url,label) for url,label in links)+'</div></details>'
     sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview')+tree('Administrator',administrator)+tree('System Operator',operator)+'</aside>'
-    return '<div class="admin-layout">'+sidebar+'<div class="admin-content">'+content+'</div></div>'
+    return '<div class="admin-layout">'+sidebar+'<div class="admin-content'+(' admin-overview' if section=='overview' else '')+'">'+content+'</div></div>'
