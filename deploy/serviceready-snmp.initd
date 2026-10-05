@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+name="ServiceReady SNMP Monitoring Addon Worker"
+supervisor="supervise-daemon"
+command="/opt/serviceready/venv/bin/python"
+command_args="-m voiceservices.snmp_service --config /etc/serviceready/config.json"
+command_user="serviceready:serviceready"
+# Uses an unprivileged trap port (1162 by default).
+pidfile="/run/serviceready-snmp/supervisor.pid"
+error_log="/var/log/serviceready/snmp-error.log"
+respawn_delay=3
+depend() { need net; }
+start_pre() { checkpath --directory --owner serviceready:serviceready --mode 0750 /run/serviceready-snmp; }

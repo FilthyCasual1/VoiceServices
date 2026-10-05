@@ -104,3 +104,7 @@ for attempt in range(20):
 print('ServiceReady is running: '+config['public_url'])
 print('Config: /etc/serviceready/config.json | Logs: /var/log/serviceready/')
 PY
+
+install -m 0755 "$source_dir/deploy/serviceready-snmp.initd" /etc/init.d/serviceready-snmp
+rc-update add serviceready-snmp default
+rc-service serviceready-snmp restart

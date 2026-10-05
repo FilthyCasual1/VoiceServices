@@ -10,13 +10,13 @@ import tempfile
 import threading
 import types
 import zipfile
-ROUTES={'smtp-notifications':{'exact':('/admin/smtp',),'prefix':()},'downloads':{'exact':('/downloads','/admin/downloads'),'prefix':('/files/downloads/','/admin/downloads/')},
+ROUTES={'snmp':{'exact':('/admin/snmp',),'prefix':()},'smtp-notifications':{'exact':('/admin/smtp',),'prefix':()},'downloads':{'exact':('/downloads','/admin/downloads'),'prefix':('/files/downloads/','/admin/downloads/')},
         'pxe':{'exact':('/admin/pxe',),'prefix':('/pxe/','/admin/pxe/')},
         'voice':{'exact':('/admin/voice','/my-phone','/register-phone','/self-care','/preferences','/directory','/applications','/recordings'),'prefix':('/phone/',)},
         'server-management':{'exact':('/admin/settings','/network'),'prefix':()},
         'ftp-updates':{'exact':('/admin/updates',),'prefix':('/admin/updates/',)},
         'esxi':{'exact':('/esxi','/admin/esxi'),'prefix':()}}
-CATALOG={'smtp-notifications':('SMTP Notifications','Receive application email as portal inbox notifications.'),'downloads':('Downloads','Internal tool and application distribution.'),'pxe':('PXE and Image Deployment','ISO boot and interactive image restoration.'),'voice':('Voice Services','Phone setup, XML services and directories.'),'server-management':('Server Management','Service configuration and administration links.'),'ftp-updates':('FTP Update Repository','Upload updates for read-only FTP retrieval.'),'esxi':('ESXi Management','Host inventory and virtual machine power controls.')}
+CATALOG={'snmp':('SNMP Monitoring','Read-only device polling and trap reception.'),'smtp-notifications':('SMTP Notifications','Receive application email as portal inbox notifications.'),'downloads':('Downloads','Internal tool and application distribution.'),'pxe':('PXE and Image Deployment','ISO boot and interactive image restoration.'),'voice':('Voice Services','Phone setup, XML services and directories.'),'server-management':('Server Management','Service configuration and administration links.'),'ftp-updates':('FTP Update Repository','Upload updates for read-only FTP retrieval.'),'esxi':('ESXi Management','Host inventory and virtual machine power controls.')}
 _lock=threading.RLock()
 class Modules:
     def __init__(self,store,initial_modules=None,config=None):

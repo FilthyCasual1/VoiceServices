@@ -3,8 +3,8 @@ import html
 from .modules import CATALOG
 from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule
 E=lambda value:html.escape(str(value),quote=True)
-OPTIONAL={'smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Look and Feel','home':'Home page blocks'}
+OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
+HEADINGS={'snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Look and Feel','home':'Home page blocks'}
 def password_form(user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     return '<div class="panel login"><form method="post">'+csrf+'<input type="hidden" name="action" value="password"><label>Current password</label><input name="current_password" type="password" autocomplete="current-password" required><label>New password</label><input name="new_password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm new password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><br><button>Change password</button></form></div>'

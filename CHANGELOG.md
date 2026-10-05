@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.0 — 2026-10-05
+
+Add separately installable SNMPv2c monitoring, trap/inform reception, portal configuration and Alpine worker service.
+
 ## 1.10.3 — 2026-10-05
 
 Accept addon packages across portal release versions when their API and approved code checksum match; explain incompatible API and code failures.
