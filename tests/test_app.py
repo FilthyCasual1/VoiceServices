@@ -20,6 +20,13 @@ class PortalTests(unittest.TestCase):
     def tearDown(self): self.tmp.cleanup()
 
     def request(self,path='/',method='GET',data=None,token='',query=''):
+        if path == '/login' and method == 'POST':
+            from http.cookies import SimpleCookie
+            cookies = SimpleCookie()
+            cookies.load(self.request('/login')['headers']['Set-Cookie'])
+            nonce = cookies['vs_login'].value
+            data = dict(data or {}, csrf=nonce)
+            token += '; vs_login='+nonce
         body = urlencode(data or {}).encode()
         response = {}
         env = {'PATH_INFO':path,'REQUEST_METHOD':method,'QUERY_STRING':query,

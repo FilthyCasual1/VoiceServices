@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-10-05
+
+Use form-bound login tokens for proxied previews instead of comparing browser origins.
+
 ## 0.2.1 — 2026-10-05
 
 Center account forms and rename the portal subtitle to Integrated Services Portal.

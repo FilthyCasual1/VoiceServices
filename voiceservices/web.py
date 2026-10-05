@@ -108,9 +108,7 @@ class App:
             error = ''
             nonce = cookie['vs_signup'].value if 'vs_signup' in cookie else ''
             if method == 'POST':
-                origin = env.get('HTTP_ORIGIN')
-                expected_origin = f'{urlsplit(self.base).scheme}://{urlsplit(self.base).netloc}'
-                if (origin and origin != expected_origin) or not nonce or not secrets.compare_digest(nonce,data.get('csrf','')):
+                if not nonce or not secrets.compare_digest(nonce,data.get('csrf','')):
                     return send('403 Forbidden','Reload the account form and try again.')
                 key = 'signup:'+env.get('REMOTE_ADDR','unknown')
                 now = time.time()
@@ -135,10 +133,10 @@ class App:
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
         if path == '/login':
             error = ''
+            nonce = cookie['vs_login'].value if 'vs_login' in cookie else ''
             if method == 'POST':
-                origin = env.get('HTTP_ORIGIN')
-                if origin and origin != f'{urlsplit(self.base).scheme}://{urlsplit(self.base).netloc}':
-                    return send('403 Forbidden','Invalid login origin.')
+                if not nonce or not secrets.compare_digest(nonce,data.get('csrf','')):
+                    return send('403 Forbidden','Reload the sign-in form and try again.')
                 key = env.get('REMOTE_ADDR','unknown')
                 now = time.time()
                 self.attempts = {k:v for k,v in self.attempts.items() if v[1]>now-300}
@@ -151,7 +149,11 @@ class App:
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix)])
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
-            return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div><p>New to ServiceReady? <a href="/create-account">Create an account</a>.</p>',None))
+            nonce = secrets.token_urlsafe(32)
+            suffix = '; Secure' if self.secure else ''
+            form = error+'<div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div><p>New to ServiceReady? <a href="/create-account">Create an account</a>.</p>'
+            return send('200 OK',self.page('Sign in',form,None),extra=[('Set-Cookie',f'vs_login={nonce}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=900'+suffix)])
+
         if not user and (method == 'POST' or path not in ('/', '/downloads')):
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
