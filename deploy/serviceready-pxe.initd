@@ -1,0 +1,11 @@
+#!/sbin/openrc-run
+name="ServiceReady PXE Addon Worker"
+supervisor="supervise-daemon"
+command="/opt/serviceready/venv/bin/python"
+command_args="-m voiceservices.pxe_service --config /etc/serviceready/config.json"
+command_user="root:root"
+pidfile="/run/serviceready-pxe/supervisor.pid"
+error_log="/var/log/serviceready/pxe-error.log"
+respawn_delay=3
+depend() { need net; }
+start_pre() { checkpath --directory --owner root:root --mode 0750 /run/serviceready-pxe; }

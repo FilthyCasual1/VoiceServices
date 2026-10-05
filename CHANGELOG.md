@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 — 2026-10-05
+
+Add independent internal Downloads module and optional PXE ISO/Clonezilla restoration addon with artifact hosting and proxy-DHCP/TFTP worker.
+
 ## 0.4.1 — 2026-10-05
 
 Make core homepage, registration and administration guidance service-neutral and focused on setup of storage, voice, email and domain services.

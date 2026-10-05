@@ -1,8 +1,12 @@
 """Trusted optional platform modules; lifecycle state persists per deployment."""
-ROUTES={'voice':{'exact':('/my-phone','/register-phone','/self-care','/preferences','/directory','/applications','/recordings'),'prefix':('/phone/',)},
+ROUTES={'downloads':{'exact':('/downloads','/admin/downloads'),'prefix':('/files/downloads/',)},
+        'pxe':{'exact':('/admin/pxe',),'prefix':('/pxe/',)},
+        'voice':{'exact':('/my-phone','/register-phone','/self-care','/preferences','/directory','/applications','/recordings'),'prefix':('/phone/',)},
         'server-management':{'exact':('/admin/settings','/network'),'prefix':()}}
 CATALOG={
-    'voice':('Voice Services','Phone setup, XML services, directory, phone plugins and voice-client downloads.'),
+    'downloads':('Downloads','Internal tools and applications: uploaded packages and repository links.'),
+    'pxe':('PXE and Image Deployment','iPXE ISO boot menus and interactive Clonezilla image restoration.'),
+    'voice':('Voice Services','Phone setup, XML services, directory, phone plugins and voice setup tools.'),
     'server-management':('Server Management','External application administration links and deployment configuration.'),
 }
 class Modules:
@@ -12,8 +16,11 @@ class Modules:
             db.execute('CREATE TABLE IF NOT EXISTS platform_modules(id TEXT PRIMARY KEY)')
             db.execute('CREATE TABLE IF NOT EXISTS module_metadata(key TEXT PRIMARY KEY)')
             if not db.execute("SELECT 1 FROM module_metadata WHERE key='seeded'").fetchone():
-                db.executemany('INSERT OR IGNORE INTO platform_modules VALUES(?)',[(key,) for key in CATALOG])
+                db.executemany('INSERT OR IGNORE INTO platform_modules VALUES(?)',[(key,) for key in ('voice','server-management','downloads')])
                 db.execute("INSERT INTO module_metadata VALUES('seeded')")
+            if not db.execute("SELECT 1 FROM module_metadata WHERE key='downloads-migrated'").fetchone():
+                db.execute("INSERT OR IGNORE INTO platform_modules VALUES('downloads')")
+                db.execute("INSERT INTO module_metadata VALUES('downloads-migrated')")
     def unavailable_for(self,path):
         for module,routes in ROUTES.items():
             if (path in routes['exact'] or any(path.startswith(prefix) for prefix in routes['prefix'])) and not self.installed(module): return module

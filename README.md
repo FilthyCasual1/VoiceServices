@@ -100,3 +100,5 @@ Management and FTP Update Repository are optional modules controlled from
 Administration > Addons. Removal hides their UI and disables their routes while
 retaining data for reinstall. See [Modules and Alpine accounts](docs/modules-and-accounts.md)
 for system password integration, password changes, web uploads and FTP delivery.
+
+Internal tools, downloadable packages, and optional PXE ISO/image restoration are described in [Downloads and PXE](docs/downloads-and-pxe.md).

@@ -7,7 +7,7 @@ command -v rc-service >/dev/null || { echo "OpenRC is required; use a normal Alp
 source_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 [ -f "$source_dir/pyproject.toml" ] || { echo "Incomplete ServiceReady checkout." >&2; exit 1; }
 umask 027
-apk add --no-cache python3 py3-pip git ca-certificates
+apk add --no-cache python3 py3-pip git ca-certificates dnsmasq
 grep -q '^serviceready:' /etc/group || addgroup -S serviceready
 id serviceready >/dev/null 2>&1 || adduser -S -D -H -G serviceready -h /var/lib/serviceready -s /sbin/nologin serviceready
 mkdir -p /opt/serviceready /etc/serviceready /var/lib/serviceready /var/log/serviceready /var/lib/serviceready/tmp
@@ -63,6 +63,9 @@ install -m 0755 "$source_dir/deploy/serviceready.initd" /etc/init.d/serviceready
 install -m 0755 "$source_dir/deploy/serviceready-ftp.initd" /etc/init.d/serviceready-ftp
 rc-update add serviceready-ftp default
 rc-service serviceready-ftp restart
+install -m 0755 "$source_dir/deploy/serviceready-pxe.initd" /etc/init.d/serviceready-pxe
+rc-update add serviceready-pxe default
+rc-service serviceready-pxe restart
 rc-update add serviceready default
 rc-service serviceready restart
 /opt/serviceready/venv/bin/python - <<'PY'

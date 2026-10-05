@@ -12,7 +12,7 @@ def password_form(user):
 def render(app,path,user,data,method,services):
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     section=path.removeprefix('/admin').strip('/') or 'overview'
-    if section not in ('overview','settings','users','addons','updates'): raise ValueError('Unknown administration submenu.')
+    if section not in ('overview','settings','users','addons','updates','downloads','pxe'): raise ValueError('Unknown administration submenu.')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     note=''
     if method=='POST':
@@ -25,6 +25,11 @@ def render(app,path,user,data,method,services):
                 else: app.updates.remove()
             else: app.modules.change(module,action=='install')
             note='Module '+('installed.' if action=='install' else 'removed. Saved data is retained.')
+        elif section=='downloads':
+            if action=='remove-link': app.downloads.remove_link(data.get('link',''))
+            else: app.downloads.add_link(data)
+            note='Download catalog saved.'
+        elif section=='pxe': app.pxe.change(data);note='Boot settings saved.'
         elif section=='updates': app.updates.configure(data);note='FTP settings saved. The installed worker applies changes automatically.'
         elif section=='settings':
             values={}
@@ -40,7 +45,7 @@ def render(app,path,user,data,method,services):
                 for key,value in settings.items(): db.execute('INSERT OR REPLACE INTO portal_settings VALUES(?,?)',(key,json.dumps(value)))
             app.config.update(settings);note='Settings saved.'
         else: raise ValueError('Unknown administration action.')
-    headings={'overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Installable addons','updates':'Update repository'}
+    headings={'overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Installable addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration'}
     content='<h2>'+headings[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview':
@@ -69,6 +74,13 @@ def render(app,path,user,data,method,services):
             content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Not installed')+'</p><form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="'+('remove' if installed else 'install')+'">'+('Remove module' if installed else 'Install module')+'</button></form></div>'
         installed=app.updates.settings() is not None
         content+='<div class="panel"><h3>FTP Update Repository</h3><p>Upload update packages through this portal and let managed applications retrieve them from a read-only FTP server.</p><p>Status: '+('Installed' if installed else 'Not installed')+'</p><form method="post">'+csrf+'<input type="hidden" name="module" value="ftp-updates"><button name="action" value="'+('remove' if installed else 'install')+'">'+('Remove addon' if installed else 'Install addon')+'</button></form>'+('<p><a href="/admin/updates">Configure and upload files</a></p>' if installed else '')+'</div>'
+    elif section=='downloads':
+        content+='<div class="panel"><form method="post">'+csrf
+        for key,label in [('title','Application / tool name'),('version','Version'),('platform','Operating system / platform'),('url','Download URL')]: content+='<label>'+label+'</label><input name="'+key+'"'+(' type="url"' if key=='url' else '')+' required>'
+        content+='<br><button>Add download link</button></form></div><h2>Catalog links</h2><table><tr><th>Title</th><th>Action</th></tr>'
+        for item in app.downloads.catalog(): content+='<tr><td>'+E(item['title'])+'</td><td><form method="post">'+csrf+'<input type="hidden" name="link" value="'+str(item['id'])+'"><button name="action" value="remove-link">Remove link</button></form></td></tr>'
+        content+='</table><h2>Upload a tool or application</h2><div class="panel"><form action="/admin/downloads/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Package file</label><input name="file" type="file" required><br><button>Upload package</button></form><p>Uploaded packages and catalog links are available to guests in Downloads. Use this module for files intended for your internal network.</p></div>'+app.downloads.render()
+    elif section=='pxe': content+=app.pxe.render(user)
     elif section=='updates':
         settings=app.updates.settings()
         if settings is None: content+='<p><a href="/admin/addons">Install the FTP update addon</a> to use this page.</p>'
@@ -93,5 +105,7 @@ def render(app,path,user,data,method,services):
     links=[('/admin','Overview'),('/admin/settings','Service settings'),('/admin/users','Users and passwords'),('/admin/addons','Addons'),('/admin/updates','Update files')]
     if not app.modules.installed('server-management'): links=[item for item in links if item[0]!='/admin/settings']
     if app.updates.settings() is None: links=[item for item in links if item[0]!='/admin/updates']
+    if app.modules.installed('downloads'): links.append(('/admin/downloads','Downloads'))
+    if app.modules.installed('pxe'): links.append(('/admin/pxe','PXE and images'))
     sidebar='<aside class="admin-nav"><h3>Administration</h3>'+''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)+'</aside>'
     return '<div class="admin-layout">'+sidebar+'<div class="admin-content">'+content+'</div></div>'

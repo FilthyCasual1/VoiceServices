@@ -10,13 +10,15 @@ import shutil
 import tempfile
 
 class Updates:
-    def __init__(self,store,config):
+    def __init__(self,store,config,namespace='updates'):
+        if namespace not in ('updates','downloads','pxe'): raise ValueError('Unknown repository.')
+        self.table=namespace+'_files'
         self.store=store
-        self.root=Path(config.get('update_directory',str(Path(store.path).parent/'updates')))
+        self.root=Path(config.get(namespace+'_directory',str(Path(store.path).parent/namespace)))
         self.limit=int(config.get('update_upload_limit',8*1024**3))
         with store.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS addons(id TEXT PRIMARY KEY, settings TEXT NOT NULL)')
-            db.execute('CREATE TABLE IF NOT EXISTS update_files(name TEXT PRIMARY KEY, size INTEGER, sha256 TEXT)')
+            db.execute(f'CREATE TABLE IF NOT EXISTS {self.table}(name TEXT PRIMARY KEY, size INTEGER, sha256 TEXT)')
     def settings(self):
         with self.store.connect() as db:
             row=db.execute("SELECT settings FROM addons WHERE id='ftp-updates'").fetchone()
@@ -46,7 +48,7 @@ class Updates:
         self.root.mkdir(parents=True,exist_ok=True)
         with self.store.connect() as db: db.execute("UPDATE addons SET settings=? WHERE id='ftp-updates'",(json.dumps(settings),))
     def files(self):
-        with self.store.connect() as db: return db.execute('SELECT * FROM update_files ORDER BY name').fetchall()
+        with self.store.connect() as db: return db.execute(f'SELECT * FROM {self.table} ORDER BY name').fetchall()
     def upload(self,env,user):
         if user['role']!='admin': raise PermissionError('Administrator access required.')
         if self.settings() is None: raise ValueError('FTP update addon is not installed.')
@@ -97,6 +99,6 @@ class Updates:
             os.chmod(temp,0o640)
             try: os.link(temp,target)
             except FileExistsError: raise ValueError('A file with this name already exists.')
-            with self.store.connect() as db: db.execute('INSERT INTO update_files VALUES(?,?,?)',(name,length,digest.hexdigest()))
+            with self.store.connect() as db: db.execute(f'INSERT INTO {self.table} VALUES(?,?,?)',(name,length,digest.hexdigest()))
         finally: os.unlink(temp)
         return name

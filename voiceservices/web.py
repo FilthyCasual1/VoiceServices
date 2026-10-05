@@ -15,6 +15,8 @@ from .version import __version__
 from .accounts import LinuxAccounts
 from .updates import Updates
 from .modules import Modules
+from .library import Library
+from .pxe import PXE
 from . import administration
 
 E = lambda value: html.escape(str(value), quote=True)
@@ -41,6 +43,9 @@ class App:
         self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
         self.updates = Updates(self.store,config)
         self.modules = Modules(self.store)
+        self.downloads = Library(self.store,config,self.modules,'downloads')
+        self.boot_files = Library(self.store,config,self.modules,'pxe')
+        self.pxe = PXE(self)
         with self.store.connect() as db: db.execute('CREATE TABLE IF NOT EXISTS portal_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
         self.plugins = Plugins(self.store)
         self.base = config.get('public_url','http://127.0.0.1:8080').rstrip('/')
@@ -64,6 +69,14 @@ class App:
         method = env.get('REQUEST_METHOD','GET')
         missing=self.modules.unavailable_for(path)
         if missing: return send('404 Not Found',self.page('Module unavailable','<p>This module is not installed.</p>',None))
+        if path.startswith('/files/downloads/') or path.startswith('/pxe/files/'):
+            if method not in ('GET','HEAD'): return send('405 Method Not Allowed','GET or HEAD required.')
+            library=self.downloads if path.startswith('/files/downloads/') else self.boot_files
+            name=path.split('/',3)[-1]
+            return library.serve(env,start_response,name,library is self.downloads)
+        if path=='/pxe/boot.ipxe':
+            if method!='GET': return send('405 Method Not Allowed','GET required.')
+            return send('200 OK',self.pxe.script(),'text/plain; charset=utf-8')
         aliases = {'/register-phone':'setup', '/self-care':'customization', '/preferences':'settings'}
         if method == 'GET' and path in aliases and not env.get('voiceservices.section'):
             return send('303 See Other','',extra=[('Location','/my-phone#'+aliases[path])])
@@ -77,17 +90,18 @@ class App:
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
-        if path == '/admin/updates/upload':
+        if path in ('/admin/updates/upload','/admin/downloads/upload','/admin/pxe/upload'):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
             except Exception: pass
             user=self.store.session(cookie['vs_session'].value if 'vs_session' in cookie else '')
             if not user: return send('303 See Other','',extra=[('Location','/login')])
             if method!='POST': return send('405 Method Not Allowed','POST required.')
-            try: self.updates.upload(env,user)
+            repository={'/admin/updates/upload':self.updates,'/admin/downloads/upload':self.downloads,'/admin/pxe/upload':self.boot_files}[path]
+            try: repository.upload(env,user)
             except PermissionError as exc: return send('403 Forbidden',self.page('Access denied',E(exc),user))
             except (ValueError,OSError) as exc: return send('400 Bad Request',self.page('Upload failed',E(exc),user))
-            return send('303 See Other','',extra=[('Location','/admin/updates')])
+            return send('303 See Other','',extra=[('Location',path.removesuffix('/upload'))])
         try:
             size = int(env.get('CONTENT_LENGTH') or 0)
         except ValueError:
@@ -231,6 +245,8 @@ class App:
         if path == '/':
             title = 'Welcome to ServiceReady'
             content = '<p class="notice">Your starting point for setting up network services and managing your account.</p><h2>1. Get an account</h2><div class="panel"><p><a href="/create-account">Create a ServiceReady account</a> to get started. Your administrator assigns access to the services available on your network.</p></div><h2>2. Sign in</h2><div class="panel"><p><a href="/login">Sign in to ServiceReady</a> to configure your services and manage your account settings. Use <a href="/account">My Account</a> to change your password.</p></div><h2>3. Set up your services</h2><div class="panel"><p>Available services depend on the modules installed for your deployment.</p><dl><dt><strong>Storage</strong></dt><dd>Configure network shares, map drives, and connect your devices to shared storage.</dd><dt><strong>Voice</strong></dt><dd>Set up your phone, calling account, and messaging client.</dd><dt><strong>Email</strong></dt><dd>Configure your mailbox and email clients.</dd><dt><strong>Domain services</strong></dt><dd>Set up your network identity and enroll devices in your domain.</dd></dl><p>Choose the setup tools provided by your installed modules. Ask your administrator for any required service addresses or enrollment details.</p></div><h2>Downloads and setup</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available clients and setup information.</p></div>'
+            if not self.modules.installed('downloads'):
+                content=content.split('<h2>Downloads and setup</h2>')[0]
         elif path == '/self-care':
             title = 'Self Care'
             url=self.config.get('services',{}).get('self_care','')
@@ -266,14 +282,7 @@ class App:
             content = note+'<p class="notice">Manual application binding only. This does not configure the phone system, verify handset ownership, or perform native phone roaming. Anyone possessing the generated URL can read this application directory; protect it like a password. Phone login synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
         elif path == '/downloads':
             title = 'Download Center'
-            rows = ''
-            for key,label in [('jabber','Messaging Client'),('ip_communicator','Desktop Phone')]:
-                item = self.config.get('downloads',{}).get(key,{})
-                url = item.get('url','')
-                link = '<a href="'+E(url)+'">Download</a>' if self.valid_link(url) else 'Installer not configured'
-                rows += '<tr><td>'+label+'</td><td>'+E(item.get('version','Unspecified'))+'</td><td>'+link+'</td></tr>'
-            content = '<p class="notice">Installers are supplied by the operator. Choose a client compatible with your communications system and desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Messaging service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
-            if not self.modules.installed('voice'): content='<p>No downloadable packages are available for the installed modules.</p>'
+            content = self.downloads.render()
         elif path == '/applications':
             title = 'Applications'
             content = '<p class="notice">Install separate phone plugins and configure their settings here. Applications appear on the telephone Services menu; they run on the phone display.</p><h2>Installed plugins</h2><table><tr><th>Application / package</th><th>Version</th><th>Status</th><th>Description</th></tr>'
@@ -322,9 +331,10 @@ class App:
             account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><a href="/account">Change password</a><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]
+        if not self.modules.installed('downloads'): links=[item for item in links if item[0]!='/downloads']
         if user and user['role']!='guest': links.append(('/account','My Account'))
         if user and user['role']=='admin': links.append(('/admin','Administration'))
-        if not user or user['role'] == 'guest': links = [('/', 'Home'), ('/downloads', 'Downloads')]
+        if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
         return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Integrated Network Service Access Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Version '+E(__version__)+'</footer></body></html>'
