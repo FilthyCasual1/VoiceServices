@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1 — 2026-10-05
+
+Condense Look and Feel and home block editors into grouped collapsible controls and compact field grids.
+
 ## 1.8.0 — 2026-10-05
 
 Add configurable timezone-aware daily and weekly automatic portal and OS update schedules with persistent run tracking.
