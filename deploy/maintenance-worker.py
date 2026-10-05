@@ -29,13 +29,15 @@ def main(kind):
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
             status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
             run(['git','-C',str(source),'merge','--ff-only','origin/main'])
-            status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)])
+            status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source),'aiosmtpd==1.4.6'])
             # Refresh installed official addons only; absent addons remain absent.
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
             run([str(ROOT/'venv/bin/python'),'-c',script])
             for name in ('account-broker.py','maintenance-worker.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
+            shutil.copy2(source/'deploy/serviceready-smtp.initd','/etc/init.d/serviceready-smtp');os.chmod('/etc/init.d/serviceready-smtp',0o755)
+            run(['/sbin/rc-update','add','serviceready-smtp','default'])
             status(kind,'running','Restarting portal services')
-            for service in ('serviceready','serviceready-ftp','serviceready-pxe'): run(['/sbin/rc-service',service,'restart'])
+            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp'): run(['/sbin/rc-service',service,'restart'])
             status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)

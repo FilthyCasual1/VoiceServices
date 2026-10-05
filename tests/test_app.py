@@ -127,7 +127,7 @@ class PortalTests(unittest.TestCase):
         for route in ['/','/admin','/downloads','/applications','/my-phone','/recordings','/network']:
             r=self.request(route,token=token)
             self.assertEqual(r['status'],'200 OK',route)
-        self.assertIn('System overview',self.request('/admin',token=token)['body'])
+        self.assertIn('overview-grid',self.request('/admin',token=token)['body'])
         for route in ['/apps/calculator','/apps/weather','/apps/rss','/apps/flights']:
             self.assertEqual(self.request(route,token=token)['status'],'404 Not Found')
         self.assertNotIn('href="/apps/',self.request('/applications',token=token)['body'])

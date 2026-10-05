@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.1 — 2026-10-05
+
+Improve the inbox indicator with high-contrast text, stronger priority colors and a larger label.
+
+## 1.5.0 — 2026-10-05
+
+Add a separately installable receive-only SMTP notification gateway with inbox recipient routing and trusted-source restrictions.
+
 ## 1.4.1 — 2026-10-05
 
 Compact the overview into side-by-side portal and host tables with tighter spacing and update controls.

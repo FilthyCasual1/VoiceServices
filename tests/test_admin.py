@@ -63,7 +63,7 @@ class AdministrationTests(unittest.TestCase):
         self.assertNotIn('href="/my-phone"',home)
         self.assertIn('My Account',home)
         for category in ('Storage','Voice','Email','Domain services'): self.assertIn(category,home)
-        self.assertIn('System overview',self.request('/admin',token=token)['body'])
+        self.assertIn('overview-grid',self.request('/admin',token=token)['body'])
         self.request('/admin/addons','POST',{'csrf':user['csrf'],'action':'remove','module':'server-management'},token)
         self.assertEqual(self.request('/admin/settings',token=token)['status'],'404 Not Found')
         self.assertNotIn('Call Management',self.request('/admin',token=token)['body'])

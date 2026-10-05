@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+name="ServiceReady SMTP Notification Addon Worker"
+supervisor="supervise-daemon"
+command="/opt/serviceready/venv/bin/python"
+command_args="-m voiceservices.smtp_service --config /etc/serviceready/config.json"
+command_user="root:root"
+# Worker binds the configured SMTP port, then permanently drops to serviceready before serving.
+pidfile="/run/serviceready-smtp/supervisor.pid"
+error_log="/var/log/serviceready/smtp-error.log"
+respawn_delay=3
+depend() { need net; }
+start_pre() { checkpath --directory --owner serviceready:serviceready --mode 0750 /run/serviceready-smtp; }

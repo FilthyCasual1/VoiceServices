@@ -21,3 +21,6 @@ version = {attr = "voiceservices.version.__version__"}
 [tool.setuptools.packages.find]
 include = ["voiceservices*"]
 namespaces = false
+
+[project.optional-dependencies]
+smtp = ["aiosmtpd==1.4.6"]

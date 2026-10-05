@@ -33,7 +33,7 @@ install -m 0755 "$source_dir/deploy/serviceready-accounts.initd" /etc/init.d/ser
 rc-update add serviceready-accounts default
 rc-service serviceready-accounts restart
 python3 -m venv /opt/serviceready/venv
-/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir" 'waitress==3.0.2' 'pyftpdlib==2.1.0'
+/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir" 'waitress==3.0.2' 'pyftpdlib==2.1.0' 'aiosmtpd==1.4.6'
 chown root:serviceready /opt/serviceready
 chmod 0750 /opt/serviceready
 chgrp -R serviceready /opt/serviceready/venv
@@ -76,6 +76,9 @@ install -m 0755 "$source_dir/deploy/serviceready.initd" /etc/init.d/serviceready
 install -m 0755 "$source_dir/deploy/serviceready-ftp.initd" /etc/init.d/serviceready-ftp
 rc-update add serviceready-ftp default
 rc-service serviceready-ftp restart
+install -m 0755 "$source_dir/deploy/serviceready-smtp.initd" /etc/init.d/serviceready-smtp
+rc-update add serviceready-smtp default
+rc-service serviceready-smtp restart
 install -m 0755 "$source_dir/deploy/serviceready-pxe.initd" /etc/init.d/serviceready-pxe
 rc-update add serviceready-pxe default
 rc-service serviceready-pxe restart

@@ -18,7 +18,7 @@ Rerun without `--bare` to update an existing installation.
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.4.1](packages/addons/1.4.1/) and
+Download `.sraddon` files from [packages/addons/1.5.1](packages/addons/1.5.1/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -52,3 +52,5 @@ ESXi management includes inventory and VM power requests; no live ESXi host has
 been tested yet. PXE/disk restoration requires testbed validation. Voice services
 retain the existing development bindings and phone XML applications; native
 telephony provisioning, CTI and recording adapters remain incomplete.
+
+[SMTP notification receiver setup](docs/smtp-notifications.md).

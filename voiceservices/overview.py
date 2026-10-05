@@ -35,7 +35,8 @@ def render(app):
         for key,(title,_) in CATALOG.items():
             if not app.modules.installed(key): continue
             status='Installed '+app.modules.approved[key]['version']
-            if key=='downloads': status+='; '+str(count('downloads_files'))+' hosted files; '+str(count('downloads_catalog'))+' catalog links'
+            if key=='smtp-notifications': status+='; '+statuses.get(key,'Worker unavailable')
+            elif key=='downloads': status+='; '+str(count('downloads_files'))+' hosted files; '+str(count('downloads_catalog'))+' catalog links'
             elif key=='pxe':
                 status+='; '+str(count('pxe_profiles'))+' profiles; '+str(count('pxe_files'))+' assets'
                 setting=app.pxe.settings()
