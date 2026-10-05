@@ -3,6 +3,7 @@ import html
 import json
 import re
 import secrets
+import sqlite3
 import time
 from http.cookies import SimpleCookie
 from pathlib import Path
@@ -102,6 +103,35 @@ class App:
         except Exception: pass
         token = cookie['vs_session'].value if 'vs_session' in cookie else ''
         user = self.store.session(token)
+        if path == '/create-account':
+            error = ''
+            nonce = cookie['vs_signup'].value if 'vs_signup' in cookie else ''
+            if method == 'POST':
+                origin = env.get('HTTP_ORIGIN')
+                expected_origin = f'{urlsplit(self.base).scheme}://{urlsplit(self.base).netloc}'
+                if (origin and origin != expected_origin) or not nonce or not secrets.compare_digest(nonce,data.get('csrf','')):
+                    return send('403 Forbidden','Reload the account form and try again.')
+                key = 'signup:'+env.get('REMOTE_ADDR','unknown')
+                now = time.time()
+                count, at = self.attempts.get(key,(0,now))
+                if at < now-300: count = 0
+                if count >= 10: return send('429 Too Many Requests','Try again in five minutes.')
+                self.attempts[key] = (count+1,now)
+                username = data.get('username','').strip()
+                try:
+                    if not re.fullmatch(r'[A-Za-z0-9_.-]{3,64}',username): raise ValueError('Use 3–64 letters, numbers, dots, underscores or hyphens for your username.')
+                    if data.get('password') != data.get('confirm_password'): raise ValueError('Passwords do not match.')
+                    self.store.create_user(username,data.get('password',''),'user')
+                    session = self.store.login(username,data['password'])
+                    suffix = '; Secure' if self.secure else ''
+                    return send('303 See Other','',extra=[('Location','/my-phone'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
+                except (ValueError,sqlite3.IntegrityError) as exc:
+                    message = 'That username is already in use.' if isinstance(exc,sqlite3.IntegrityError) else str(exc)
+                    error = '<p class="notice error">'+E(message)+'</p>'
+            nonce = secrets.token_urlsafe(32)
+            suffix = '; Secure' if self.secure else ''
+            form = error+'<p>Create your ServiceReady account to manage your phone and preferences. Phone service and extension assignment are arranged by your administrator.</p><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p>Already registered? <a href="/login">Sign in</a>.</p>'
+            return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
         if path == '/login':
             error = ''
             if method == 'POST':
@@ -120,7 +150,7 @@ class App:
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix)])
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
-            return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div>',None))
+            return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div><p>New to ServiceReady? <a href="/create-account">Create an account</a>.</p>',None))
         if not user and (method == 'POST' or path not in ('/', '/downloads')):
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
@@ -161,7 +191,7 @@ class App:
         csrf = '<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
         if path == '/':
             title = 'Welcome to ServiceReady'
-            content = '<p class="notice">Your starting point for setting up a phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? Contact your system administrator to create your ServiceReady account and assign your phone user identity and extension. Account creation is currently managed by your administrator.</p><p>Keep your username and password ready. Your phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and the phone system self-provisioning instructions.</li><li>Complete the native phone setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available desktop client installers and setup information.</p></div>'
+            content = '<p class="notice">Your starting point for setting up a phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? <a href="/create-account">Create a ServiceReady account</a> to get started. Contact your administrator to arrange your phone identity and extension.</p><p>Keep your username and password ready. Your phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and the phone system self-provisioning instructions.</li><li>Complete the native phone setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available desktop client installers and setup information.</p></div>'
         elif path in ('/admin','/self-care'):
             title = 'Administration' if path=='/admin' else 'Self Care'
 

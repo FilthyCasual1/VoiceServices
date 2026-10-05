@@ -24,7 +24,7 @@ python3 -m voiceservices create-user administrator --admin
 python3 -m voiceservices serve
 ```
 
-Open `http://127.0.0.1:8080`. Only Home and Downloads are available to guests. Sign in to access the other portal pages. The homepage explains administrator-managed account creation and phone setup. Create additional users with `python3 -m voiceservices create-user USERNAME`. Passwords are entered interactively, never supplied on the command line. There are no default accounts or passwords.
+Open `http://127.0.0.1:8080`. Only Home and Downloads are available to guests. Sign in to access the other portal pages. The homepage links to working standard-user registration and phone setup. Registration creates a hashed-password account and signs the user in; administrator access is granted only through the local administrator command. Create additional users with `python3 -m voiceservices create-user USERNAME`. Passwords are entered interactively, never supplied on the command line. There are no default accounts or passwords.
 
 The example configuration disables Secure cookies **for localhost development only**. Deployment requires HTTPS, `secure_cookies: true`, and a correct externally reachable `public_url`. Put a production WSGI server and TLS reverse proxy in front of the application; the bundled server is for development. Do not expose the development server to the Internet. Configure access-log redaction for `/phone/` URLs because development bindings carry bearer tokens.
 

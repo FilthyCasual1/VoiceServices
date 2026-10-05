@@ -170,5 +170,21 @@ class PortalTests(unittest.TestCase):
         self.assertIn('Site Information',self.request('/applications',token=token)['body'])
         self.assertNotIn('name="manifest"',self.request('/applications')['body'])
 
+    def test_registration_is_user_only_and_signs_in(self):
+        import re
+        page = self.request('/create-account')
+        nonce = re.search('name="csrf" value="([^"]+)"',page['body'])[1]
+        data = {'csrf':nonce,'username':'new-user','password':'a-new-long-password','confirm_password':'a-new-long-password','role':'admin'}
+        self.assertEqual(self.request('/create-account','POST',data)['status'],'403 Forbidden')
+        result = self.request('/create-account','POST',data,'unused; vs_signup='+nonce)
+        self.assertEqual(result['headers']['Location'],'/my-phone')
+        token = self.app.store.login('new-user','a-new-long-password')
+        user = self.app.store.session(token)
+        self.assertEqual(user['role'],'user')
+        self.assertIn('Current user:',self.request(token=token)['body'])
+        self.assertIn('Log out',self.request(token=token)['body'])
+        duplicate = self.request('/create-account','POST',data,'unused; vs_signup='+nonce)
+        self.assertIn('already in use',duplicate['body'])
+
 
 if __name__=='__main__': unittest.main()
