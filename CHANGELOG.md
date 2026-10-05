@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.5 — 2026-10-05
+
+Right-align the sign-in and create-account action buttons to finish the portal shell.
+
 ## 1.2.4 — 2026-10-05
 
 Style account creation with the same centered appliance panel and banner as sign-in.
