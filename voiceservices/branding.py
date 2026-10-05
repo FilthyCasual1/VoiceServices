@@ -27,6 +27,7 @@ def change(app,section,data):
         if not 1<=len(title)<=80 or len(subtitle)>160: raise ValueError('Enter a title of 1–80 characters and a subtitle of at most 160 characters.')
         value=defaults(app);value.update(title=title,subtitle=subtitle)
         if data.get('reset_logo')=='yes': value.pop('logo',None)
+        if data.get('reset_masthead')=='yes': value.pop('masthead',None)
         save(app,value);return 'Branding saved.'
     action=data.get('action','save')
     with app.store.connect() as db:
@@ -45,7 +46,7 @@ def save(app,value):
     with app.store.connect() as db: db.execute("INSERT OR REPLACE INTO portal_settings VALUES('branding',?)",(json.dumps(value),))
     app.config['branding']=value
 
-def upload_logo(app,raw):
+def upload_logo(app,raw,kind='logo'):
     if len(raw)>1024**2: raise ValueError('Logo must be at most 1 MiB.')
     if raw.startswith(b'\x89PNG\r\n\x1a\n') and len(raw)>=24 and raw[12:16]==b'IHDR':
         width,height=struct.unpack('>II',raw[16:24]);suffix='png'
@@ -54,11 +55,11 @@ def upload_logo(app,raw):
     else: raise ValueError('Upload a PNG or JPEG logo.')
     root=Path(app.store.path).parent/'branding';root.mkdir(parents=True,exist_ok=True)
     name=secrets.token_hex(16)+'.'+suffix;(root/name).write_bytes(raw)
-    value=defaults(app);old=value.get('logo');value['logo']=name;save(app,value)
+    value=defaults(app);old=value.get(kind);value[kind]=name;save(app,value)
     if old and re.fullmatch('[a-f0-9]{32}\\.(png|jpg)',old): (root/old).unlink(missing_ok=True)
 
-def logo(app):
-    name=defaults(app).get('logo','')
+def logo(app,kind='logo'):
+    name=defaults(app).get(kind,'')
     if not re.fullmatch('[a-f0-9]{32}\\.(png|jpg)',name): return None
     path=Path(app.store.path).parent/'branding'/name
     if not path.is_file() or path.is_symlink(): return None
@@ -78,7 +79,7 @@ def render(app,section,user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     if section=='branding':
         value=defaults(app)
-        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
+        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
     from .modules import CATALOG
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'">'
@@ -88,7 +89,11 @@ def render(app,section,user):
         fields+='</select><label>Visibility</label><select name="enabled"><option value="yes">Visible</option><option value="no"'+(' selected' if row.get('enabled',1)==0 else '')+'>Hidden</option></select><br><button name="action" value="save">'+('Save block' if row.get('id') else 'Add block')+'</button>'
         if row.get('id'): fields+='<button name="action" value="delete">Remove block</button>'
         return fields+'</form></div>'
-    content='<fieldset class="panel"><legend>Controls legend</legend><dl><dt><strong>Visibility: Visible / Hidden</strong></dt><dd>Visible publishes the block; Hidden keeps it saved without showing it on Home.</dd><dt><strong>Addon switch: Always / selected addon</strong></dt><dd>Always shows a visible block regardless of installed addons. Selecting an addon shows the block only while that addon is installed. Hidden blocks stay hidden in either case.</dd><dt><strong>Position</strong></dt><dd>Lower numbers appear first. Blocks with the same position keep their creation order.</dd><dt><strong>Save block / Remove block</strong></dt><dd>Save applies your edits. Remove deletes the block from the home page editor.</dd></dl></fieldset><p>Edit your home-page blocks below. Plain text and optional links are supported.</p>'
+    pages=[('/','Home'),('/create-account','Create an account'),('/login','Sign in'),('/account','My Account'),('/admin','Administration')]
+    addon_pages={'downloads':[('/downloads','Downloads')],'voice':[('/my-phone','My Phone'),('/applications','Phone applications'),('/directory','Directory'),('/recordings','Recordings')],'esxi':[('/esxi','ESXi Management')]}
+    for key,links in addon_pages.items():
+        if app.modules.installed(key): pages.extend(links)
+    content='<fieldset class="panel"><legend>Page links legend</legend><p>Use these paths in a block’s Link field. Account and administration pages require sign-in; administration requires administrator access.</p><table><tr><th>Page</th><th>Link path</th></tr>'+''.join('<tr><td>'+E(title)+'</td><td><code>'+E(url)+'</code></td></tr>' for url,title in pages)+'</table><p>Addon page links are shown only while their addon is installed.</p></fieldset><p>Edit your home-page blocks below. Plain text and optional links are supported.</p>'
     with app.store.connect() as db:
         for row in db.execute('SELECT * FROM home_blocks ORDER BY position,id'): content+='<h3>'+E(row['title'])+'</h3>'+form(dict(row))
     return content+'<h3>Add a block</h3>'+form({'position':50})

@@ -51,3 +51,10 @@ header{border-bottom:0}
 .account .inline button{font-size:9px;line-height:1.1;padding:1px 8px;margin:1px 0 0}
 
 .brand-arrow { object-fit: contain; }
+
+/* Photo spans the complete brand side; account panel keeps its appliance blue. */
+header{grid-template-columns:minmax(0,1fr) 250px}
+.brand{background-image:url("/branding/masthead");background-color:#31586b;background-repeat:no-repeat;background-position:center 43%;background-size:auto 963px;border-right:4px solid white;min-height:68px;text-shadow:0 1px 3px #102536}
+@media(max-width:1182px){.brand{background-image:none!important}}
+@media(max-width:720px){header{grid-template-columns:minmax(0,1fr) 190px}}
+@media(max-width:420px){header{grid-template-columns:1fr}.brand{border-right:0;border-bottom:0}}

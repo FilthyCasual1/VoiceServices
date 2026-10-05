@@ -67,8 +67,9 @@ class App:
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
             return send('200 OK',json.dumps({'service':'ServiceReady','status':'running','integrations':'not probed'}),'application/json')
-        if path=='/branding/logo':
-            asset=branding.logo(self)
+        if path in ('/branding/logo','/branding/masthead'):
+            asset=branding.logo(self,'masthead' if path.endswith('/masthead') else 'logo')
+            if path.endswith('/masthead') and not asset: asset=(Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
             return send('200 OK',asset[0],asset[1]) if asset else send('404 Not Found','Logo unavailable.')
         if path == '/static/brand-arrow.svg':
             return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
@@ -76,7 +77,7 @@ class App:
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
-        if path in ('/admin/addons/upload','/admin/branding/upload'):
+        if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload'):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
             except Exception: pass
@@ -99,10 +100,10 @@ class App:
                     fields[name]=part.get_payload(decode=True)
                 if set(fields)!={'csrf','file'} or any(not isinstance(v,bytes) for v in fields.values()): raise ValueError('Invalid package fields.')
                 if not secrets.compare_digest(fields.get('csrf',b''),user['csrf'].encode()): return send('403 Forbidden','Invalid form token.')
-                if path=='/admin/branding/upload': branding.upload_logo(self,fields['file'])
+                if path.startswith('/admin/branding/'): branding.upload_logo(self,fields['file'],'masthead' if '/masthead/' in path else 'logo')
                 else: self.modules.install(fields['file'])
             except (ValueError,OSError) as exc: return send('400 Bad Request',self.page('Package installation failed',E(exc),user))
-            return send('303 See Other','',extra=[('Location','/admin/branding' if path=='/admin/branding/upload' else '/admin/addons')])
+            return send('303 See Other','',extra=[('Location','/admin/branding' if path.startswith('/admin/branding/') else '/admin/addons')])
         if path in ('/admin/updates/upload','/admin/downloads/upload','/admin/pxe/upload'):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
@@ -251,4 +252,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div><div class="account"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

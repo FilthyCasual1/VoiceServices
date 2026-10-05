@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3 — 2026-10-05
+
+Full-width brand-side masthead, administrator image replacement, and home-block page link legend.
+
 ## 1.0.2 — 2026-10-05
 
 Administration overview lists only installed addons and shows an empty state when none are installed.

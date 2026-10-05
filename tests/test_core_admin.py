@@ -80,7 +80,7 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn(__version__+' '+__codename__,body)
         token,user=self.user('admin')
         legend=self.request('/admin/home',token=token)['body']
-        for phrase in ('Controls legend','Visible / Hidden','Always / selected addon','Hidden blocks stay hidden'): self.assertIn(phrase,legend)
+        for phrase in ('Page links legend','/create-account','/account','/my-phone'): self.assertIn(phrase,legend)
         self.request('/admin/branding','POST',{'csrf':user['csrf'],'title':'Example Network','subtitle':'My services'},token)
         body=self.request()['body'];self.assertIn('<strong>Example Network</strong>',body)
         self.assertIn('<footer>Example Network | Powered By CasualNetworks ServiceReady',body)
@@ -97,3 +97,20 @@ class CoreAdminTests(unittest.TestCase):
         body=self.request('/admin',token=token)['body']
         self.assertIn('<td>Downloads</td>',body)
         self.assertNotIn('<td>ESXi Management</td>',body)
+
+    def test_custom_masthead_asset_and_reset(self):
+        from voiceservices import branding
+        image=b'\xff\xd8\xffexample\xff\xd9'
+        branding.upload_logo(self.app,image,'masthead')
+        self.assertEqual(branding.logo(self.app,'masthead')[0],image)
+        self.assertIsNotNone(branding.logo(self.app,'masthead'))
+        token,user=self.user('admin')
+        page=self.request('/admin/branding',token=token)['body']
+        self.assertIn('/admin/branding/masthead/upload',page)
+        self.request('/admin/branding','POST',{'csrf':user['csrf'],'title':'CasualNetworks','subtitle':'ServiceReady INSAP','reset_masthead':'yes'},token)
+        self.assertIsNone(branding.logo(self.app,'masthead'))
+        response={}
+        def start(status,headers): response['status']=status
+        asset=b''.join(self.app({'PATH_INFO':'/branding/masthead','REQUEST_METHOD':'GET'},start))
+        self.assertEqual(response['status'],'200 OK')
+        self.assertTrue(asset.startswith(b'\x89PNG'))
