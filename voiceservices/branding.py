@@ -31,6 +31,7 @@ def change(app,section,data):
         value['masthead_layout']=layout
         if data.get('reset_logo')=='yes': value.pop('logo',None)
         if data.get('reset_masthead')=='yes': value.pop('masthead',None)
+        if data.get('reset_header_fill')=='yes': value.pop('header-fill',None)
         save(app,value);return 'Branding saved.'
     action=data.get('action','save')
     with app.store.connect() as db:
@@ -49,13 +50,17 @@ def save(app,value):
     with app.store.connect() as db: db.execute("INSERT OR REPLACE INTO portal_settings VALUES('branding',?)",(json.dumps(value),))
     app.config['branding']=value
 
-def upload_logo(app,raw,kind='logo'):
+def image_type(raw):
     if len(raw)>1024**2: raise ValueError('Logo must be at most 1 MiB.')
     if raw.startswith(b'\x89PNG\r\n\x1a\n') and len(raw)>=24 and raw[12:16]==b'IHDR':
         width,height=struct.unpack('>II',raw[16:24]);suffix='png'
         if not 0<width<=4096 or not 0<height<=4096: raise ValueError('Logo dimensions must be at most 4096 pixels.')
     elif raw.startswith(b'\xff\xd8\xff') and raw.endswith(b'\xff\xd9'): suffix='jpg'
     else: raise ValueError('Upload a PNG or JPEG logo.')
+    return suffix
+
+def upload_logo(app,raw,kind='logo'):
+    suffix=image_type(raw)
     root=Path(app.store.path).parent/'branding';root.mkdir(parents=True,exist_ok=True)
     name=secrets.token_hex(16)+'.'+suffix;(root/name).write_bytes(raw)
     value=defaults(app);old=value.get(kind);value[kind]=name;save(app,value)
@@ -82,7 +87,7 @@ def render(app,section,user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     if section=='branding':
         value=defaults(app)
-        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead layout</label><select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
+        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'"><label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead layout</label><select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><label>Secondary header image</label><select name="reset_header_fill"><option value="no">Keep current image</option><option value="yes">Clear secondary image</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><div class="panel"><form action="/admin/branding/header-fill/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Secondary header image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload secondary image</button></form><p>Fills the space after the wide masthead photo and before the account panel.</p></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
     from .modules import CATALOG
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'">'

@@ -60,7 +60,7 @@ header{grid-template-columns:minmax(0,1fr) 250px}
 @media(max-width:420px){header{grid-template-columns:1fr}.brand{border-right:0;border-bottom:0}}
 
 /* Full-width masthead stays anchored at the left; compact strip uses fixed dimensions. */
-.masthead-wide .brand{background-image:none;position:relative;overflow:hidden;border-right:0}
+.masthead-wide .brand{background-image:url("/branding/header-fill");background-position:right center;background-size:auto 68px;position:relative;overflow:hidden;border-right:0}
 .masthead-wide .wide-photo{position:absolute;left:0;top:43%;transform:translateY(-43%);height:963px;width:auto;max-width:none;border-right:4px solid white;pointer-events:none}
 .masthead-wide .brand-arrow,.masthead-wide .brand>div{position:relative}
 .masthead-wide .brand::after{content:"";position:absolute;top:0;bottom:0;right:0;width:4px;background:#fff;pointer-events:none}
@@ -70,3 +70,5 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 @media(max-width:1182px){header.masthead-compact{grid-template-columns:minmax(0,1fr) 250px}.masthead-compact .masthead-image{display:none}}
 @media(max-width:720px){header.masthead-compact{grid-template-columns:minmax(0,1fr) 190px}}
 @media(max-width:420px){header.masthead-compact{grid-template-columns:1fr}}
+
+.avatar{width:96px;height:96px;object-fit:cover;border:1px solid #a5b6bf}.account-avatar{width:40px;height:40px;object-fit:cover;float:left;margin:4px 8px 4px 0;border:1px solid white}

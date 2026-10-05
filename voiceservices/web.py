@@ -37,6 +37,7 @@ class App:
         self.attempts = {}
         branding.initialize(self)
         account.initialize(self)
+        account.initialize_extras(self)
 
     def __call__(self, env, start_response):
         def send(status, body, mime='text/html; charset=utf-8', extra=()):
@@ -70,8 +71,8 @@ class App:
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
             return send('200 OK',json.dumps({'service':'ServiceReady','status':'running','integrations':'not probed'}),'application/json')
-        if path in ('/branding/logo','/branding/masthead'):
-            asset=branding.logo(self,'masthead' if path.endswith('/masthead') else 'logo')
+        if path in ('/branding/logo','/branding/masthead','/branding/header-fill'):
+            asset=branding.logo(self,path.rsplit('/',1)[-1])
             if path.endswith('/masthead') and not asset: asset=(Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
             return send('200 OK',asset[0],asset[1]) if asset else send('404 Not Found','Logo unavailable.')
         if path == '/static/brand-arrow.svg':
@@ -80,13 +81,13 @@ class App:
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
-        if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload'):
+        if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload','/admin/branding/header-fill/upload','/account/photo/upload'):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
             except Exception: pass
             user=self.store.session(cookie['vs_session'].value if 'vs_session' in cookie else '')
             if not user: return send('303 See Other','',extra=[('Location','/login')])
-            if user['role']!='admin': return send('403 Forbidden','Administrator access required.')
+            if path!='/account/photo/upload' and user['role']!='admin': return send('403 Forbidden','Administrator access required.')
             if method!='POST': return send('405 Method Not Allowed','POST required.')
             try:
                 from email.parser import BytesParser
@@ -103,10 +104,11 @@ class App:
                     fields[name]=part.get_payload(decode=True)
                 if set(fields)!={'csrf','file'} or any(not isinstance(v,bytes) for v in fields.values()): raise ValueError('Invalid package fields.')
                 if not secrets.compare_digest(fields.get('csrf',b''),user['csrf'].encode()): return send('403 Forbidden','Invalid form token.')
-                if path.startswith('/admin/branding/'): branding.upload_logo(self,fields['file'],'masthead' if '/masthead/' in path else 'logo')
+                if path=='/account/photo/upload': account.upload_photo(self,user,fields['file'])
+                elif path.startswith('/admin/branding/'): branding.upload_logo(self,fields['file'],'header-fill' if '/header-fill/' in path else 'masthead' if '/masthead/' in path else 'logo')
                 else: self.modules.install(fields['file'])
             except (ValueError,OSError) as exc: return send('400 Bad Request',self.page('Package installation failed',E(exc),user))
-            return send('303 See Other','',extra=[('Location','/admin/branding' if path.startswith('/admin/branding/') else '/admin/addons')])
+            return send('303 See Other','',extra=[('Location','/account' if path=='/account/photo/upload' else '/admin/branding' if path.startswith('/admin/branding/') else '/admin/addons')])
         if path in ('/admin/updates/upload','/admin/downloads/upload','/admin/pxe/upload'):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
@@ -196,6 +198,10 @@ class App:
         if path == '/logout' and method == 'POST':
             self.store.logout(token)
             return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+        if path == '/account/photo':
+            asset=account.photo(self,user)
+            if asset: return send('200 OK',asset[0],asset[1])
+            return send('200 OK','<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#829da9"/><circle cx="48" cy="32" r="17" fill="white"/><path d="M16 90v-12a32 32 0 0 1 64 0v12" fill="white"/></svg>','image/svg+xml')
         if path == '/account':
             if method=='POST' and data.get('action','password')!='password':
                 try: note=account.change(self,user,data,token)
@@ -244,7 +250,7 @@ class App:
         account = '<a href="/login">Sign in</a>'
         if user and user['role'] != 'guest':
             identity=('<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> Administrator</div>') if user['role']=='admin' else '<div>Hello, '+E(user['display_name'] or user['username'])+'.</div>'
-            account = identity+'<a href="/account">Change password</a><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
+            account = '<img class="account-avatar" src="/account/photo" alt="">'+identity+'<a href="/account">My Account</a> | <a href="/account#inbox">Inbox</a><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]
         if not self.modules.installed('downloads'): links=[item for item in links if item[0]!='/downloads']
@@ -253,6 +259,6 @@ class App:
             if self.modules.installed('esxi'): links.append(('/esxi','ESXi'))
             links.append(('/admin','Administration'))
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
-        content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
+        content = re.sub(r'<label>([^<]*)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
         return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="/branding/masthead" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

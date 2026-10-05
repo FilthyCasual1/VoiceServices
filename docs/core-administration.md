@@ -1,4 +1,4 @@
-# Core administration (1.0.7)
+# Core administration (1.1.0)
 
 These controls are part of the permanent core and work without any addons.
 

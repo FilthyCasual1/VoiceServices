@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 — 2026-10-05
+
+Secondary header image, profile picture uploads, and a private notification inbox with read and delete actions.
+
 ## 1.0.7 — 2026-10-05
 
 Place the wide masthead white divider at the actual photo edge, including when the photo ends before the account panel.

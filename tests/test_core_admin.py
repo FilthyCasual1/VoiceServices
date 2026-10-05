@@ -142,3 +142,24 @@ class CoreAdminTests(unittest.TestCase):
         method=self.request('/','DELETE')
         self.assertEqual(method['status'],'405 Method Not Allowed')
         self.assertIn('/static/style.css',method['body'])
+
+    def test_profile_picture_and_private_inbox(self):
+        from voiceservices import account,branding
+        token,user=self.user('alice');other_token,other=self.user('admin')
+        image=b'\xff\xd8\xffexample\xff\xd9'
+        account.upload_photo(self.app,user,image)
+        self.assertEqual(account.photo(self.app,user)[0],image)
+        self.assertIsNone(account.photo(self.app,other))
+        account.notify(self.app,user['id'],'Private notice','Only Alice can read this.')
+        messages=account.inbox(self.app,user)
+        key=next(m['id'] for m in messages if m['title']=='Private notice')
+        account.change(self.app,other,{'action':'delete-notification','notification':str(key)},other_token)
+        self.assertTrue(any(m['id']==key for m in account.inbox(self.app,user)))
+        account.change(self.app,user,{'action':'read-notification','notification':str(key)},token)
+        self.assertTrue(next(m['is_read'] for m in account.inbox(self.app,user) if m['id']==key))
+        body=self.request('/account',token=token)['body']
+        self.assertIn('Notification inbox',body);self.assertIn('/account/photo/upload',body)
+        self.assertNotIn('Private notice',self.request('/account',token=other_token)['body'])
+        branding.upload_logo(self.app,image,'header-fill')
+        self.assertEqual(branding.logo(self.app,'header-fill')[0],image)
+        self.assertIn('Upload secondary image',self.request('/admin/branding',token=other_token)['body'])
