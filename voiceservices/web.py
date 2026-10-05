@@ -175,7 +175,8 @@ class App:
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
         if path == '/logged-out':
-            return send('200 OK',self.page('You have been logged out','<div class="signin-card"><div class="signin-banner"><strong>Session ended</strong><small>You have been logged out.</small></div><div class="panel"><p>Your session has ended. Returning to sign in in five seconds.</p><p class="signin-help"><a href="/login">Sign in now</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])
+            session_text=branding.defaults(self)
+            return send('200 OK',self.page('You have been logged out','<div class="signin-card"><div class="signin-banner"><strong>'+E(session_text['logged_out_title'])+'</strong><small>'+E(session_text['logged_out_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logged_out_message'])+'</p><p class="signin-help"><a href="/login">'+E(session_text['logged_out_link'])+'</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])
         if path == '/recover':
             from . import recovery
             return recovery.public(self,env,data,cookie,method,send)
@@ -222,6 +223,9 @@ class App:
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
+            look=branding.defaults(self)
+            if look['login_disclaimer_enabled']:
+                form+='<div class="login-disclaimer panel"><h2>Notice</h2><p>'+E(look['login_disclaimer'])+'</p></div>'
             return send('200 OK',self.page('Sign in',form,None),extra=[('Set-Cookie',f'vs_login={nonce}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=900'+suffix)])
 
         if not user and (method == 'POST' or path not in ('/', '/downloads')):
@@ -232,7 +236,8 @@ class App:
             return send('403 Forbidden','Invalid or expired form token.')
         if path == '/logout' and method == 'POST':
             if data.get('confirm')!='yes':
-                form='<div class="signin-card session-card"><div class="signin-banner"><strong>End your session?</strong><small>Confirm before signing out.</small></div><div class="panel"><p>Are you sure you wish to end your session?</p><p class="muted">You can sign in again whenever you need your network services.</p><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="confirm" value="yes"><div class="session-actions"><a class="session-cancel" href="/">Stay signed in</a><button class="end-session">End session</button></div></form></div></div>'
+                session_text=branding.defaults(self)
+                form='<div class="signin-card session-card"><div class="signin-banner"><strong>'+E(session_text['logout_title'])+'</strong><small>'+E(session_text['logout_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logout_message'])+'</p><p class="muted">'+E(session_text['logout_detail'])+'</p><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="confirm" value="yes"><div class="session-actions"><a class="session-cancel" href="/">'+E(session_text['logout_cancel'])+'</a><button class="end-session">'+E(session_text['logout_confirm'])+'</button></div></form></div></div>'
                 return send('200 OK',self.page('End your session?',form,user))
             self.store.logout(token)
             return send('303 See Other','',extra=[('Location','/logged-out'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])

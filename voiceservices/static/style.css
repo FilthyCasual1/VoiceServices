@@ -117,3 +117,5 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 
 .guest-signin{font:bold 9px Arial;line-height:1.1;padding:2px 6px;color:white;text-decoration:none;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4}.remember-login{display:flex;align-items:center;gap:6px}.signin-card .remember-login input{width:auto}
 .guest-signin{position:absolute;left:12px;bottom:5px;margin:0;align-self:auto}@media(max-width:720px){.guest-signin{left:6px}}
+
+.login-disclaimer{max-width:420px;margin:18px auto}.login-disclaimer p{white-space:pre-wrap;overflow-wrap:anywhere}

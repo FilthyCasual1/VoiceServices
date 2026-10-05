@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.4 — 2026-10-05
+
+Add an optional custom login disclaimer controlled through Look and Feel.
+
+## 1.3.3 — 2026-10-05
+
+Show recommended image dimensions and display sizes in Look and Feel upload controls.
+
+## 1.3.2 — 2026-10-05
+
+Rename Branding to Look and Feel and customize logout confirmation and session-ended box text.
+
 ## 1.3.1 — 2026-10-05
 
 Keep sign-in and account form tokens stable across tabs and return a usable sign-in form when the token expires.

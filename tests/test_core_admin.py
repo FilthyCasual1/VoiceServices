@@ -193,3 +193,21 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn('Join us',self.request('/create-account')['body'])
         response=self.request('/login','POST',{'username':'alice','password':'a-long-password','remember':'yes'})
         self.assertIn('Max-Age=2592000',response['headers']['Set-Cookie'])
+
+    def test_custom_logout_text_and_look_and_feel(self):
+        from voiceservices import branding
+        branding.change(self.app,'branding',{'title':'CasualNetworks','subtitle':'ServiceReady INSAP','logout_title':'Leave <now>?','logout_message':'Please confirm departure','logged_out_title':'Goodbye Alice','logged_out_message':'Come back soon'})
+        token,user=self.user('alice')
+        body=self.request('/logout','POST',{'csrf':user['csrf']},token)['body']
+        self.assertIn('Leave &lt;now&gt;?',body);self.assertIn('Please confirm departure',body)
+        body=self.request('/logged-out')['body'];self.assertIn('Goodbye Alice',body);self.assertIn('Come back soon',body)
+        token,_=self.user('admin');body=self.request('/admin/branding',token=token)['body']
+        self.assertIn('Look and Feel',body);self.assertIn('name="logout_title"',body)
+
+    def test_login_disclaimer_toggle_and_escaping(self):
+        from voiceservices import branding
+        data={'title':'CasualNetworks','subtitle':'ServiceReady INSAP','login_disclaimer':'Internal <network> only.','login_disclaimer_enabled':'yes'}
+        branding.change(self.app,'branding',data)
+        self.assertIn('Internal &lt;network&gt; only.',self.request('/login')['body'])
+        data['login_disclaimer_enabled']='no';branding.change(self.app,'branding',data)
+        self.assertNotIn('Internal &lt;network&gt; only.',self.request('/login')['body'])

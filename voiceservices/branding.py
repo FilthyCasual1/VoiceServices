@@ -13,9 +13,23 @@ def initialize(app):
             blocks=[('1. Get an account','Create your account to get started. Your administrator assigns access to the services available on your network.','/create-account',10,'',1),('2. Sign in','Sign in to configure your services and manage your account settings. Use My Account to change your password.','/login',20,'',1),('3. Set up your services','Storage: configure network shares and shared storage.\nVoice: set up phones and calling accounts.\nEmail: configure mailboxes and email clients.\nDomain services: set up your network identity and enroll devices.\nAvailable tools depend on the installed modules. Ask your administrator for setup details.','',30,'',1),('Downloads and setup','Download internal tools and applications for your machines.','/downloads',40,'downloads',1)]
             db.executemany('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',blocks)
             db.execute("INSERT INTO module_metadata VALUES('home-blocks-seeded')")
+SESSION_TEXT = {
+    'logout_title': ('Logout heading', 'End your session?'),
+    'logout_subtitle': ('Logout subtitle', 'Confirm before signing out.'),
+    'logout_message': ('Logout question', 'Are you sure you wish to end your session?'),
+    'logout_detail': ('Logout explanation', 'You can sign in again whenever you need your network services.'),
+    'logout_cancel': ('Keep session button', 'Stay signed in'),
+    'logout_confirm': ('End session button', 'End session'),
+    'logged_out_title': ('Session-ended heading', 'Session ended'),
+    'logged_out_subtitle': ('Session-ended subtitle', 'You have been logged out.'),
+    'logged_out_message': ('Session-ended message', 'Your session has ended. Returning to sign in in five seconds.'),
+    'logged_out_link': ('Return to sign-in link', 'Sign in now'),
+}
+
 def defaults(app):
-    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Your network services, in one place.','create_subtitle':'Your starting point for network services.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC'},**app.config.get('branding',{}))
+    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Your network services, in one place.','create_subtitle':'Your starting point for network services.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC','login_disclaimer_enabled':False,'login_disclaimer':''},**app.config.get('branding',{}))
     if value['title']=='ServiceReady': value['title']='CasualNetworks'
+    for key, (_, text) in SESSION_TEXT.items(): value.setdefault(key,text)
     return value
 def valid_url(value):
     if not value: return True
@@ -31,7 +45,7 @@ def change(app,section,data):
         layout=data.get('masthead_layout',value.get('masthead_layout','wide'))
         if layout not in ('wide','compact'): raise ValueError('Choose a valid masthead layout.')
         value['masthead_layout']=layout
-        for key in ('login_title','create_title','login_subtitle','create_subtitle'):
+        for key in ('login_title','create_title','login_subtitle','create_subtitle',*SESSION_TEXT):
             entry=data.get(key,value[key]).strip()
             if not 1<=len(entry)<=160: raise ValueError('Box headings and subtitles must contain 1–160 characters.')
             value[key]=entry
@@ -43,10 +57,15 @@ def change(app,section,data):
         try: ZoneInfo(zone)
         except (ZoneInfoNotFoundError,ValueError): raise ValueError('Choose a valid IANA greeting time zone.')
         value['greeting_timezone']=zone
+        enabled=data.get('login_disclaimer_enabled','yes' if value['login_disclaimer_enabled'] else 'no')
+        if enabled not in ('yes','no'): raise ValueError('Choose whether to show the login disclaimer.')
+        disclaimer=data.get('login_disclaimer',value['login_disclaimer']).strip()
+        if len(disclaimer)>4000 or (enabled=='yes' and not disclaimer): raise ValueError('Enter disclaimer text of up to 4000 characters when enabled.')
+        value.update(login_disclaimer_enabled=enabled=='yes',login_disclaimer=disclaimer)
         if data.get('reset_logo')=='yes': value.pop('logo',None)
         if data.get('reset_masthead')=='yes': value.pop('masthead',None)
         if data.get('reset_header_fill')=='yes': value.pop('header-fill',None)
-        save(app,value);return 'Branding saved.'
+        save(app,value);return 'Look and Feel saved.'
     action=data.get('action','save')
     with app.store.connect() as db:
         if action=='delete': db.execute('DELETE FROM home_blocks WHERE id=?',(int(data.get('block','')),));return 'Block removed.'
@@ -104,8 +123,12 @@ def render(app,section,user):
         box_fields=''
         for kind,label in [('login','Sign-in box'),('create','Create-account box')]:
             box_fields+='<label>'+label+' heading</label><input name="'+kind+'_title" maxlength="160" value="'+E(value[kind+'_title'])+'"><label>'+label+' subtitle</label><input name="'+kind+'_subtitle" maxlength="160" value="'+E(value[kind+'_subtitle'])+'"><label>'+label+' greeting</label><select name="'+kind+'_greeting"><option value="custom">Use custom heading</option><option value="time"'+(' selected' if value[kind+'_greeting']=='time' else '')+'>Good morning / afternoon / evening</option></select>'
+        box_fields+='<h3>Login disclaimer</h3><label>Show disclaimer</label><select name="login_disclaimer_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if value['login_disclaimer_enabled'] else '')+'>On</option></select><label>Disclaimer text</label><textarea name="login_disclaimer" maxlength="4000" rows="5">'+E(value['login_disclaimer'])+'</textarea>'
+        box_fields+='<h3>Logout and session-ended boxes</h3>'
+        for key, (label, _) in SESSION_TEXT.items():
+            box_fields+='<label>'+label+'</label><input name="'+key+'" maxlength="160" value="'+E(value[key])+'">'
         box_fields+='<label>Greeting time zone</label><input name="greeting_timezone" value="'+E(value['greeting_timezone'])+'">'
-        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'">'+box_fields+'<label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead layout</label><select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><label>Secondary masthead</label><select name="reset_header_fill"><option value="no">Keep current image</option><option value="yes">Clear secondary masthead</option></select><br><button>Save branding</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><div class="panel"><form action="/admin/branding/header-fill/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Secondary masthead (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload secondary masthead</button></form><p>Fills the space after the wide masthead photo and before the account panel.</p></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
+        return '<div class="panel"><form method="post">'+csrf+'<label>Brand title</label><input name="title" maxlength="80" value="'+E(value['title'])+'" required><label>Subtitle</label><input name="subtitle" maxlength="160" value="'+E(value['subtitle'])+'">'+box_fields+'<label>Logo</label><select name="reset_logo"><option value="no">Keep current logo</option><option value="yes">Use default arrow</option></select><label>Masthead layout</label><select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select><label>Masthead image</label><select name="reset_masthead"><option value="no">Keep current image</option><option value="yes">Use default image</option></select><label>Secondary masthead</label><select name="reset_header_fill"><option value="no">Keep current image</option><option value="yes">Clear secondary masthead</option></select><br><button>Save Look and Feel</button></form></div><div class="panel"><form action="/admin/branding/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Brand logo (PNG or JPEG, up to 1 MiB)</label><p class="muted">Recommended: 40 × 40 px. Displayed within 40 × 40 px on desktop and 30 × 30 px on narrow screens; aspect ratio is preserved.</p><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload logo</button></form></div><div class="panel"><form action="/admin/branding/masthead/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Masthead image (PNG or JPEG, up to 1 MiB)</label><p class="muted">Wide layout: recommended 1284 × 963 px; fixed image height of 963 px, cropped into the 68 px header and anchored left. Compact layout: visible area 600 × 68 px; image rendered at a fixed 700 px width and cropped. Neither layout changes image scale with the viewport.</p><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload masthead</button></form></div><div class="panel"><form action="/admin/branding/header-fill/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Secondary masthead (PNG or JPEG, up to 1 MiB)</label><p class="muted">Recommended: 600 × 68 px. Rendered at 68 px high, aligned right and cropped to the available width in the wide layout.</p><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload secondary masthead</button></form><p>Fills the space after the wide masthead photo and before the account panel.</p></div><p>The title appears in the masthead and browser tab. Your changes apply to all portal pages.</p>'
     from .modules import CATALOG
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'">'

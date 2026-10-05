@@ -4,7 +4,7 @@ from .modules import CATALOG
 from . import branding,overview,user_management,notifications,recovery,maintenance
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Portal branding','home':'Home page blocks'}
+HEADINGS={'recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Look and Feel','home':'Home page blocks'}
 def password_form(user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     return '<div class="panel login"><form method="post">'+csrf+'<input type="hidden" name="action" value="password"><label>Current password</label><input name="current_password" type="password" autocomplete="current-password" required><label>New password</label><input name="new_password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm new password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><br><button>Change password</button></form></div>'
@@ -41,7 +41,7 @@ def render(app,path,user,data,method,services):
             content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
-    links=[('/admin','Overview'),('/admin/users','Users and passwords'),('/admin/notifications','Notifications'),('/admin/recovery','Account recovery'),('/admin/addons','Addons'),('/admin/branding','Branding'),('/admin/home','Home page blocks')]
+    links=[('/admin','Overview'),('/admin/users','Users and passwords'),('/admin/notifications','Notifications'),('/admin/recovery','Account recovery'),('/admin/addons','Addons'),('/admin/branding','Look and Feel'),('/admin/home','Home page blocks')]
     for section,module in OPTIONAL.items():
         if app.modules.installed(module): links.append(('/admin/'+section,HEADINGS[section]))
     sidebar='<aside class="admin-nav"><h3>Administration</h3>'+''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)+'</aside>'
