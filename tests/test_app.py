@@ -48,6 +48,9 @@ class PortalTests(unittest.TestCase):
             self.assertNotIn('<aside>',r['body'])
             self.assertNotIn('href="/admin"',r['body'])
             self.assertNotIn('Sign in to edit',r['body'])
+            self.assertIn('href="/login">Sign in</a>',r['body'])
+            self.assertNotIn('Current user:',r['body'])
+            for text in ('Cisco','CUCM','12.5','Unity Connection'): self.assertNotIn(text,r['body'])
         for route in ['/admin','/applications','/directory','/my-phone','/recordings','/network']:
             self.assertEqual(self.request(route)['headers']['Location'],'/login')
         self.assertEqual(self.request('/directory','POST',{'name':'Anonymous','number':'1'})['status'],'303 See Other')

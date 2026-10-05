@@ -15,16 +15,16 @@ E = lambda value: html.escape(str(value), quote=True)
 APPS = {'calculator':'Calculator', 'rss':'RSS Reader', 'weather':'Weather', 'flights':'Flight Tracker',
         'network':'Network Management', 'recordings':'Call Recordings'}
 SERVICES = [
-    ('cucm_admin','CUCM Administration','admin'),
-    ('cucm_serviceability','CUCM Serviceability','admin'),
-    ('cucm_os','CUCM OS Administration','admin'),
-    ('cucm_drs','CUCM Disaster Recovery','admin'),
-    ('self_care','CUCM Self Care','user'),
-    ('cuc_admin','Unity Connection Administration','admin'),
-    ('cuc_serviceability','Unity Connection Serviceability','admin'),
-    ('imp_admin','IM and Presence Administration','admin'),
-    ('imp_serviceability','IM and Presence Serviceability','admin'),
-    ('openwrt','OpenWrt / LuCI','admin'),
+    ('cucm_admin','Call Management','admin'),
+    ('cucm_serviceability','Call Service Tools','admin'),
+    ('cucm_os','Call Server Settings','admin'),
+    ('cucm_drs','Call Server Backup','admin'),
+    ('self_care','Self Care','user'),
+    ('cuc_admin','Voicemail Management','admin'),
+    ('cuc_serviceability','Voicemail Service Tools','admin'),
+    ('imp_admin','Messaging Management','admin'),
+    ('imp_serviceability','Messaging Service Tools','admin'),
+    ('openwrt','Network Management','admin'),
 ]
 
 
@@ -79,7 +79,7 @@ class App:
             token = data.get('token','')
             user = self.store.phone_user(token)
             if not user:
-                return send('403 Forbidden',phone.text('Sign in required','Bind this terminal from My Phone. Native Extension Mobility synchronization is not connected.'),'text/xml; charset=utf-8')
+                return send('403 Forbidden',phone.text('Sign in required','Bind this terminal from My Phone. Native phone roaming synchronization is not connected.'),'text/xml; charset=utf-8')
             route = path.removeprefix('/phone/')
             if route == 'services': content = phone.menu(self.base,token, self.plugins.list())
             elif route.startswith('plugin/'):
@@ -92,7 +92,7 @@ class App:
                 except ValueError as exc: result = str(exc)
                 content = phone.text('Calculator',result)
             elif route == 'current-number':
-                content = phone.text('Save current number','CUCM CTI adapter is not connected. No call number has been captured.')
+                content = phone.text('Save current number','the phone system CTI adapter is not connected. No call number has been captured.')
             elif route in APPS:
                 content = phone.text(APPS[route], 'Integration not connected. Configure and implement the provider in the web console.')
             else: return send('404 Not Found',phone.text('Not found','Unknown service.'),'text/xml; charset=utf-8')
@@ -148,7 +148,7 @@ class App:
             if path == '/my-phone' and method == 'POST':
                 if data.get('action') == 'unbind':
                     self.store.unbind_phone(user['id'])
-                    note = '<p class="notice">Application terminal signed out. Native CUCM login is unchanged.</p>'
+                    note = '<p class="notice">Application terminal signed out. Native phone login is unchanged.</p>'
                 else:
                     binding = self.store.bind_phone(user,data.get('device','').upper())
                     url = self.base+'/phone/services?'+urlencode({'token':binding})
@@ -161,7 +161,7 @@ class App:
         csrf = '<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
         if path == '/':
             title = 'Welcome to ServiceReady'
-            content = '<p class="notice">Your starting point for setting up a Cisco phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? Contact your system administrator to create your ServiceReady account and assign your Cisco user identity and extension. Account creation is currently managed by your administrator.</p><p>Keep your username and password ready. Your Cisco phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and CUCM self-provisioning instructions.</li><li>Complete the native Cisco setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available Jabber and IP Communicator installers and setup information.</p></div>'
+            content = '<p class="notice">Your starting point for setting up a phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? Contact your system administrator to create your ServiceReady account and assign your phone user identity and extension. Account creation is currently managed by your administrator.</p><p>Keep your username and password ready. Your phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and the phone system self-provisioning instructions.</li><li>Complete the native phone setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available desktop client installers and setup information.</p></div>'
         elif path in ('/admin','/self-care'):
             title = 'Administration' if path=='/admin' else 'Self Care'
 
@@ -174,14 +174,14 @@ class App:
             content = '<p class="notice">Native applications use their own authentication. Portal access does not grant native application privileges.</p><table><tr><th>Application</th><th>Access</th></tr>'+rows+'</table>'
             if path == '/admin':
                 status_rows = ''.join('<tr><td>'+E(label)+'</td><td>'+('Link configured; health unverified' if self.valid_link(self.config.get('services',{}).get(key,'')) else 'Not configured')+'</td></tr>' for key,label,role in SERVICES)
-                content = '<h2>System status</h2><p class="notice">Cisco application baseline: 12.5. External health and provisioning are not connected.</p><table><tr><th>Application</th><th>Configuration</th></tr>'+status_rows+'</table><h2>Application administration</h2>'+content
+                content = '<h2>System status</h2><p class="notice">External health and provisioning are not connected.</p><table><tr><th>Application</th><th>Configuration</th></tr>'+status_rows+'</table><h2>Application administration</h2>'+content
             if path == '/self-care':
-                content += '<h2>Line keys and speed dials</h2><div class="panel">Use CUCM Self Care above to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension/line assignments and button-template changes require managed CUCM configuration; the custom editor is not connected yet. Roaming settings must target your Extension Mobility device profile where applicable.</div>'
+                content += '<h2>Line keys and speed dials</h2><div class="panel">Use Self Care above to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension/line assignments and button-template changes require managed the phone system configuration; the custom editor is not connected yet. Roaming settings must target your phone roaming device profile where applicable.</div>'
         elif path == '/directory':
             title = 'Directory'
             rows = ''.join('<tr><td>'+E(c['name'])+'</td><td>'+E(c['number'])+'</td><td>'+('Shared' if c['owner'] is None else 'Personal')+'</td></tr>' for c in self.store.contacts(user['id'],data.get('q','')))
             scope = '<option value="shared">Shared</option>' if user['role']=='admin' else ''
-            content = '<form method="get"><input name="q" placeholder="Search contacts" value="'+E(data.get('q',''))+'"><button>Search</button></form><table><tr><th>Name</th><th>Number</th><th>Directory</th></tr>'+rows+'</table><h2>Add contact</h2><div class="panel"><form method="post">'+csrf+'<label>Name</label><input name="name" maxlength="100" required><label>Number / dial string</label><input name="number" maxlength="40" required><label>Directory</label><select name="scope"><option value="personal">Personal</option>'+scope+'</select><br><button>Save contact</button></form></div><p class="muted">Save current call requires the CUCM CTI adapter; manual entry works now.</p>'
+            content = '<form method="get"><input name="q" placeholder="Search contacts" value="'+E(data.get('q',''))+'"><button>Search</button></form><table><tr><th>Name</th><th>Number</th><th>Directory</th></tr>'+rows+'</table><h2>Add contact</h2><div class="panel"><form method="post">'+csrf+'<label>Name</label><input name="name" maxlength="100" required><label>Number / dial string</label><input name="number" maxlength="40" required><label>Directory</label><select name="scope"><option value="personal">Personal</option>'+scope+'</select><br><button>Save contact</button></form></div><p class="muted">Save current call requires the the phone system CTI adapter; manual entry works now.</p>'
         elif path == '/preferences':
             title = 'Application preferences'
             prefs = json.loads(user['preferences'])
@@ -194,26 +194,26 @@ class App:
             rows = [('TFTP server', self.config.get('tftp_host') or 'Not configured'),
                     ('Self-provisioning IVR number', settings.get('ivr_number') or 'Not configured'),
                     ('Phone network / VLAN', settings.get('network') or 'Ask your administrator')]
-            content = '<p class="notice">CUCM performs registration using its universal device and line templates. This portal supplies setup details; it does not create a separate registration request.</p><h2>Connection details</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
-            content += '<h2>Register your phone</h2><div class="panel"><ol><li>Connect the phone to the designated phone network.</li><li>Obtain the configured TFTP server through DHCP, or enter the server above if your deployment requires manual setup.</li><li>Wait for CUCM auto-registration and a temporary extension.</li><li>Use the native self-provisioning screen if configured for this handset, or dial the self-provisioning IVR number above.</li><li>Provide the CUCM identification and authentication details requested by the native workflow. CUCM applies the assigned templates and extension.</li></ol></div>'
+            content = '<p class="notice">the phone system performs registration using its universal device and line templates. This portal supplies setup details; it does not create a separate registration request.</p><h2>Connection details</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
+            content += '<h2>Register your phone</h2><div class="panel"><ol><li>Connect the phone to the designated phone network.</li><li>Obtain the configured TFTP server through DHCP, or enter the server above if your deployment requires manual setup.</li><li>Wait for the phone system auto-registration and a temporary extension.</li><li>Use the native self-provisioning screen if configured for this handset, or dial the self-provisioning IVR number above.</li><li>Provide the phone system identification and authentication details requested by the native workflow. the phone system applies the assigned templates and extension.</li></ol></div>'
             if guest:
-                content += '<p><a href="/login">Sign in to view your personal CUCM setup details.</a></p>'
+                content += '<p><a href="/login">Sign in to view your personal the phone system setup details.</a></p>'
             else:
                 identity = settings.get('users', {}).get(user['username'], {})
-                content += '<h2>Your CUCM identity</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in [('CUCM user ID', identity.get('user_id') or 'Not linked'), ('Self-service user ID', identity.get('self_service_id') or 'Not linked'), ('Primary extension', identity.get('extension') or 'Not linked')])+'</table><p class="muted">These details are administrator-configured mappings, not live CUCM verification. Enter your PIN only in the native Cisco workflow. The portal does not store or display it.</p>'
-            content += '<p class="muted">CUCM must have auto-registration, templates, an eligible user profile, and the relevant self-provisioning services configured. Native phone login support must be checked for each 79xx model. Self-provisioning assigns a phone; Extension Mobility handles later roaming logins.</p>'
+                content += '<h2>Your phone identity</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in [('Phone user ID', identity.get('user_id') or 'Not linked'), ('Self-service user ID', identity.get('self_service_id') or 'Not linked'), ('Primary extension', identity.get('extension') or 'Not linked')])+'</table><p class="muted">These details are administrator-configured mappings, not live the phone system verification. Enter your PIN only in the native phone workflow. The portal does not store or display it.</p>'
+            content += '<p class="muted">the phone system must have auto-registration, templates, an eligible user profile, and the relevant self-provisioning services configured. Native phone login support must be checked for each handset model. Self-provisioning assigns a phone; phone roaming handles later roaming logins.</p>'
         elif path == '/my-phone':
             title = 'My Phone'
-            content = note+'<p class="notice">Manual application binding only. This does not configure CUCM, verify handset ownership, or perform native Extension Mobility. Anyone possessing the generated URL can read this application directory; protect it like a password. Native EM synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
+            content = note+'<p class="notice">Manual application binding only. This does not configure the phone system, verify handset ownership, or perform native phone roaming. Anyone possessing the generated URL can read this application directory; protect it like a password. Phone login synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
         elif path == '/downloads':
             title = 'Download Center'
             rows = ''
-            for key,label in [('jabber','Cisco Jabber'),('ip_communicator','Cisco IP Communicator')]:
+            for key,label in [('jabber','Messaging Client'),('ip_communicator','Desktop Phone')]:
                 item = self.config.get('downloads',{}).get(key,{})
                 url = item.get('url','')
                 link = '<a href="'+E(url)+'">Download</a>' if self.valid_link(url) else 'Installer not configured'
                 rows += '<tr><td>'+label+'</td><td>'+E(item.get('version','Unspecified'))+'</td><td>'+link+'</td></tr>'
-            content = '<p class="notice">Installers are supplied by the operator. Client versions require validation against CUCM / IM&amp;P 12.5 and the desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Jabber service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
+            content = '<p class="notice">Installers are supplied by the operator. Choose a client compatible with your communications system and desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Messaging service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
         elif path == '/applications':
             title = 'Applications'
             content = '<p class="notice">Install separate phone plugins and configure their settings here. Applications appear on the telephone Services menu; they run on the phone display.</p><h2>Installed plugins</h2><table><tr><th>Application / package</th><th>Version</th><th>Status</th><th>Description</th></tr>'
@@ -257,7 +257,7 @@ class App:
         return parsed.scheme in ('http','https') and bool(parsed.netloc) and not parsed.username and not parsed.password and not any(ord(c)<32 for c in url)
 
     def page(self, title, content, user):
-        account = '<div><span>Current user:</span> Guest</div>'
+        account = '<a href="/login">Sign in</a>'
         if user and user['role'] != 'guest':
             account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
@@ -265,4 +265,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home'), ('/downloads', 'Downloads')]
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div><div><span>Applications:</span> Cisco 12.5</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Initial development build</footer></body></html>'
