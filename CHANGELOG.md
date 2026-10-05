@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.5 — 2026-10-05
+
+Use OS-neutral overview and host update labels while showing the detected OS and connected update provider.
+
 ## 1.3.4 — 2026-10-05
 
 Add an optional custom login disclaimer controlled through Look and Feel.

@@ -1,31 +1,31 @@
 {
   "downloads": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "651bcb35748f6f294ae1b0c0101ca892c7786324c07c107b4c24e1c3142c2e8a"
   },
   "esxi": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "73ea34bf094f01f854d9c040d89800c2b08c8b9ff8b77d526cb8efc8869ddbaf"
   },
   "ftp-updates": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "b69962b644c9d76bdf001796779093173a750ef1b38ec27bbb879cac53f1d5cc"
   },
   "pxe": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "90b1e3270de375d0c64d50a33d0c66165dcaaaf62e61ca58930f0718504f63f7"
   },
   "server-management": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "e2b1c05fc009f9c8d9e1c9e7a4b62ef0dc60c9f656a3a6525817944e5e80b805"
   },
   "voice": {
-    "version": "1.3.4",
+    "version": "1.3.5",
     "api": 1,
     "sha256": "fc2dbe5d406bc106176a0b4afc9cbe767da04039ceaa546ebfb0f1af6728a047"
   }
