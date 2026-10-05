@@ -1,5 +1,5 @@
 """Core portal/system overview using local measurements and worker heartbeats."""
-import html,json,os,shutil,socket,time
+import html,json,os,shutil,socket,time,platform
 from pathlib import Path
 from .modules import CATALOG
 from .version import __version__
@@ -10,6 +10,11 @@ def render(app):
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
     usage=shutil.disk_usage(Path(app.store.path).parent)
     resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',str(int(now-app.started_at))+' seconds'),('Data disk',str(usage.free//1024**2)+' MiB available of '+str(usage.total//1024**2)+' MiB'),('Authentication','Alpine system accounts' if app.store.accounts else 'Local portal accounts')]
+    resources.extend([('Operating system',platform.freedesktop_os_release().get('PRETTY_NAME',platform.system()) if hasattr(platform,'freedesktop_os_release') and Path('/etc/os-release').is_file() else platform.system()),('Kernel',platform.release()),('Architecture',platform.machine()),('Logical CPUs',str(os.cpu_count() or 'Unknown')),('Python',platform.python_version())])
+    try:
+        cpu=next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith(('model name','Hardware'))),'Unknown')
+        resources.append(('Processor',cpu))
+    except OSError: pass
     try: resources.append(('System load (1 / 5 / 15 minutes)',' / '.join(f'{v:.2f}' for v in os.getloadavg())))
     except OSError: pass
     try:

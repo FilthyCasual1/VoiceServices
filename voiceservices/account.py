@@ -9,6 +9,7 @@ def initialize_extras(app):
     with app.store.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS account_photos(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,image BLOB NOT NULL,mime TEXT NOT NULL)')
         db.execute("CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,title TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL,is_read INTEGER NOT NULL DEFAULT 0)")
+        if 'sender' not in {r[1] for r in db.execute('PRAGMA table_info(notifications)')}: db.execute("ALTER TABLE notifications ADD COLUMN sender TEXT NOT NULL DEFAULT 'System'")
         db.execute("CREATE TABLE IF NOT EXISTS inbox_initialized(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE)")
 def notify(app,user_id,title,body):
     with app.store.connect() as db:
@@ -33,7 +34,13 @@ def profile(app,user):
         row=db.execute('SELECT * FROM account_profiles WHERE user_id=?',(user['id'],)).fetchone()
         return dict(row) if row else {'email':'','phone':'','timezone':'UTC'}
 def change(app,user,data,token):
+    from . import twofactor
+    result=twofactor.change(app,user,data,token)
+    if result is not None: return result
     action=data.get('action')
+    if action=='read-all-notifications':
+        with app.store.connect() as db: db.execute('UPDATE notifications SET is_read=1 WHERE user_id=?',(user['id'],))
+        return 'All notifications marked read.'
     if action=='remove-photo':
         with app.store.connect() as db: db.execute('DELETE FROM account_photos WHERE user_id=?',(user['id'],))
         return 'Profile picture removed.'
@@ -66,6 +73,7 @@ def change(app,user,data,token):
     raise ValueError('Unknown account action.')
 def render(app,user,token,note=''):
     from .administration import password_form
+    from . import twofactor
     from .modules import CATALOG
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';value=profile(app,user)
     content='<div class="my-account"><div class="account-section-links"><a href="#profile">Profile</a><a href="#inbox">Inbox</a><a href="#security">Security</a><a href="#sessions">Sessions</a><a href="#services">Linked services</a></div>'
@@ -77,10 +85,11 @@ def render(app,user,token,note=''):
     content+='<br><button>Save profile</button></form></div></div></section>'
     content+='<h2 id="inbox">Notification inbox</h2>'
     messages=inbox(app,user)
+    content+='<div class="panel inbox-summary"><p>'+str(sum(not m['is_read'] for m in messages))+' unread · '+str(len(messages))+' messages</p><form method="post">'+csrf+'<button name="action" value="read-all-notifications">Mark all read</button></form></div>'
     if not messages: content+='<p>Your inbox is empty.</p>'
     for message in messages:
-        content+='<div class="panel"><strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
-    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
+        content+='<div class="panel"><strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
+    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT token,expires FROM sessions WHERE user_id=? AND expires>? ORDER BY expires DESC',(user['id'],int(time.time()))):
             content+='<tr><td>'+('This session' if row['token']==token else 'Other session')+'</td><td>'+E(datetime.fromtimestamp(row['expires'],timezone.utc).strftime('%Y-%m-%d %H:%M'))+'</td></tr>'

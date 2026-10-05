@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0 — 2026-10-05
+
+Authenticator two-factor login with local QR enrollment, replay protection and single-use recovery codes; administrator notification delivery and inbox read controls; Secondary masthead naming; administrator-reviewed password/account recovery and a styled centered sign-in panel; one-click Alpine OS and INSAP updates with status and backups; expanded OS, kernel, CPU and runtime overview.
+
 ## 1.1.2 — 2026-10-05
 
 Organize My Account into a combined profile panel, notification inbox and aligned security/session sections.

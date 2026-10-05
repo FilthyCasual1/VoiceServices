@@ -38,6 +38,10 @@ class App:
         branding.initialize(self)
         account.initialize(self)
         account.initialize_extras(self)
+        from . import twofactor
+        twofactor.initialize(self)
+        from . import recovery
+        recovery.initialize(self)
 
     def __call__(self, env, start_response):
         def send(status, body, mime='text/html; charset=utf-8', extra=()):
@@ -166,6 +170,16 @@ class App:
             suffix = '; Secure' if self.secure else ''
             form = error+'<p>Create your ServiceReady account to set up the network services available in your deployment. Your administrator assigns the services and permissions you need.</p><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p>Already registered? <a href="/login">Sign in</a>.</p>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
+        if path == '/recover':
+            from . import recovery
+            return recovery.public(self,env,data,cookie,method,send)
+        if path == '/login/verify':
+            from . import twofactor
+            pending=cookie['vs_factor'].value if 'vs_factor' in cookie else ''
+            result=twofactor.finish(self,pending,data.get('csrf',''),data.get('code','')) if method=='POST' else None
+            suffix='; Secure' if self.secure else ''
+            if result: return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
+            return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
         if path == '/login':
             error = ''
             nonce = cookie['vs_login'].value if 'vs_login' in cookie else ''
@@ -179,6 +193,12 @@ class App:
                 if count >= 10: return send('429 Too Many Requests','Try again in five minutes.')
                 result = self.store.login(data.get('username',''),data.get('password',''))
                 if result:
+                    from . import twofactor
+                    person=self.store.session(result)
+                    if twofactor.state(self,person).get('secret'):
+                        self.store.logout(result);pending=twofactor.challenge(self,person)
+                        suffix='; Secure' if self.secure else ''
+                        return send('303 See Other','',extra=[('Location','/login/verify'),('Set-Cookie',f'vs_factor={pending}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=300'+suffix)])
                     self.attempts.pop(key,None)
                     suffix = '; Secure' if self.secure else ''
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix)])
@@ -186,7 +206,7 @@ class App:
                 error = '<p class="notice error">Invalid username or password.</p>'
             nonce = secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
-            form = error+'<div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div><p>New to ServiceReady? <a href="/create-account">Create an account</a>.</p>'
+            form = error+'<div class="signin-card"><div class="signin-banner"><strong>Welcome back</strong><small>Your network services, in one place.</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
             return send('200 OK',self.page('Sign in',form,None),extra=[('Set-Cookie',f'vs_login={nonce}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=900'+suffix)])
 
         if not user and (method == 'POST' or path not in ('/', '/downloads')):
@@ -198,6 +218,10 @@ class App:
         if path == '/logout' and method == 'POST':
             self.store.logout(token)
             return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+        if path == '/account/twofactor/qr':
+            from . import twofactor
+            image=twofactor.qr(self,user,token)
+            return send('200 OK',image,'image/png') if image else send('404 Not Found','Authenticator setup expired.')
         if path == '/account/photo':
             asset=account.photo(self,user)
             if asset: return send('200 OK',asset[0],asset[1])

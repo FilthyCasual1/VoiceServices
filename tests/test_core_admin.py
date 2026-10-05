@@ -162,4 +162,4 @@ class CoreAdminTests(unittest.TestCase):
         self.assertNotIn('Private notice',self.request('/account',token=other_token)['body'])
         branding.upload_logo(self.app,image,'header-fill')
         self.assertEqual(branding.logo(self.app,'header-fill')[0],image)
-        self.assertIn('Upload secondary image',self.request('/admin/branding',token=other_token)['body'])
+        self.assertIn('Upload secondary masthead',self.request('/admin/branding',token=other_token)['body'])

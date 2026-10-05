@@ -18,7 +18,7 @@ Rerun without `--bare` to update an existing installation.
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.1.2](packages/addons/1.1.2/) and
+Download `.sraddon` files from [packages/addons/1.2.0](packages/addons/1.2.0/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.

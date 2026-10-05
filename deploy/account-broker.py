@@ -41,6 +41,18 @@ def set_password(username,password):
     subprocess.run(['/usr/sbin/chpasswd','-c','SHA512'],input=f'{username}:{password}\n',text=True,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def handle(request):
+    if request.get('action') in ('maintenance-start','maintenance-status'):
+        from pathlib import Path
+        state_path=Path('/run/serviceready-accounts/maintenance.json')
+        state=json.loads(state_path.read_text()) if state_path.exists() else {'state':'idle','message':'No updates started.'}
+        if request['action']=='maintenance-status': return {'ok':True,'status':state}
+        kind=request.get('username')
+        if kind not in ('os','insap'): raise ValueError('Unknown update operation.')
+        if state.get('state')=='running': raise ValueError('An update is already running.')
+        worker=Path('/opt/serviceready/maintenance-worker.py')
+        if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022: raise ValueError('Update worker not installed safely.')
+        subprocess.Popen(['/usr/bin/python3',str(worker),kind],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        return {'ok':True}
     username=request.get('username','');password=request.get('password','')
     if not re.fullmatch('[a-z_][a-z0-9_-]{2,31}',username): raise ValueError('System usernames use 3–32 lowercase letters, numbers, underscores or hyphens.')
     if not isinstance(password,str) or len(password)>1024 or '\x00' in password: raise ValueError('Invalid password.')
@@ -55,6 +67,11 @@ def handle(request):
         except Exception:
             subprocess.run(['/usr/sbin/deluser',username],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             raise
+    elif action=='reset':
+        try: allowed=eligible(username)
+        except KeyError: allowed=False
+        if not allowed: raise ValueError('Only enrolled non-system accounts can be reset.')
+        set_password(username,request.get('new_password',''))
     elif action=='delete':
         try: allowed=eligible(username)
         except KeyError: allowed=False

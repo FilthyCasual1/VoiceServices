@@ -22,6 +22,12 @@ chown serviceready:serviceready /var/lib/serviceready /var/log/serviceready
 chmod 0750 /etc/serviceready /var/lib/serviceready /var/log/serviceready
 chown root:serviceready /etc/serviceready
 grep -q '^serviceready-users:' /etc/group || addgroup -S serviceready-users
+install -m 0700 "$source_dir/deploy/maintenance-worker.py" /opt/serviceready/maintenance-worker.py
+if [ -d "$source_dir/.git" ] && [ ! -d /opt/serviceready/source ]; then
+    git clone --no-hardlinks "$source_dir" /opt/serviceready/source
+    git -C /opt/serviceready/source remote set-url origin https://github.com/FilthyCasual1/VoiceServices.git
+    chmod -R go-w /opt/serviceready/source
+fi
 install -m 0700 "$source_dir/deploy/account-broker.py" /opt/serviceready/account-broker.py
 install -m 0755 "$source_dir/deploy/serviceready-accounts.initd" /etc/init.d/serviceready-accounts
 rc-update add serviceready-accounts default
