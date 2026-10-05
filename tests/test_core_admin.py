@@ -211,3 +211,15 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn('Internal &lt;network&gt; only.',self.request('/login')['body'])
         data['login_disclaimer_enabled']='no';branding.change(self.app,'branding',data)
         self.assertNotIn('Internal &lt;network&gt; only.',self.request('/login')['body'])
+
+    def test_notification_priority_and_private_unread_indicator(self):
+        from voiceservices import notifications
+        token,alice=self.user('alice');_,admin=self.user('admin');_,bob=self.user('bob')
+        notifications.change(self.app,admin,{'recipient':str(alice['id']),'title':'Action needed','body':'Check your service','priority':'urgent'})
+        body=self.request(token=token)['body']
+        self.assertIn('1 unread notifications; highest priority urgent',body)
+        self.assertIn('priority-urgent',self.request('/account/inbox',token=token)['body'])
+        self.assertNotIn('notification-indicator',self.request(token=self.app.store.login('bob','a-long-password'))['body'])
+        self.request('/account/inbox','POST',{'csrf':alice['csrf'],'action':'read-all-notifications'},token)
+        self.assertNotIn('notification-indicator',self.request(token=token)['body'])
+        with self.assertRaises(ValueError): notifications.change(self.app,admin,{'recipient':str(bob['id']),'title':'Bad','body':'Bad','priority':'invalid'})

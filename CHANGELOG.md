@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0 — 2026-10-05
+
+Add Info, Caution and Urgent notification priorities and a user-scoped unread indicator in the account panel.
+
 ## 1.3.7 — 2026-10-05
 
 Remove the duplicate My Account main navigation tab; retain the profile-panel button.

@@ -10,10 +10,12 @@ def initialize_extras(app):
         db.execute('CREATE TABLE IF NOT EXISTS account_photos(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,image BLOB NOT NULL,mime TEXT NOT NULL)')
         db.execute("CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,title TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL,is_read INTEGER NOT NULL DEFAULT 0)")
         if 'sender' not in {r[1] for r in db.execute('PRAGMA table_info(notifications)')}: db.execute("ALTER TABLE notifications ADD COLUMN sender TEXT NOT NULL DEFAULT 'System'")
+        if 'priority' not in {r[1] for r in db.execute('PRAGMA table_info(notifications)')}: db.execute("ALTER TABLE notifications ADD COLUMN priority TEXT NOT NULL DEFAULT 'info'")
         db.execute("CREATE TABLE IF NOT EXISTS inbox_initialized(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE)")
-def notify(app,user_id,title,body):
+def notify(app,user_id,title,body,priority='info'):
+    if priority not in ('info','caution','urgent'): raise ValueError('Choose Info, Caution or Urgent priority.')
     with app.store.connect() as db:
-        db.execute('INSERT INTO notifications(user_id,title,body,created) VALUES(?,?,?,?)',(user_id,title[:120],body[:5000],int(time.time())))
+        db.execute('INSERT INTO notifications(user_id,title,body,created,priority) VALUES(?,?,?,?,?)',(user_id,title[:120],body[:5000],int(time.time()),priority))
 def inbox(app,user):
     with app.store.connect() as db:
         if not db.execute('SELECT 1 FROM inbox_initialized WHERE user_id=?',(user['id'],)).fetchone():
@@ -90,7 +92,7 @@ def render(app,user,token,note='',section='profile'):
     content+='<div class="panel inbox-summary"><p>'+str(sum(not m['is_read'] for m in messages))+' unread · '+str(len(messages))+' messages</p><form method="post">'+csrf+'<button name="action" value="read-all-notifications">Mark all read</button></form></div>'
     if not messages: content+='<p>Your inbox is empty.</p>'
     for message in messages:
-        content+='<div class="panel"><strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
+        content+='<div class="panel notification-'+E(message['priority'])+'"><span class="priority priority-'+E(message['priority'])+'">'+E(message['priority'].title())+'</span> <strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
     inbox_content=content;content=''
     content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
     with app.store.connect() as db:

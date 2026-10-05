@@ -299,6 +299,12 @@ class App:
         if user and user['role'] != 'guest':
             identity=('<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> Administrator</div>') if user['role']=='admin' else '<div>Hello, '+E(user['display_name'] or user['username'])+'.</div>'
             account = identity+'<div class="account-links"><a href="/account">My Account</a> | <a href="/account/inbox">Inbox</a></div>'
+            with self.store.connect() as db:
+                unread=db.execute("SELECT priority,COUNT(*) AS total FROM notifications WHERE user_id=? AND is_read=0 GROUP BY priority",(user['id'],)).fetchall()
+            count=sum(row['total'] for row in unread)
+            if count:
+                level=next((level for level in ('urgent','caution','info') if any(row['priority']==level for row in unread)),'info')
+                account+='<a class="notification-indicator priority-'+level+'" href="/account/inbox" aria-label="'+str(count)+' unread notifications; highest priority '+level+'">'+str(count)+' unread</a>'
             logout='<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]

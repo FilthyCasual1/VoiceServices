@@ -121,3 +121,5 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .login-disclaimer{max-width:420px;margin:18px auto}.login-disclaimer p{white-space:pre-wrap;overflow-wrap:anywhere}
 
 .admin-tree{margin-top:12px}.admin-tree summary{cursor:pointer;font-weight:bold;padding:6px 4px;background:#cedae1;border:1px solid #a5b5be}.admin-tree>div{padding-left:10px;border-left:1px solid #b5c4cd;margin-left:6px}.admin-nav a[aria-current="page"]{background:#d1e1eb;font-weight:bold}@media(max-width:720px){.admin-tree a{display:block}}
+
+.priority{font-size:10px;font-weight:bold;padding:2px 5px;border:1px solid;display:inline-block}.priority-info{color:#174d70;background:#e0eff8;border-color:#8eafc4}.priority-caution{color:#654500;background:#fff0bc;border-color:#bc9c43}.priority-urgent{color:#8d1515;background:#ffe0e0;border-color:#bf7070}.notification-indicator{position:absolute;right:8px;top:5px;font-size:9px;font-weight:bold;padding:2px 4px;border:1px solid;text-decoration:none}.notification-urgent{border-left:3px solid #bf7070}.notification-caution{border-left:3px solid #bc9c43}
