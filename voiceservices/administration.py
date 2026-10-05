@@ -40,11 +40,11 @@ def render(app,path,user,data,method,services):
                 for key,value in settings.items(): db.execute('INSERT OR REPLACE INTO portal_settings VALUES(?,?)',(key,json.dumps(value)))
             app.config.update(settings);note='Settings saved.'
         else: raise ValueError('Unknown administration action.')
-    headings={'overview':'System overview','settings':'Service and phone settings','users':'User accounts','addons':'Installable addons','updates':'Update repository'}
+    headings={'overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Installable addons','updates':'Update repository'}
     content='<h2>'+headings[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview':
-        content+='<p>Configure service links, phone setup, accounts, and optional services using the administration menu.</p><table><tr><th>Application</th><th>Configuration / access</th></tr>'
+        content+='<p>Manage service connections, user accounts, and optional modules using the administration menu.</p><table><tr><th>Application</th><th>Configuration / access</th></tr>'
         for key,label,_ in (services if app.modules.installed('server-management') else []):
             url=app.config.get('services',{}).get(key,'')
             content+='<tr><td>'+E(label)+'</td><td>'+('<a href="'+E(url)+'" rel="noopener noreferrer">Open application</a> — health unverified' if app.valid_link(url) else 'Not configured')+'</td></tr>'

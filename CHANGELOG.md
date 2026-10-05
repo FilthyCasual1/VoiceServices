@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-10-05
+
+Make core homepage, registration and administration guidance service-neutral and focused on setup of storage, voice, email and domain services.
+
 ## 0.4.0 — 2026-10-05
 
 Make the admin/user shell and authentication the permanent core. Add removable Voice Services and Server Management modules, administration submenus, password changes, an Alpine account broker, and an optional read-only FTP update repository with web uploads. Revise the portal subtitle and masthead border.

@@ -184,7 +184,7 @@ class PortalTests(unittest.TestCase):
         data = {'csrf':nonce,'username':'new-user','password':'a-new-long-password','confirm_password':'a-new-long-password','role':'admin'}
         self.assertEqual(self.request('/create-account','POST',data)['status'],'403 Forbidden')
         result = self.request('/create-account','POST',data,'unused; vs_signup='+nonce)
-        self.assertEqual(result['headers']['Location'],'/my-phone')
+        self.assertEqual(result['headers']['Location'],'/')
         token = self.app.store.login('new-user','a-new-long-password')
         user = self.app.store.session(token)
         self.assertEqual(user['role'],'user')

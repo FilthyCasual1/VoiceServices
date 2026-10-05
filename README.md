@@ -2,6 +2,8 @@
 
 An intentionally plain, circa-2006 modular Integrated Network Service Access Portal for x86 / VMware ESXi. The permanent core is authentication and the admin/user shell. Voice Services, Server Management, and the FTP Update Repository are independently installable/removable optional modules.
 
+The portal guides setup of storage, voice, email, domain and other network services through optional capabilities. The homepage and account flow are service-neutral; voice setup guidance belongs to the Voice Services module. Storage, email and domain integrations are not implemented by the descriptive homepage categories.
+
 ## Current capabilities
 
 - Server-rendered portal with blue header, compact top navigation, small text, tables, and conventional forms; no JavaScript dependency.
