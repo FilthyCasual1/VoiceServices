@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 — 2026-10-05
+
+Keep sign-in and account form tokens stable across tabs and return a usable sign-in form when the token expires.
+
 ## 1.3.0 — 2026-10-05
 
 Custom sign-in/create-account box text and time-based greetings, optional 30-day sign-in, and square guest sign-in action.

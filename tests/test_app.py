@@ -196,4 +196,22 @@ class PortalTests(unittest.TestCase):
         self.assertIn('already in use',duplicate['body'])
 
 
+    def test_login_form_survives_another_tab_and_expired_form_recovers(self):
+        from http.cookies import SimpleCookie
+        first=self.request('/login');cookies=SimpleCookie();cookies.load(first['headers']['Set-Cookie'])
+        nonce=cookies['vs_login'].value
+        second=self.request('/login',token='; vs_login='+nonce)
+        self.assertIn('value="'+nonce+'"',second['body'])
+        def post(csrf,cookie):
+            body=urlencode({'username':'alice','password':'a-long-password','csrf':csrf}).encode();response={}
+            env={'PATH_INFO':'/login','REQUEST_METHOD':'POST','CONTENT_LENGTH':str(len(body)),'wsgi.input':io.BytesIO(body),'HTTP_COOKIE':cookie,'REMOTE_ADDR':'127.0.0.1'}
+            def start(status,headers): response.update(status=status,headers=dict(headers))
+            response['body']=b''.join(self.app(env,start)).decode();return response
+        self.assertEqual(post(nonce,'vs_login='+nonce)['status'],'303 See Other')
+        expired=post(nonce,'')
+        self.assertEqual(expired['status'],'403 Forbidden')
+        self.assertIn('autocomplete="current-password"',expired['body'])
+        fresh=SimpleCookie();fresh.load(expired['headers']['Set-Cookie']);fresh_nonce=fresh['vs_login'].value
+        self.assertEqual(post(fresh_nonce,'vs_login='+fresh_nonce)['status'],'303 See Other')
+
 if __name__=='__main__': unittest.main()

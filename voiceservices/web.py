@@ -170,7 +170,7 @@ class App:
                 except (ValueError,sqlite3.IntegrityError) as exc:
                     message = 'That username is already in use.' if isinstance(exc,sqlite3.IntegrityError) else str(exc)
                     error = '<p class="notice error">'+E(message)+'</p>'
-            nonce = secrets.token_urlsafe(32)
+            nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
@@ -190,11 +190,14 @@ class App:
             return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
         if path == '/login':
             box_title,box_subtitle=branding.box_text(self,'login')
-            error = ''
+            error = '<p class="notice error">Your sign-in form expired. Please enter your credentials again.</p>' if env.get('voiceservices.login_expired') else ''
             nonce = cookie['vs_login'].value if 'vs_login' in cookie else ''
             if method == 'POST':
                 if not nonce or not secrets.compare_digest(nonce,data.get('csrf','')):
-                    return send('403 Forbidden','Reload the sign-in form and try again.')
+                    retry_env = dict(env, REQUEST_METHOD='GET', **{'voiceservices.login_expired':True})
+                    def retry_start(status, headers): start_response('403 Forbidden', headers)
+                    response = self(retry_env, retry_start)
+                    return response
                 key = env.get('REMOTE_ADDR','unknown')
                 now = time.time()
                 self.attempts = {k:v for k,v in self.attempts.items() if v[1]>now-300}
@@ -216,7 +219,7 @@ class App:
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix)])
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
-            nonce = secrets.token_urlsafe(32)
+            nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
             return send('200 OK',self.page('Sign in',form,None),extra=[('Set-Cookie',f'vs_login={nonce}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=900'+suffix)])

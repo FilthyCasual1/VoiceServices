@@ -134,7 +134,7 @@ class CoreAdminTests(unittest.TestCase):
         def start(status,headers): response.update(status=status)
         body=b''.join(self.app({'PATH_INFO':'/login','REQUEST_METHOD':'POST','CONTENT_LENGTH':'0','wsgi.input':io.BytesIO(b'')},start)).decode()
         self.assertEqual(response['status'],'403 Forbidden')
-        for phrase in ('/static/style.css','Reload the sign-in form','Return home','Sign in again'): self.assertIn(phrase,body)
+        for phrase in ('/static/style.css','Your sign-in form expired','autocomplete="current-password"','name="csrf"'): self.assertIn(phrase,body)
         token,_=self.user('admin')
         missing=self.request('/unknown-page',token=token)
         self.assertEqual(missing['status'],'404 Not Found')
