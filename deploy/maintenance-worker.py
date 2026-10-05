@@ -36,8 +36,10 @@ def main(kind):
             for name in ('account-broker.py','maintenance-worker.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
             shutil.copy2(source/'deploy/serviceready-smtp.initd','/etc/init.d/serviceready-smtp');os.chmod('/etc/init.d/serviceready-smtp',0o755)
             run(['/sbin/rc-update','add','serviceready-smtp','default'])
+            shutil.copy2(source/'deploy/serviceready-scheduler.initd','/etc/init.d/serviceready-scheduler');os.chmod('/etc/init.d/serviceready-scheduler',0o755)
+            run(['/sbin/rc-update','add','serviceready-scheduler','default'])
             status(kind,'running','Restarting portal services')
-            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp'): run(['/sbin/rc-service',service,'restart'])
+            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-scheduler'): run(['/sbin/rc-service',service,'restart'])
             status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)

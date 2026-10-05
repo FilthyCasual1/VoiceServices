@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+name="ServiceReady Update Scheduler"
+description="Scheduled host and portal updates"
+supervisor="supervise-daemon"
+command="/opt/serviceready/venv/bin/python"
+command_args="-m voiceservices.schedule_service --config /etc/serviceready/config.json"
+command_user="serviceready:serviceready"
+directory="/var/lib/serviceready"
+export TMPDIR="/var/lib/serviceready/tmp"
+pidfile="/run/serviceready-scheduler/supervisor.pid"
+output_log="/var/log/serviceready/scheduler.log"
+error_log="/var/log/serviceready/scheduler-error.log"
+respawn_delay=3
+respawn_max=5
+respawn_period=60
+
+depend() {
+    need net
+    after firewall
+}
+start_pre() {
+    checkpath --directory --owner serviceready:serviceready --mode 0750 /run/serviceready-scheduler /var/log/serviceready /var/lib/serviceready/tmp
+}

@@ -82,6 +82,9 @@ rc-service serviceready-smtp restart
 install -m 0755 "$source_dir/deploy/serviceready-pxe.initd" /etc/init.d/serviceready-pxe
 rc-update add serviceready-pxe default
 rc-service serviceready-pxe restart
+install -m 0755 "$source_dir/deploy/serviceready-scheduler.initd" /etc/init.d/serviceready-scheduler
+rc-update add serviceready-scheduler default
+rc-service serviceready-scheduler restart
 rc-update add serviceready default
 rc-service serviceready restart
 /opt/serviceready/venv/bin/python - <<'PY'

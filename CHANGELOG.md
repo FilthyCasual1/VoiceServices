@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.0 — 2026-10-05
+
+Add configurable timezone-aware daily and weekly automatic portal and OS update schedules with persistent run tracking.
+
 ## 1.7.0 — 2026-10-05
 
 Add a core Security administration page for login limits, automatic source blocks, session policy and account registration.

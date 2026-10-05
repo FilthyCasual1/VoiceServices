@@ -18,7 +18,7 @@ Rerun without `--bare` to update an existing installation.
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.7.0](packages/addons/1.7.0/) and
+Download `.sraddon` files from [packages/addons/1.8.0](packages/addons/1.8.0/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -56,3 +56,5 @@ telephony provisioning, CTI and recording adapters remain incomplete.
 [SMTP notification receiver setup](docs/smtp-notifications.md).
 
 [Login rate limiting and optional Fail2ban setup](docs/login-protection.md).
+
+[Scheduled portal and OS updates](docs/update-schedules.md).

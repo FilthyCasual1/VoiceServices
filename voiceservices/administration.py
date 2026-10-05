@@ -1,10 +1,10 @@
 """Permanent administrator shell with addon-provided subpages."""
 import html
 from .modules import CATALOG
-from . import branding,overview,user_management,notifications,recovery,maintenance,security
+from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Look and Feel','home':'Home page blocks'}
+HEADINGS={'schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'User accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Look and Feel','home':'Home page blocks'}
 def password_form(user):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     return '<div class="panel login"><form method="post">'+csrf+'<input type="hidden" name="action" value="password"><label>Current password</label><input name="current_password" type="password" autocomplete="current-password" required><label>New password</label><input name="new_password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm new password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><br><button>Change password</button></form></div>'
@@ -20,6 +20,7 @@ def render(app,path,user,data,method,services):
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
         elif section=='recovery': note=recovery.issue(app,user,data)
         elif section=='notifications': note=notifications.change(app,user,data)
+        elif section=='schedules': note=update_schedule.change(app,user,data)
         elif section=='security': note=security.change(app,user,data)
         elif section=='users': note=user_management.change(app,user,data)
         elif section in ('branding','home'): note=branding.change(app,section,data)
@@ -31,6 +32,7 @@ def render(app,path,user,data,method,services):
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
     elif section=='notifications': content+=notifications.render(app,user)
+    elif section=='schedules': content+=update_schedule.render(app,user)
     elif section=='security': content+=security.render(app,user)
     elif section=='users': content+=user_management.render(app,user)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
@@ -44,7 +46,7 @@ def render(app,path,user,data,method,services):
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     administrator=[('/admin/users','Users and passwords'),('/admin/notifications','Notifications'),('/admin/recovery','Account recovery')]
-    operator=[('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Look and Feel'),('/admin/home','Home page blocks')]
+    operator=[('/admin/security','Security'),('/admin/schedules','Update schedules'),('/admin/addons','Addons'),('/admin/branding','Look and Feel'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
             (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))
