@@ -1,11 +1,11 @@
-# VoiceServices
+# ServiceReady
 
 An intentionally plain, circa-2006 web portal and Cisco XML phone-services server for an x86 / VMware ESXi communications system. Cisco applications target **12.5**: CUCM, Unity Connection, and IM and Presence. OpenWrt supplies network management; phones are Cisco 79xx series.
 
 ## Working in this first build
 
 - Server-rendered portal with blue header, compact top navigation, small text, tables, and conventional forms; no JavaScript dependency.
-- Local accounts with PBKDF2 password hashing, expiring sessions, CSRF protection, and administrator/user roles. Native admin links are public navigation; the destination authenticates access.
+- Local accounts with PBKDF2 password hashing, expiring sessions, CSRF protection, and administrator/user roles. Native admin links require portal login; the destination also authenticates access.
 - Persistent personal and shared contacts, search, and administrator-only shared-directory writes.
 - Phone-only decimal calculator through Cisco XML services.
 - Per-user app preferences, independent of physical phones.
@@ -24,7 +24,7 @@ python3 -m voiceservices create-user administrator --admin
 python3 -m voiceservices serve
 ```
 
-Open `http://127.0.0.1:8080`. Landing pages, native links, downloads, and shared contacts are public. Sign in only for edits, personal data, terminal bindings, and recordings. Create additional users with `python3 -m voiceservices create-user USERNAME`. Passwords are entered interactively, never supplied on the command line. There are no default accounts or passwords.
+Open `http://127.0.0.1:8080`. Only Home and Downloads are available to guests. Sign in to access the other portal pages. The homepage explains administrator-managed account creation and phone setup. Create additional users with `python3 -m voiceservices create-user USERNAME`. Passwords are entered interactively, never supplied on the command line. There are no default accounts or passwords.
 
 The example configuration disables Secure cookies **for localhost development only**. Deployment requires HTTPS, `secure_cookies: true`, and a correct externally reachable `public_url`. Put a production WSGI server and TLS reverse proxy in front of the application; the bundled server is for development. Do not expose the development server to the Internet. Configure access-log redaction for `/phone/` URLs because development bindings carry bearer tokens.
 
@@ -66,7 +66,7 @@ CUCM must separately enable auto-registration and self-provisioning, assign univ
 ### Phone plugins
 Applications is an installed-plugin manager. Administrators paste a separate JSON
 package to install it, edit its configuration, disable it, or remove it. Browsing
-stays public; changes require administrator login and a form token. Enabled
+requires login; changes require administrator access and a form token. Enabled
 packages appear in the telephone Services menu. No utilities run in the portal.
 
 Try `plugins/site-information/plugin.json`. Uploaded packages currently support

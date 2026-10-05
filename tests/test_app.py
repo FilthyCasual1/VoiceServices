@@ -42,13 +42,18 @@ class PortalTests(unittest.TestCase):
         self.assertIsNone(self.app.store.session(token))
 
     def test_public_portal_requires_login_for_edits(self):
-        for route in ['/','/downloads','/admin','/applications','/directory','/my-phone']:
+        for route in ['/', '/downloads']:
             r = self.request(route)
             self.assertEqual(r['status'],'200 OK')
             self.assertNotIn('<aside>',r['body'])
+            self.assertNotIn('href="/admin"',r['body'])
+            self.assertNotIn('Sign in to edit',r['body'])
+        for route in ['/admin','/applications','/directory','/my-phone','/recordings','/network']:
+            self.assertEqual(self.request(route)['headers']['Location'],'/login')
         self.assertEqual(self.request('/directory','POST',{'name':'Anonymous','number':'1'})['status'],'303 See Other')
-        self.assertEqual(self.request('/my-phone')['status'],'200 OK')
-        self.assertNotIn('<form method="post">',self.request('/directory')['body'])
+        self.assertIn('Welcome to ServiceReady',self.request()['body'])
+        self.assertIn('Get an account',self.request()['body'])
+        self.assertNotIn('System status',self.request()['body'])
 
     def test_login_cookie_and_bad_password(self):
         r=self.request('/login','POST',{'username':'alice','password':'a-long-password'})
@@ -110,7 +115,7 @@ class PortalTests(unittest.TestCase):
         for route in ['/','/admin','/downloads','/applications','/my-phone','/recordings','/network']:
             r=self.request(route,token=token)
             self.assertEqual(r['status'],'200 OK',route)
-        self.assertIn('Not configured',self.request(token=token)['body'])
+        self.assertIn('System status',self.request('/admin',token=token)['body'])
         for route in ['/apps/calculator','/apps/weather','/apps/rss','/apps/flights']:
             self.assertEqual(self.request(route,token=token)['status'],'404 Not Found')
         self.assertNotIn('href="/apps/',self.request('/applications',token=token)['body'])
@@ -119,8 +124,7 @@ class PortalTests(unittest.TestCase):
     def test_native_self_provisioning_details_are_private(self):
         self.app.config['self_provisioning'] = {'ivr_number': '5000', 'users': {'alice': {'user_id': 'alice-cucm', 'self_service_id': '201', 'extension': '201'}}}
         public = self.request('/my-phone')
-        self.assertEqual(public['status'], '200 OK')
-        self.assertIn('5000', public['body'])
+        self.assertEqual(public['headers']['Location'], '/login')
         self.assertNotIn('alice-cucm', public['body'])
         token, _ = self.user('alice')
         self.assertIn('alice-cucm', self.request('/my-phone', token=token)['body'])
@@ -129,7 +133,8 @@ class PortalTests(unittest.TestCase):
         self.assertNotIn('Submit registration', public['body'])
 
     def test_my_phone_consolidation(self):
-        page = self.request('/my-phone')['body']
+        token, _ = self.user('alice')
+        page = self.request('/my-phone',token=token)['body']
         for section in ['Phone setup','Line keys and customization','Phone application settings']:
             self.assertIn(section,page)
         self.assertNotIn('>Set Up Phone</a>',page)
@@ -159,7 +164,7 @@ class PortalTests(unittest.TestCase):
         token,user = self.user('admin')
         self.assertEqual(self.request('/applications','POST',{'action':'install','manifest':package},token)['status'],'403 Forbidden')
         self.assertEqual(self.request('/applications','POST',{'csrf':user['csrf'],'action':'install','manifest':package},token)['status'],'303 See Other')
-        self.assertIn('Site Information',self.request('/applications')['body'])
+        self.assertIn('Site Information',self.request('/applications',token=token)['body'])
         self.assertNotIn('name="manifest"',self.request('/applications')['body'])
 
 

@@ -56,7 +56,7 @@ class App:
         if method not in ('GET','POST'):
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
-            return send('200 OK',json.dumps({'service':'VoiceServices','status':'running','integrations':'not probed'}),'application/json')
+            return send('200 OK',json.dumps({'service':'ServiceReady','status':'running','integrations':'not probed'}),'application/json')
         if path == '/static/brand-arrow.svg':
             return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
         if path == '/static/masthead.png':
@@ -121,7 +121,7 @@ class App:
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
             return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div>',None))
-        if not user and (method == 'POST' or path == '/recordings'):
+        if not user and (method == 'POST' or path not in ('/', '/downloads')):
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
             user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
@@ -160,9 +160,8 @@ class App:
         guest = user['role'] == 'guest'
         csrf = '<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
         if path == '/':
-            rows = ''.join('<tr><td>'+E(label)+'</td><td>'+('Link configured; health unverified' if self.valid_link(self.config.get('services',{}).get(key,'')) else 'Not configured')+'</td></tr>' for key,label,role in SERVICES)
-            content = '<p class="notice">Cisco application baseline: <strong>12.5</strong>. Local portal functions are active. External health and provisioning are not connected.</p><h2>System status</h2><table><tr><th>Application</th><th>Configuration</th></tr>'+rows+'</table><h2>Quick links</h2><div class="panel"><a href="/directory">Personal and shared directory</a> &nbsp; | &nbsp; <a href="/downloads">Client downloads</a> &nbsp; | &nbsp; <a href="/my-phone">My phone</a></div>'
-            title = 'Welcome to VoiceServices'
+            title = 'Welcome to ServiceReady'
+            content = '<p class="notice">Your starting point for setting up a Cisco phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? Contact your system administrator to create your ServiceReady account and assign your Cisco user identity and extension. Account creation is currently managed by your administrator.</p><p>Keep your username and password ready. Your Cisco phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and CUCM self-provisioning instructions.</li><li>Complete the native Cisco setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available Jabber and IP Communicator installers and setup information.</p></div>'
         elif path in ('/admin','/self-care'):
             title = 'Administration' if path=='/admin' else 'Self Care'
 
@@ -173,6 +172,9 @@ class App:
                 target = '<a href="'+E(url)+'" target="_blank" rel="noopener noreferrer">Open</a>' if self.valid_link(url) else '<span class="muted">Not configured</span>'
                 rows += '<tr><td>'+E(label)+'</td><td>'+target+'</td></tr>'
             content = '<p class="notice">Native applications use their own authentication. Portal access does not grant native application privileges.</p><table><tr><th>Application</th><th>Access</th></tr>'+rows+'</table>'
+            if path == '/admin':
+                status_rows = ''.join('<tr><td>'+E(label)+'</td><td>'+('Link configured; health unverified' if self.valid_link(self.config.get('services',{}).get(key,'')) else 'Not configured')+'</td></tr>' for key,label,role in SERVICES)
+                content = '<h2>System status</h2><p class="notice">Cisco application baseline: 12.5. External health and provisioning are not connected.</p><table><tr><th>Application</th><th>Configuration</th></tr>'+status_rows+'</table><h2>Application administration</h2>'+content
             if path == '/self-care':
                 content += '<h2>Line keys and speed dials</h2><div class="panel">Use CUCM Self Care above to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension/line assignments and button-template changes require managed CUCM configuration; the custom editor is not connected yet. Roaming settings must target your Extension Mobility device profile where applicable.</div>'
         elif path == '/directory':
@@ -224,7 +226,7 @@ class App:
                     package = item['package']
                     fields = ''.join('<label>'+E(label)+'</label><input name="config_'+E(key)+'" maxlength="500" value="'+E(item['config'].get(key,''))+'">' for key,label in package.get('fields',{}).items())
                     content += '<h2 id="plugin-'+E(item['id'])+'">'+E(package['name'])+' — Configuration</h2><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="plugin" value="'+E(item['id'])+'">'+fields+'<label>Services menu</label><select name="enabled"><option value="yes"'+(' selected' if item['enabled'] else '')+'>Enabled</option><option value="no"'+(' selected' if not item['enabled'] else '')+'>Disabled</option></select><br><button name="action" value="save">Save settings</button><button name="action" value="remove">Remove plugin</button></form></div>'
-                content += '<h2>Install a plugin</h2><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="action" value="install"><label for="manifest">Plugin package (.json contents)</label><textarea id="manifest" name="manifest" rows="12" required spellcheck="false" placeholder="Paste a VoiceServices plugin manifest"></textarea><br><button>Install plugin</button></form><p class="muted">Declarative text plugins support configurable phone screens. Packages cannot execute server code. Provider adapters for RSS, weather and flights are still pending.</p></div>'
+                content += '<h2>Install a plugin</h2><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="action" value="install"><label for="manifest">Plugin package (.json contents)</label><textarea id="manifest" name="manifest" rows="12" required spellcheck="false" placeholder="Paste a ServiceReady plugin manifest"></textarea><br><button>Install plugin</button></form><p class="muted">Declarative text plugins support configurable phone screens. Packages cannot execute server code. Provider adapters for RSS, weather and flights are still pending.</p></div>'
             else:
                 content += '<p><a href="/login">Sign in with an administrator account to install and configure plugins.</a></p>'
             content += '<p><a href="/my-phone#settings">Personal phone preferences</a></p>'
@@ -255,11 +257,12 @@ class App:
         return parsed.scheme in ('http','https') and bool(parsed.netloc) and not parsed.username and not parsed.password and not any(ord(c)<32 for c in url)
 
     def page(self, title, content, user):
-        account = '<div><span>Current user:</span> Guest</div><a href="/login">Sign in to edit</a>'
+        account = '<div><span>Current user:</span> Guest</div>'
         if user and user['role'] != 'guest':
             account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         links.append(('/admin','Administration'))
+        if not user or user['role'] == 'guest': links = [('/', 'Home'), ('/downloads', 'Downloads')]
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - VoiceServices</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>VoiceServices</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> VoiceServices</div><div><span>Applications:</span> Cisco 12.5</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">VoiceServices &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>VoiceServices &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div><div><span>Applications:</span> Cisco 12.5</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'

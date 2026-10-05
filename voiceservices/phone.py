@@ -14,14 +14,14 @@ def xml(root):
 def text(title, message):
     root = Element('CiscoIPPhoneText')
     field(root, 'Title', title)
-    field(root, 'Prompt', 'VoiceServices')
+    field(root, 'Prompt', 'ServiceReady')
     field(root, 'Text', message)
     return xml(root)
 
 
 def menu(base, token, plugins=None):
     root = Element('CiscoIPPhoneMenu')
-    field(root, 'Title', 'VoiceServices')
+    field(root, 'Title', 'ServiceReady')
     field(root, 'Prompt', 'Select an application')
     entries = [('Directory','directory'), ('Recordings','recordings'), ('Network status','network'), ('Save current number','current-number')]
     if plugins is None:

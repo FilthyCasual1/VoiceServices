@@ -12,7 +12,7 @@ class PrivateRequestHandler(WSGIRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='VoiceServices portal')
+    parser = argparse.ArgumentParser(description='ServiceReady portal')
     parser.add_argument('--config', default='config.json')
     sub = parser.add_subparsers(dest='command', required=True)
     serve = sub.add_parser('serve')
@@ -29,7 +29,7 @@ def main():
         app.store.create_user(args.username, password, 'admin' if args.admin else 'user')
         print('User created.')
     else:
-        print(f'VoiceServices development server: http://{args.host}:{args.port}')
+        print(f'ServiceReady development server: http://{args.host}:{args.port}')
         with make_server(args.host,args.port,app,handler_class=PrivateRequestHandler) as server:
             server.serve_forever()
 
