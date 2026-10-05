@@ -47,7 +47,7 @@ class PortalTests(unittest.TestCase):
         token,user = self.user('alice')
         self.assertIn('alice',self.request(token=token)['body'])
         self.assertEqual(self.request('/logout','POST',token=token)['status'],'403 Forbidden')
-        self.request('/logout','POST',{'csrf':user['csrf']},token)
+        self.request('/logout','POST',{'csrf':user['csrf'],'confirm':'yes'},token)
         self.assertIsNone(self.app.store.session(token))
 
     def test_public_portal_requires_login_for_edits(self):

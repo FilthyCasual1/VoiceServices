@@ -7,6 +7,7 @@ def initialize(app):
     with app.store.connect() as db:
         db.execute("CREATE TABLE IF NOT EXISTS twofactor(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,secret TEXT NOT NULL DEFAULT '',pending TEXT NOT NULL DEFAULT '',pending_until INTEGER NOT NULL DEFAULT 0,pending_session TEXT NOT NULL DEFAULT '',last_counter INTEGER NOT NULL DEFAULT -1,recovery TEXT NOT NULL DEFAULT '[]',failures INTEGER NOT NULL DEFAULT 0,blocked_until INTEGER NOT NULL DEFAULT 0)")
         db.execute('CREATE TABLE IF NOT EXISTS factor_challenges(token TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,csrf TEXT NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0)')
+        if 'remember' not in {r[1] for r in db.execute('PRAGMA table_info(factor_challenges)')}: db.execute('ALTER TABLE factor_challenges ADD COLUMN remember INTEGER NOT NULL DEFAULT 0')
 def state(app,user):
     with app.store.connect() as db:
         row=db.execute('SELECT * FROM twofactor WHERE user_id=?',(user['id'],)).fetchone()
@@ -81,11 +82,11 @@ def qr(app,user,token):
     if not row.get('pending') or row['pending_until']<time.time() or row['pending_session']!=H(token): return None
     uri=pyotp.TOTP(row['pending']).provisioning_uri(name=user['username'],issuer_name='CasualNetworks ServiceReady')
     output=io.BytesIO();segno.make(uri,micro=False).save(output,kind='png',scale=5,border=4);return output.getvalue()
-def challenge(app,user):
+def challenge(app,user,remember=False):
     token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
     with app.store.connect() as db:
         db.execute('DELETE FROM factor_challenges WHERE expires<?',(int(time.time()),))
-        db.execute('INSERT INTO factor_challenges(token,user_id,csrf,expires) VALUES(?,?,?,?)',(H(token),user['id'],csrf,int(time.time())+300))
+        db.execute('INSERT INTO factor_challenges(token,user_id,csrf,expires,remember) VALUES(?,?,?,?,?)',(H(token),user['id'],csrf,int(time.time())+300,int(remember)))
     return token
 def finish(app,token,csrf,code):
     with app.store.connect() as db:
@@ -95,7 +96,7 @@ def finish(app,token,csrf,code):
         db.execute('UPDATE factor_challenges SET attempts=attempts+1 WHERE token=?',(H(token),))
         if not check(db,row['user_id'],code): return None
         session=secrets.token_urlsafe(32)
-        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(session,row['user_id'],secrets.token_urlsafe(24),int(time.time())+28800))
+        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(session,row['user_id'],secrets.token_urlsafe(24),int(time.time())+(2592000 if row['remember'] else 28800)))
         db.execute('DELETE FROM factor_challenges WHERE user_id=?',(row['user_id'],))
         return session
 def login_page(app,token,error=''):

@@ -171,3 +171,25 @@ class CoreAdminTests(unittest.TestCase):
         self.assertNotIn('Notification inbox',profile)
         self.assertIn('Password and security',self.request('/account/security',token=token)['body'])
         self.assertIn('Notification inbox',self.request('/account/inbox',token=token)['body'])
+
+    def test_logout_confirmation_and_redirect_page(self):
+        token,user=self.user('alice')
+        response=self.request('/logout','POST',{'csrf':user['csrf']},token)
+        self.assertIn('Are you sure',response['body'])
+        self.assertIsNotNone(self.app.store.session(token))
+        response=self.request('/logout','POST',{'csrf':user['csrf'],'confirm':'yes'},token)
+        self.assertEqual(response['headers']['Location'],'/logged-out')
+        self.assertIsNone(self.app.store.session(token))
+        response=self.request('/logged-out')
+        self.assertIn('You have been logged out',response['body'])
+        self.assertEqual(response['headers']['Refresh'],'5; url=/login')
+
+    def test_custom_auth_box_text_and_persistent_login(self):
+        from voiceservices import branding
+        token,user=self.user('admin')
+        branding.change(self.app,'branding',{'title':'CasualNetworks','subtitle':'ServiceReady INSAP','login_title':'Hello there','login_subtitle':'My network','create_title':'Join us','create_subtitle':'Get started'})
+        body=self.request('/login')['body']
+        self.assertIn('Hello there',body);self.assertIn('My network',body)
+        self.assertIn('Join us',self.request('/create-account')['body'])
+        response=self.request('/login','POST',{'username':'alice','password':'a-long-password','remember':'yes'})
+        self.assertIn('Max-Age=2592000',response['headers']['Set-Cookie'])

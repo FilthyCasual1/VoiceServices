@@ -147,6 +147,7 @@ class App:
         token = cookie['vs_session'].value if 'vs_session' in cookie else ''
         user = self.store.session(token)
         if path == '/create-account':
+            box_title,box_subtitle=branding.box_text(self,'create')
             error = ''
             nonce = cookie['vs_signup'].value if 'vs_signup' in cookie else ''
             if method == 'POST':
@@ -171,8 +172,10 @@ class App:
                     error = '<p class="notice error">'+E(message)+'</p>'
             nonce = secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
-            form = error+'<div class="signin-card"><div class="signin-banner"><strong>Create your account</strong><small>Your starting point for network services.</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
+            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
+        if path == '/logged-out':
+            return send('200 OK',self.page('You have been logged out','<div class="signin-card"><div class="signin-banner"><strong>Session ended</strong><small>You have been logged out.</small></div><div class="panel"><p>Your session has ended. Returning to sign in in five seconds.</p><p class="signin-help"><a href="/login">Sign in now</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])
         if path == '/recover':
             from . import recovery
             return recovery.public(self,env,data,cookie,method,send)
@@ -181,9 +184,12 @@ class App:
             pending=cookie['vs_factor'].value if 'vs_factor' in cookie else ''
             result=twofactor.finish(self,pending,data.get('csrf',''),data.get('code','')) if method=='POST' else None
             suffix='; Secure' if self.secure else ''
-            if result: return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
+            if result:
+                with self.store.connect() as db: duration=max(1,db.execute('SELECT expires FROM sessions WHERE token=?',(result,)).fetchone()[0]-int(time.time()))
+                return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
             return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
         if path == '/login':
+            box_title,box_subtitle=branding.box_text(self,'login')
             error = ''
             nonce = cookie['vs_login'].value if 'vs_login' in cookie else ''
             if method == 'POST':
@@ -199,17 +205,20 @@ class App:
                     from . import twofactor
                     person=self.store.session(result)
                     if twofactor.state(self,person).get('secret'):
-                        self.store.logout(result);pending=twofactor.challenge(self,person)
+                        self.store.logout(result);pending=twofactor.challenge(self,person,data.get('remember')=='yes')
                         suffix='; Secure' if self.secure else ''
                         return send('303 See Other','',extra=[('Location','/login/verify'),('Set-Cookie',f'vs_factor={pending}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=300'+suffix)])
                     self.attempts.pop(key,None)
+                    duration=2592000 if data.get('remember')=='yes' else 28800
+                    if duration!=28800:
+                        with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,result))
                     suffix = '; Secure' if self.secure else ''
-                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix)])
+                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix)])
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
             nonce = secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
-            form = error+'<div class="signin-card"><div class="signin-banner"><strong>Welcome back</strong><small>Your network services, in one place.</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
+            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
             return send('200 OK',self.page('Sign in',form,None),extra=[('Set-Cookie',f'vs_login={nonce}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=900'+suffix)])
 
         if not user and (method == 'POST' or path not in ('/', '/downloads')):
@@ -219,8 +228,11 @@ class App:
         if method == 'POST' and not secrets.compare_digest(data.get('csrf',''),user['csrf']):
             return send('403 Forbidden','Invalid or expired form token.')
         if path == '/logout' and method == 'POST':
+            if data.get('confirm')!='yes':
+                form='<div class="signin-card session-card"><div class="signin-banner"><strong>End your session?</strong><small>Confirm before signing out.</small></div><div class="panel"><p>Are you sure you wish to end your session?</p><p class="muted">You can sign in again whenever you need your network services.</p><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="confirm" value="yes"><div class="session-actions"><a class="session-cancel" href="/">Stay signed in</a><button class="end-session">End session</button></div></form></div></div>'
+                return send('200 OK',self.page('End your session?',form,user))
             self.store.logout(token)
-            return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+            return send('303 See Other','',extra=[('Location','/logged-out'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
         if path == '/account/twofactor/qr':
             from . import twofactor
             image=twofactor.qr(self,user,token)

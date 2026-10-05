@@ -103,3 +103,17 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .signin-card form button{display:block;margin-left:auto;margin-right:0}
 
 .account-picture{flex:0 0 44px;display:flex;flex-direction:column;align-items:flex-start}.account-picture .account-avatar{flex:none;margin:0}.account-picture .inline button{margin-top:3px;padding:2px 3px;white-space:nowrap}.account-details{display:flex;flex-direction:column;align-self:stretch}.guest-signin{margin-top:auto;align-self:flex-end;padding:4px 2px}
+
+/* Header actions share a baseline, with navigation indented from logout. */
+.account{position:relative;padding-bottom:23px}
+.account-picture .inline{position:absolute;left:12px;bottom:5px}
+.account-picture .inline button{margin:0;color:#a71919}
+.account-links{position:absolute;left:70px;bottom:5px;display:flex!important;gap:5px;font-size:0}
+.account-links a{font: bold 9px Arial;line-height:1.1;padding:2px 6px;color:white;text-decoration:none;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4}
+.account-links a:hover{background:#55788c}
+@media(max-width:720px){.account-picture .inline{left:6px}.account-links{left:60px;gap:3px}.account-links a{padding:2px 4px}}
+
+.session-card .panel{border:0;padding:18px 22px;line-height:1.5}.session-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:20px}.session-actions .end-session{margin:0;color:#a71919}.session-cancel{font-size:11px}
+
+.guest-signin{font:bold 9px Arial;line-height:1.1;padding:2px 6px;color:white;text-decoration:none;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4}.remember-login{display:flex;align-items:center;gap:6px}.signin-card .remember-login input{width:auto}
+.guest-signin{position:absolute;left:12px;bottom:5px;margin:0;align-self:auto}@media(max-width:720px){.guest-signin{left:6px}}

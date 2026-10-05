@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 — 2026-10-05
+
+Custom sign-in/create-account box text and time-based greetings, optional 30-day sign-in, and square guest sign-in action.
+
+## 1.2.8 — 2026-10-05
+
+Confirm session termination in a centered appliance-style panel, with styled actions and a logged-out page that redirects to sign-in.
+
+## 1.2.7 — 2026-10-05
+
+Align styled My Account and Inbox header actions with logout and emphasize logout in red.
+
 ## 1.2.6 — 2026-10-05
 
 Place logout below the header profile picture and move guest sign-in away from the system row.
