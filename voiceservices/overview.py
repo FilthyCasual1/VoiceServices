@@ -6,6 +6,18 @@ from . import regional
 from .version import __version__
 E=lambda value:html.escape(str(value),quote=True)
 
+def oem_info():
+    values={}
+    for key in ('sys_vendor','product_name','product_version','product_serial','board_vendor','board_name','bios_vendor','bios_version','bios_date'):
+        try: value=(Path('/sys/class/dmi/id')/key).read_text().strip()[:256]
+        except (OSError,UnicodeError): continue
+        if value and value.lower() not in ('none','not specified','to be filled by o.e.m.','default string'): values[key]=value
+    rows=[]
+    for label,keys in [('Manufacturer',('sys_vendor',)),('Model',('product_name','product_version')),('System serial',('product_serial',)),('System board',('board_vendor','board_name')),('BIOS',('bios_vendor','bios_version','bios_date'))]:
+        text=' / '.join(dict.fromkeys(values[key] for key in keys if key in values))
+        if text: rows.append((label,text))
+    return rows or [('OEM identity','Not reported or unavailable to the portal account')]
+
 def render(app):
     now=time.time()
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
@@ -24,6 +36,7 @@ def render(app):
     except OSError: pass
     try: resources.append(('Host uptime',str(int(float(Path('/proc/uptime').read_text().split()[0])))+' seconds'))
     except (OSError,ValueError): pass
+    resources.extend(oem_info())
     with app.store.connect() as db:
         tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         def count(name,where=''):

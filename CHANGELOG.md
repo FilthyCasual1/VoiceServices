@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.1 — 2026-10-05
+
+Show available host OEM manufacturer, model, serial, board and BIOS identity on Overview.
+
+## 1.10.0 — 2026-10-05
+
+Preserve the masthead during content navigation, cache image responses with ETags, and refresh overview statistics in place every five seconds.
+
 ## 1.9.1 — 2026-10-05
 
 Show the current date and time on the administration overview using global regional settings.

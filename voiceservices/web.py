@@ -1,5 +1,6 @@
 """Dependency-free WSGI portal. Run behind a TLS reverse proxy in deployment."""
 import html
+import hashlib
 import json
 import re
 import secrets
@@ -52,7 +53,13 @@ class App:
             if isinstance(body, str): body = body.encode()
             headers = [('Content-Type',mime),('Content-Length',str(len(body))),('Cache-Control','no-store'),
                        ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
-                       ('Content-Security-Policy',"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
+                       ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
+            if mime.startswith(('image/','text/css','text/javascript')):
+                etag='"'+hashlib.sha256(body).hexdigest()+'"'
+                headers=[h for h in headers if h[0] not in ('Cache-Control','Content-Length')]
+                headers+=[('Cache-Control','private, max-age=0, must-revalidate'),('ETag',etag)]
+                if env.get('HTTP_IF_NONE_MATCH')==etag and status=='200 OK': status='304 Not Modified';body=b''
+                headers.append(('Content-Length',str(len(body))))
             start_response(status, headers+list(extra))
             return [body]
         with self.store.connect() as db:
@@ -87,6 +94,12 @@ class App:
         if path == '/host/distro-logo':
             from . import distro
             return send('200 OK',distro.logo(self),'image/svg+xml')
+        if path=='/static/portal.js':
+            return send('200 OK',Path(__file__).with_name('static').joinpath('portal.js').read_bytes(),'text/javascript')
+        if path=='/branding/style.css':
+            brand=branding.defaults(self)
+            masthead=brand.get('masthead',__version__);fill=brand.get('header-fill','none')
+            return send('200 OK','.masthead-compact .masthead-image{background-image:url("/branding/masthead?v='+masthead+'")}.masthead-wide .brand{background-image:url("/branding/header-fill?v='+fill+'")}', 'text/css')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
         if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload','/admin/branding/header-fill/upload','/account/photo/upload'):
@@ -237,6 +250,11 @@ class App:
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
             user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
+        if path=='/admin/overview-stats':
+            if user['role']!='admin': return send('403 Forbidden',json.dumps({'error':'Administrator access required.'}),'application/json')
+            if method!='GET': return send('405 Method Not Allowed',json.dumps({'error':'GET required.'}),'application/json')
+            from . import overview
+            return send('200 OK',json.dumps({'html':overview.render(self)}),'application/json')
         if path=='/admin/recovery' and method=='GET':
             return send('303 See Other','',extra=[('Location','/admin/users#recovery')])
         if method == 'POST' and not secrets.compare_digest(data.get('csrf',''),user['csrf']):
@@ -301,7 +319,14 @@ class App:
     def page(self, title, content, user):
         brand=branding.defaults(self)
         footer='CasualNetworks Service Ready' if brand['title']=='CasualNetworks' else brand['title']+' | Powered By CasualNetworks ServiceReady'
-        logo='/branding/logo' if brand.get('logo') else '/static/brand-arrow.svg'
+        logo='/branding/logo?v='+brand['logo'] if brand.get('logo') else '/static/brand-arrow.svg'
+        brand_style='/branding/style.css?v='+brand.get('masthead',__version__)+'-'+brand.get('header-fill','none')
+        masthead_url='/branding/masthead?v='+brand.get('masthead',__version__)
+        avatar_url='/account/photo'
+        if user and user['role']!='guest':
+            from .account import photo as account_photo
+            photo=account_photo(self,user)
+            avatar_url+='?v='+str(user['id'])+'-'+(hashlib.sha256(photo[0]).hexdigest()[:16] if photo else 'default')
         account = '<a class="guest-signin" href="/login">Sign in</a>';logout='' 
         if user and user['role'] != 'guest':
             identity=('<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> Administrator</div>') if user['role']=='admin' else '<div>Hello, '+E(user['display_name'] or user['username'])+'.</div>'
@@ -322,4 +347,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>([^<]*)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="/branding/masthead" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="/account/photo" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

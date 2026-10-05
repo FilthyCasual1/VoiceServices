@@ -64,7 +64,7 @@ class CoreAdminTests(unittest.TestCase):
         def start(status,headers): response.update(status=status,headers=dict(headers))
         data=b''.join(self.app({'PATH_INFO':'/branding/logo','REQUEST_METHOD':'GET'},start))
         self.assertEqual(data,image);self.assertEqual(response['headers']['Content-Type'],'image/png')
-        self.assertIn('src="/branding/logo"',self.request()['body'])
+        self.assertIn('src="/branding/logo?v=',self.request()['body'])
     def test_account_profile_and_other_session_revocation(self):
         token,user=self.user('alice');other=self.app.store.login('alice','a-long-password')
         response=self.request('/account','POST',{'csrf':user['csrf'],'action':'profile','display_name':'Alice','email':'alice@example.local','phone':'+1 555 0100','timezone':'America/Chicago'},token)
@@ -247,3 +247,33 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn('name="global_timezone"',page);self.assertIn('name="date_format"',page)
         with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,date_format='unsafe'))
         with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,global_timezone='Invalid/Zone'))
+
+    def test_overview_live_endpoint_and_oem_identity(self):
+        import json
+        from voiceservices import overview
+        token,_=self.user('admin')
+        response=self.request('/admin/overview-stats',token=token)
+        self.assertEqual(response['status'],'200 OK')
+        body=json.loads(response['body'])['html']
+        self.assertIn('Current date and time',body)
+        self.assertNotIn('<header',body)
+        self.assertEqual(self.request('/admin/overview-stats',token=self.user('alice')[0])['status'],'403 Forbidden')
+        with patch.object(overview.Path,'read_text',side_effect=lambda path=None: ''):
+            self.assertIn('OEM identity',str(overview.oem_info()))
+        with patch.object(overview.Path,'read_text',return_value='VMware, Inc.'):
+            rows=dict(overview.oem_info())
+            self.assertEqual(rows['Manufacturer'],'VMware, Inc.')
+            self.assertEqual(rows['Model'],'VMware, Inc.')
+
+    def test_static_assets_revalidate_without_resending_image(self):
+        response={}
+        def start(status,headers): response.update(status=status,headers=dict(headers))
+        env={'PATH_INFO':'/branding/masthead','REQUEST_METHOD':'GET'}
+        image=b''.join(self.app(env,start))
+        self.assertTrue(image)
+        etag=response['headers']['ETag']
+        env['HTTP_IF_NONE_MATCH']=etag
+        self.assertEqual(b''.join(self.app(env,start)),b'')
+        self.assertEqual(response['status'],'304 Not Modified')
+        body=self.request()['body']
+        self.assertIn('/static/portal.js?v=',body)
