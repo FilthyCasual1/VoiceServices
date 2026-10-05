@@ -1,0 +1,128 @@
+import io
+import json
+import tempfile
+import unittest
+from urllib.parse import urlencode
+from xml.etree import ElementTree as ET
+from voiceservices.core import calculate
+from voiceservices.web import App
+
+
+class PortalTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.app = App({'database':self.tmp.name+'/db.sqlite','secure_cookies':False})
+        self.app.store.create_user('admin','a-long-password','admin')
+        self.app.store.create_user('alice','a-long-password')
+        self.app.store.create_user('bob','a-long-password')
+
+    def tearDown(self): self.tmp.cleanup()
+
+    def request(self,path='/',method='GET',data=None,token='',query=''):
+        body = urlencode(data or {}).encode()
+        response = {}
+        env = {'PATH_INFO':path,'REQUEST_METHOD':method,'QUERY_STRING':query,
+               'CONTENT_LENGTH':str(len(body)),'wsgi.input':io.BytesIO(body),
+               'HTTP_COOKIE':'vs_session='+token,'REMOTE_ADDR':'127.0.0.1'}
+        def start(status,headers): response.update(status=status,headers=dict(headers))
+        response['body'] = b''.join(self.app(env,start)).decode()
+        return response
+
+    def user(self,name):
+        token = self.app.store.login(name,'a-long-password')
+        return token,self.app.store.session(token)
+
+    def test_login_logout_and_csrf(self):
+        self.assertEqual(self.request()['status'],'200 OK')
+        token,user = self.user('alice')
+        self.assertIn('alice',self.request(token=token)['body'])
+        self.assertEqual(self.request('/logout','POST',token=token)['status'],'403 Forbidden')
+        self.request('/logout','POST',{'csrf':user['csrf']},token)
+        self.assertIsNone(self.app.store.session(token))
+
+    def test_public_portal_requires_login_for_edits(self):
+        for route in ['/','/downloads','/admin','/self-care','/applications','/directory','/preferences']:
+            r = self.request(route)
+            self.assertEqual(r['status'],'200 OK')
+            self.assertNotIn('<aside>',r['body'])
+        self.assertEqual(self.request('/directory','POST',{'name':'Anonymous','number':'1'})['status'],'303 See Other')
+        self.assertEqual(self.request('/my-phone')['status'],'303 See Other')
+        self.assertNotIn('<form method="post">',self.request('/directory')['body'])
+
+    def test_login_cookie_and_bad_password(self):
+        r=self.request('/login','POST',{'username':'alice','password':'a-long-password'})
+        self.assertIn('HttpOnly',r['headers']['Set-Cookie'])
+        self.assertIn('SameSite=Lax',r['headers']['Set-Cookie'])
+        self.assertIsNone(self.app.store.login('alice','wrong'))
+
+    def test_role_and_contact_isolation(self):
+        token,alice=self.user('alice')
+        _,bob=self.user('bob')
+        _,admin=self.user('admin')
+        self.app.store.add_contact(alice,'Private','+15551234567')
+        self.app.store.add_contact(admin,'Shared','201',True)
+        self.assertEqual(len(self.app.store.contacts(bob['id'])),1)
+        self.assertEqual(self.request('/admin',token=token)['status'],'200 OK')
+        with self.assertRaises(PermissionError): self.app.store.add_contact(alice,'Bad','123',True)
+        self.assertEqual(self.request('/directory','POST',{'name':'CSRF','number':'1'},token)['status'],'403 Forbidden')
+
+    def test_phone_roaming_revokes_previous_token_and_logout(self):
+        _,alice=self.user('alice')
+        self.app.store.preferences(alice['id'],{'weather_location':'Chicago'})
+        old=self.app.store.bind_phone(alice,'SEP001122AABBCC')
+        new=self.app.store.bind_phone(alice,'SEP001122AABBDD')
+        self.assertIsNone(self.app.store.phone_user(old))
+        self.assertEqual(json.loads(self.app.store.phone_user(new)['preferences'])['weather_location'],'Chicago')
+        self.app.store.unbind_phone(alice['id'])
+        self.assertIsNone(self.app.store.phone_user(new))
+
+    def test_phone_xml_and_escaping(self):
+        _,alice=self.user('alice')
+        self.app.store.add_contact(alice,'A & <B>','201')
+        token=self.app.store.bind_phone(alice,'SEP001122AABBCC')
+        for route,root in [('services','CiscoIPPhoneMenu'),('directory','CiscoIPPhoneDirectory'),('calculator','CiscoIPPhoneInput')]:
+            r=self.request('/phone/'+route,query=urlencode({'token':token}))
+            self.assertEqual(r['status'],'200 OK')
+            parsed=ET.fromstring(r['body'])
+            self.assertEqual(parsed.tag,root)
+            if route=='directory': self.assertEqual(parsed.find('DirectoryEntry/Name').text,'A & <B>')
+        self.assertEqual(self.request('/phone/services')['status'],'403 Forbidden')
+
+    def test_calculator_no_eval_and_errors(self):
+        self.assertEqual(calculate('0.1','add','0.2'),'0.3')
+        self.assertEqual(calculate('12','divide','4'),'3')
+        for args in [('1','divide','0'),('NaN','add','2'),('__import__("os")','add','2'),('1','pow','2'),('1e-999999','add','2')]:
+            with self.assertRaises(ValueError): calculate(*args)
+
+    def test_html_escaping_and_link_validation(self):
+        token,alice=self.user('alice')
+        self.app.store.add_contact(alice,'<script>alert(1)</script>','201')
+        page=self.request('/directory',token=token)['body']
+        self.assertNotIn('<script>',page)
+        self.assertIn('&lt;script&gt;',page)
+        self.assertFalse(self.app.valid_link('javascript:alert(1)'))
+        self.assertFalse(self.app.valid_link('https://admin:secret@example.com'))
+        self.assertTrue(self.app.valid_link('https://cucm.example.com/ccmadmin'))
+
+    def test_routes_and_no_simulated_health(self):
+        token,user=self.user('admin')
+        for route in ['/','/admin','/self-care','/downloads','/applications','/preferences','/my-phone','/recordings','/network']:
+            r=self.request(route,token=token)
+            self.assertEqual(r['status'],'200 OK',route)
+        self.assertIn('Not configured',self.request(token=token)['body'])
+        for route in ['/apps/calculator','/apps/weather','/apps/rss','/apps/flights']:
+            self.assertEqual(self.request(route,token=token)['status'],'404 Not Found')
+        self.assertNotIn('href="/apps/',self.request('/applications',token=token)['body'])
+        self.assertEqual(self.request('/unknown',token=token)['status'],'404 Not Found')
+
+    def test_expiry_and_rebinding_device(self):
+        _,alice=self.user('alice')
+        _,bob=self.user('bob')
+        old=self.app.store.bind_phone(alice,'SEP001122AABBCC')
+        new=self.app.store.bind_phone(bob,'SEP001122AABBCC')
+        self.assertIsNone(self.app.store.phone_user(old))
+        with self.app.store.connect() as db: db.execute('UPDATE phones SET expires=0')
+        self.assertIsNone(self.app.store.phone_user(new))
+
+
+if __name__=='__main__': unittest.main()

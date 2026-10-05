@@ -1,0 +1,210 @@
+"""Dependency-free WSGI portal. Run behind a TLS reverse proxy in deployment."""
+import html
+import json
+import re
+import secrets
+import time
+from http.cookies import SimpleCookie
+from pathlib import Path
+from urllib.parse import parse_qs, urlencode, urlsplit
+from . import phone
+from .core import Store, calculate
+
+E = lambda value: html.escape(str(value), quote=True)
+APPS = {'calculator':'Calculator', 'rss':'RSS Reader', 'weather':'Weather', 'flights':'Flight Tracker',
+        'network':'Network Management', 'recordings':'Call Recordings'}
+SERVICES = [
+    ('cucm_admin','CUCM Administration','admin'),
+    ('cucm_serviceability','CUCM Serviceability','admin'),
+    ('cucm_os','CUCM OS Administration','admin'),
+    ('cucm_drs','CUCM Disaster Recovery','admin'),
+    ('self_care','CUCM Self Care','user'),
+    ('cuc_admin','Unity Connection Administration','admin'),
+    ('cuc_serviceability','Unity Connection Serviceability','admin'),
+    ('imp_admin','IM and Presence Administration','admin'),
+    ('imp_serviceability','IM and Presence Serviceability','admin'),
+    ('openwrt','OpenWrt / LuCI','admin'),
+]
+
+
+class App:
+    def __init__(self, config):
+        self.config = config
+        self.store = Store(config.get('database','data/voiceservices.sqlite3'))
+        self.base = config.get('public_url','http://127.0.0.1:8080').rstrip('/')
+        parsed = urlsplit(self.base)
+        if parsed.scheme not in ('http','https') or not parsed.netloc or parsed.query or parsed.fragment:
+            raise ValueError('public_url must be an absolute HTTP(S) URL without a query or fragment.')
+        self.secure = config.get('secure_cookies', True)
+        self.attempts = {}
+
+    def __call__(self, env, start_response):
+        def send(status, body, mime='text/html; charset=utf-8', extra=()):
+            if isinstance(body, str): body = body.encode()
+            headers = [('Content-Type',mime),('Content-Length',str(len(body))),('Cache-Control','no-store'),
+                       ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
+                       ('Content-Security-Policy',"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
+            start_response(status, headers+list(extra))
+            return [body]
+        path = env.get('PATH_INFO','/')
+        method = env.get('REQUEST_METHOD','GET')
+        if method not in ('GET','POST'):
+            return send('405 Method Not Allowed','Method not allowed.')
+        if path == '/healthz':
+            return send('200 OK',json.dumps({'service':'VoiceServices','status':'running','integrations':'not probed'}),'application/json')
+        if path == '/static/style.css':
+            return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
+        try:
+            size = int(env.get('CONTENT_LENGTH') or 0)
+        except ValueError:
+            return send('400 Bad Request','Invalid request length.')
+        if size < 0 or size > 16384:
+            return send('413 Content Too Large','Request too large.')
+        try:
+            raw = env['wsgi.input'].read(size).decode() if method == 'POST' else env.get('QUERY_STRING','')
+            data = {k:v[0] for k,v in parse_qs(raw, max_num_fields=30).items()}
+        except (ValueError, UnicodeError):
+            return send('400 Bad Request','Invalid request.')
+        if path.startswith('/phone/'):
+            if method != 'GET': return send('405 Method Not Allowed','GET required.')
+            token = data.get('token','')
+            user = self.store.phone_user(token)
+            if not user:
+                return send('403 Forbidden',phone.text('Sign in required','Bind this terminal from My Phone. Native Extension Mobility synchronization is not connected.'),'text/xml; charset=utf-8')
+            route = path.removeprefix('/phone/')
+            if route == 'services': content = phone.menu(self.base,token)
+            elif route == 'directory': content = phone.directory(self.store.contacts(user['id'],data.get('q',''))[:32])
+            elif route == 'calculator': content = phone.calculator(self.base,token)
+            elif route == 'calculate':
+                try: result = calculate(data.get('left',''),data.get('operation',''),data.get('right',''))
+                except ValueError as exc: result = str(exc)
+                content = phone.text('Calculator',result)
+            elif route == 'current-number':
+                content = phone.text('Save current number','CUCM CTI adapter is not connected. No call number has been captured.')
+            elif route in APPS:
+                content = phone.text(APPS[route], 'Integration not connected. Configure and implement the provider in the web console.')
+            else: return send('404 Not Found',phone.text('Not found','Unknown service.'),'text/xml; charset=utf-8')
+            return send('200 OK',content,'text/xml; charset=utf-8')
+        cookie = SimpleCookie()
+        try: cookie.load(env.get('HTTP_COOKIE',''))
+        except Exception: pass
+        token = cookie['vs_session'].value if 'vs_session' in cookie else ''
+        user = self.store.session(token)
+        if path == '/login':
+            error = ''
+            if method == 'POST':
+                origin = env.get('HTTP_ORIGIN')
+                if origin and origin != f'{urlsplit(self.base).scheme}://{urlsplit(self.base).netloc}':
+                    return send('403 Forbidden','Invalid login origin.')
+                key = env.get('REMOTE_ADDR','unknown')
+                now = time.time()
+                self.attempts = {k:v for k,v in self.attempts.items() if v[1]>now-300}
+                count, _ = self.attempts.get(key,(0,now))
+                if count >= 10: return send('429 Too Many Requests','Try again in five minutes.')
+                result = self.store.login(data.get('username',''),data.get('password',''))
+                if result:
+                    self.attempts.pop(key,None)
+                    suffix = '; Secure' if self.secure else ''
+                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix)])
+                self.attempts[key] = (count+1,now)
+                error = '<p class="notice error">Invalid username or password.</p>'
+            return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div>',None))
+        if not user and (method == 'POST' or path in ('/my-phone','/recordings')):
+            return send('303 See Other','',extra=[('Location','/login')])
+        if not user:
+            user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
+        if method == 'POST' and not secrets.compare_digest(data.get('csrf',''),user['csrf']):
+            return send('403 Forbidden','Invalid or expired form token.')
+        if path == '/logout' and method == 'POST':
+            self.store.logout(token)
+            return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+        note = ''
+        try:
+            if path == '/directory' and method == 'POST':
+                self.store.add_contact(user,data.get('name',''),data.get('number',''),data.get('scope')=='shared')
+                return send('303 See Other','',extra=[('Location','/directory')])
+            if path == '/preferences' and method == 'POST':
+                values = {k:data.get(k,'')[:200] for k in ('weather_location','rss_url','flight','widget')}
+                if values['widget'] not in ('network','weather','off'): raise ValueError('Invalid widget selection.')
+                self.store.preferences(user['id'],values)
+                return send('303 See Other','',extra=[('Location','/preferences')])
+            if path == '/my-phone' and method == 'POST':
+                if data.get('action') == 'unbind':
+                    self.store.unbind_phone(user['id'])
+                    note = '<p class="notice">Application terminal signed out. Native CUCM login is unchanged.</p>'
+                else:
+                    binding = self.store.bind_phone(user,data.get('device','').upper())
+                    url = self.base+'/phone/services?'+urlencode({'token':binding})
+                    note = '<p class="notice">Application binding created for eight hours. Previous binding revoked.<br>Private Services URL: <code>'+E(url)+'</code></p>'
+        except PermissionError as exc:
+            return send('403 Forbidden',self.page('Access denied',E(exc),user))
+        except ValueError as exc:
+            return send('400 Bad Request',self.page('Check your input','<p class="notice error">'+E(exc)+'</p>',user))
+        guest = user['role'] == 'guest'
+        csrf = '<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
+        if path == '/':
+            rows = ''.join('<tr><td>'+E(label)+'</td><td>'+('Link configured; health unverified' if self.valid_link(self.config.get('services',{}).get(key,'')) else 'Not configured')+'</td></tr>' for key,label,role in SERVICES)
+            content = '<p class="notice">Cisco application baseline: <strong>12.5</strong>. Local portal functions are active. External health and provisioning are not connected.</p><h2>System status</h2><table><tr><th>Application</th><th>Configuration</th></tr>'+rows+'</table><h2>Quick links</h2><div class="panel"><a href="/directory">Personal and shared directory</a> &nbsp; | &nbsp; <a href="/downloads">Client downloads</a> &nbsp; | &nbsp; <a href="/my-phone">My phone</a></div>'
+            title = 'Welcome to VoiceServices'
+        elif path in ('/admin','/self-care'):
+            title = 'Administration' if path=='/admin' else 'Self Care'
+            rows = ''
+            for key,label,role in SERVICES:
+                if (path=='/self-care' and role!='user') or (path=='/admin' and role!='admin'): continue
+                url = self.config.get('services',{}).get(key,'')
+                target = '<a href="'+E(url)+'" target="_blank" rel="noopener noreferrer">Open</a>' if self.valid_link(url) else '<span class="muted">Not configured</span>'
+                rows += '<tr><td>'+E(label)+'</td><td>'+target+'</td></tr>'
+            content = '<p class="notice">Native applications use their own authentication. Portal access does not grant native application privileges.</p><table><tr><th>Application</th><th>Access</th></tr>'+rows+'</table>'
+        elif path == '/directory':
+            title = 'Directory'
+            rows = ''.join('<tr><td>'+E(c['name'])+'</td><td>'+E(c['number'])+'</td><td>'+('Shared' if c['owner'] is None else 'Personal')+'</td></tr>' for c in self.store.contacts(user['id'],data.get('q','')))
+            scope = '<option value="shared">Shared</option>' if user['role']=='admin' else ''
+            content = '<form method="get"><input name="q" placeholder="Search contacts" value="'+E(data.get('q',''))+'"><button>Search</button></form><table><tr><th>Name</th><th>Number</th><th>Directory</th></tr>'+rows+'</table><h2>Add contact</h2><div class="panel"><form method="post">'+csrf+'<label>Name</label><input name="name" maxlength="100" required><label>Number / dial string</label><input name="number" maxlength="40" required><label>Directory</label><select name="scope"><option value="personal">Personal</option>'+scope+'</select><br><button>Save contact</button></form></div><p class="muted">Save current call requires the CUCM CTI adapter; manual entry works now.</p>'
+        elif path == '/preferences':
+            title = 'Application preferences'
+            prefs = json.loads(user['preferences'])
+            fields = ''.join('<label>'+label+'</label><input name="'+key+'" maxlength="200" value="'+E(prefs.get(key,''))+'">' for key,label in [('weather_location','Weather location'),('rss_url','RSS feed URL'),('flight','Tracked flight')])
+            options = ''.join('<option value="'+v+'"'+(' selected' if prefs.get('widget','network')==v else '')+'>'+label+'</option>' for v,label in [('network','Network status'),('weather','Weather'),('off','Disabled')])
+            content = '<p class="notice">Preferences belong to your user account and follow application terminal bindings. External providers are not connected.</p><div class="panel"><form method="post">'+csrf+fields+'<label>Status widget</label><select name="widget">'+options+'</select><br><button>Save preferences</button></form></div>'
+        elif path == '/my-phone':
+            title = 'My phone'
+            content = note+'<p class="notice">Manual application binding only. This does not configure CUCM, verify handset ownership, or perform native Extension Mobility. Anyone possessing the generated URL can read this application directory; protect it like a password. Native EM synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
+        elif path == '/downloads':
+            title = 'Download Center'
+            rows = ''
+            for key,label in [('jabber','Cisco Jabber'),('ip_communicator','Cisco IP Communicator')]:
+                item = self.config.get('downloads',{}).get(key,{})
+                url = item.get('url','')
+                link = '<a href="'+E(url)+'">Download</a>' if self.valid_link(url) else 'Installer not configured'
+                rows += '<tr><td>'+label+'</td><td>'+E(item.get('version','Unspecified'))+'</td><td>'+link+'</td></tr>'
+            content = '<p class="notice">Installers are supplied by the operator. Client versions require validation against CUCM / IM&amp;P 12.5 and the desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Jabber service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
+        elif path == '/applications':
+            title = 'Applications'
+            content = '<p class="notice">These applications run on Cisco phones through the Services button. This portal manages their settings.</p><table><tr><th>Phone application</th><th>Status</th></tr>'+''.join('<tr><td>'+label+'</td><td>'+('Working locally' if key=='calculator' else 'Adapter not connected')+'</td></tr>' for key,label in APPS.items())+'</table><p><a href="/preferences">Configure personal phone applications</a></p>'
+        elif path in ('/network','/recordings'):
+            title = 'Network Management' if path=='/network' else 'Call Recordings'
+            content = '<p class="notice">Adapter not connected. No external data or recordings are available. See the integration roadmap for the next implementation stage.</p>'
+        else:
+            return send('404 Not Found',self.page('Page not found','Unknown page.',user))
+        if guest and path == '/directory':
+            content = content[:content.index('<h2>Add contact</h2>')]+'<p><a href="/login">Sign in to add or edit contacts and view your personal directory.</a></p>'
+        if guest and path == '/preferences':
+            content = '<p class="notice">Phone application preferences follow your user identity.</p><p><a href="/login">Sign in to edit your preferences.</a></p>'
+        return send('200 OK',self.page(title,content,user))
+
+    @staticmethod
+    def valid_link(url):
+        parsed = urlsplit(url)
+        return parsed.scheme in ('http','https') and bool(parsed.netloc) and not parsed.username and not parsed.password and not any(ord(c)<32 for c in url)
+
+    def page(self, title, content, user):
+        account = '<a href="/login">Sign in to edit</a>'
+        if user and user['role'] != 'guest':
+            account = E(user['username'])+' | '+E(user['role'])+'<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Sign out</button></form>'
+        links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
+        links.append(('/admin','Administration'))
+        links.append(('/self-care','Self Care'))
+        links.append(('/preferences','Phone Settings'))
+        content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
+        nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - VoiceServices</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="account">'+account+'</div><strong>VoiceServices</strong><small>Unified Communications Portal &nbsp; / &nbsp; Cisco 12.5</small></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">VoiceServices &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>VoiceServices &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'
