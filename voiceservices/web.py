@@ -303,7 +303,6 @@ class App:
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]
         if not self.modules.installed('downloads'): links=[item for item in links if item[0]!='/downloads']
-        if user and user['role']!='guest': links.append(('/account','My Account'))
         if user and user['role']=='admin':
             if self.modules.installed('esxi'): links.append(('/esxi','ESXi'))
             links.append(('/admin','Administration'))

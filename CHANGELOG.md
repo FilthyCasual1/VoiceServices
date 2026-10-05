@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.7 — 2026-10-05
+
+Remove the duplicate My Account main navigation tab; retain the profile-panel button.
+
+## 1.3.6 — 2026-10-05
+
+Split administration navigation into Administrator and System Operator trees with a shared overview.
+
 ## 1.3.5 — 2026-10-05
 
 Use OS-neutral overview and host update labels while showing the detected OS and connected update provider.

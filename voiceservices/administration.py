@@ -41,8 +41,14 @@ def render(app,path,user,data,method,services):
             content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
-    links=[('/admin','Overview'),('/admin/users','Users and passwords'),('/admin/notifications','Notifications'),('/admin/recovery','Account recovery'),('/admin/addons','Addons'),('/admin/branding','Look and Feel'),('/admin/home','Home page blocks')]
-    for section,module in OPTIONAL.items():
-        if app.modules.installed(module): links.append(('/admin/'+section,HEADINGS[section]))
-    sidebar='<aside class="admin-nav"><h3>Administration</h3>'+''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)+'</aside>'
+    administrator=[('/admin/users','Users and passwords'),('/admin/notifications','Notifications'),('/admin/recovery','Account recovery')]
+    operator=[('/admin/addons','Addons'),('/admin/branding','Look and Feel'),('/admin/home','Home page blocks')]
+    for submenu,module in OPTIONAL.items():
+        if app.modules.installed(module):
+            (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))
+    def navigation_link(url,label):
+        return '<a href="'+url+'"'+(' aria-current="page"' if path.rstrip('/')==url else '')+'>'+E(label)+'</a>'
+    def tree(label,links):
+        return '<details class="admin-tree" open><summary>'+label+'</summary><div>'+''.join(navigation_link(url,label) for url,label in links)+'</div></details>'
+    sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview')+tree('Administrator',administrator)+tree('System Operator',operator)+'</aside>'
     return '<div class="admin-layout">'+sidebar+'<div class="admin-content">'+content+'</div></div>'
