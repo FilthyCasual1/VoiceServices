@@ -3,7 +3,7 @@
 /* HP-era appliance influence: segmented masthead and compact raised controls.
    Replace the masthead-image background with the operator-supplied photo. */
 header{display:grid;grid-template-columns:310px 1fr 260px;min-height:78px;padding:0;border-top:4px solid #283942;border-bottom:4px solid #fff;background:#d9e2e6;color:#fff}
-.brand{padding:14px 22px;background:linear-gradient(105deg,#244b60,#366477);border-right:4px solid #fff}
+.brand{padding:14px 22px;background:linear-gradient(105deg,#244b60,#366477);border-right:0}
 header strong{font-size:23px;font-weight:normal}header small{font-size:10px;margin-top:4px}
 .masthead-image{min-height:74px;background:linear-gradient(115deg,#dce5e8,#9ab0bc 55%,#648390);border-right:4px solid #fff}
 .account{float:none;max-width:none;text-align:right;padding:12px 18px;background:#31586b;font-size:11px;line-height:1.7}.account small{margin:0 0 6px;color:#e5eef3}
