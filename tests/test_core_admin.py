@@ -127,3 +127,18 @@ class CoreAdminTests(unittest.TestCase):
         self.assertNotIn('class="masthead-image"',self.request()['body'])
         data['masthead_layout']='invalid'
         self.assertEqual(self.request('/admin/branding','POST',data,token)['status'],'400 Bad Request')
+
+    def test_navigation_and_login_errors_use_portal_shell(self):
+        import io
+        response={}
+        def start(status,headers): response.update(status=status)
+        body=b''.join(self.app({'PATH_INFO':'/login','REQUEST_METHOD':'POST','CONTENT_LENGTH':'0','wsgi.input':io.BytesIO(b'')},start)).decode()
+        self.assertEqual(response['status'],'403 Forbidden')
+        for phrase in ('/static/style.css','Reload the sign-in form','Return home','Sign in again'): self.assertIn(phrase,body)
+        token,_=self.user('admin')
+        missing=self.request('/unknown-page',token=token)
+        self.assertEqual(missing['status'],'404 Not Found')
+        self.assertIn('Return home',missing['body'])
+        method=self.request('/','DELETE')
+        self.assertEqual(method['status'],'405 Method Not Allowed')
+        self.assertIn('/static/style.css',method['body'])

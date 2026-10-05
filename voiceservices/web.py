@@ -40,6 +40,9 @@ class App:
 
     def __call__(self, env, start_response):
         def send(status, body, mime='text/html; charset=utf-8', extra=()):
+            if mime.startswith('text/html') and status[0] in '45' and isinstance(body,str) and not body.lstrip().lower().startswith('<!doctype'):
+                title={'400':'Check your request','403':'Access denied','404':'Page not found','405':'Action unavailable','429':'Please wait'}.get(status[:3],'Unable to complete your request')
+                body=self.page(title,'<p class="notice error">'+E(body)+'</p><p><a href="/">Return home</a> &nbsp; | &nbsp; <a href="/login">Sign in again</a></p>',None)
             if isinstance(body, str): body = body.encode()
             headers = [('Content-Type',mime),('Content-Length',str(len(body))),('Cache-Control','no-store'),
                        ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
@@ -51,7 +54,7 @@ class App:
         path = env.get('PATH_INFO','/')
         method = env.get('REQUEST_METHOD','GET')
         missing=self.modules.unavailable_for(path)
-        if missing: return send('404 Not Found',self.page('Module unavailable','<p>This module is not installed.</p>',None))
+        if missing: return send('404 Not Found',self.page('Service unavailable','<p class="notice error">This service is not installed.</p><p><a href="/">Return home</a></p>',None))
         if path.startswith('/files/downloads/') or path.startswith('/pxe/files/'):
             if method not in ('GET','HEAD'): return send('405 Method Not Allowed','GET or HEAD required.')
             library=self.downloads if path.startswith('/files/downloads/') else self.boot_files
@@ -217,7 +220,7 @@ class App:
             title = 'Welcome to '+branding.defaults(self)['title']
             content = branding.home(self)
         else:
-            return send('404 Not Found',self.page('Page not found','Unknown page.',user))
+            return send('404 Not Found',self.page('Page not found','<p class="notice error">The page you requested could not be found. It may have moved or its service may have been removed.</p><p><a href="/">Return home</a></p>',user))
         return send('200 OK',self.page(title,content,user))
 
     @property

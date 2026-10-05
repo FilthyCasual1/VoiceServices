@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6 — 2026-10-05
+
+Styled login and navigation errors with clear recovery links in the portal shell.
+
 ## 1.0.5 — 2026-10-05
 
 Keep a thin white divider at the right edge of the wide masthead image.
