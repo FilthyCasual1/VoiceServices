@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.7 — 2026-10-05
+
+Place the wide masthead white divider at the actual photo edge, including when the photo ends before the account panel.
+
 ## 1.0.6 — 2026-10-05
 
 Styled login and navigation errors with clear recovery links in the portal shell.
