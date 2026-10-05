@@ -75,3 +75,11 @@ Try `plugins/site-information/plugin.json`. Uploaded packages currently support
 Python or fetch arbitrary URLs. Calculator ships as a trusted renderer. Dynamic
 RSS, weather, flight, and network integrations need additional trusted provider
 renderers; installing a text manifest does not implement those providers.
+
+### Versions
+
+The footer and package metadata share `voiceservices/version.py` as their version
+source. Every subsequent change increments the release version and gets a short
+entry in `CHANGELOG.md`. Use `python3 tools/bump_version.py patch "Description"`
+for fixes and small edits; use `minor` for new features and `major` for breaking
+changes. Current release: 0.2.0.

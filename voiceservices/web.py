@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from . import phone
 from .core import Store, calculate
 from .plugins import Plugins
+from .version import __version__
 
 E = lambda value: html.escape(str(value), quote=True)
 APPS = {'calculator':'Calculator', 'rss':'RSS Reader', 'weather':'Weather', 'flights':'Flight Tracker',
@@ -295,4 +296,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home'), ('/downloads', 'Downloads')]
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Initial development build</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Version '+E(__version__)+'</footer></body></html>'
