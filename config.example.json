@@ -17,7 +17,18 @@
     "openwrt": ""
   },
   "downloads": {
-    "jabber": {"version": "", "url": ""},
-    "ip_communicator": {"version": "", "url": ""}
+    "jabber": {
+      "version": "",
+      "url": ""
+    },
+    "ip_communicator": {
+      "version": "",
+      "url": ""
+    }
+  },
+  "self_provisioning": {
+    "ivr_number": "",
+    "network": "",
+    "users": {}
   }
 }

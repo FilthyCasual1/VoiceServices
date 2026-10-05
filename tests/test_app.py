@@ -115,6 +115,18 @@ class PortalTests(unittest.TestCase):
         self.assertNotIn('href="/apps/',self.request('/applications',token=token)['body'])
         self.assertEqual(self.request('/unknown',token=token)['status'],'404 Not Found')
 
+    def test_native_self_provisioning_details_are_private(self):
+        self.app.config['self_provisioning'] = {'ivr_number': '5000', 'users': {'alice': {'user_id': 'alice-cucm', 'self_service_id': '201', 'extension': '201'}}}
+        public = self.request('/register-phone')
+        self.assertEqual(public['status'], '200 OK')
+        self.assertIn('5000', public['body'])
+        self.assertNotIn('alice-cucm', public['body'])
+        token, _ = self.user('alice')
+        self.assertIn('alice-cucm', self.request('/register-phone', token=token)['body'])
+        other, _ = self.user('bob')
+        self.assertNotIn('alice-cucm', self.request('/register-phone', token=other)['body'])
+        self.assertNotIn('Submit registration', public['body'])
+
     def test_expiry_and_rebinding_device(self):
         _,alice=self.user('alice')
         _,bob=self.user('bob')

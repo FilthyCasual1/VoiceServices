@@ -148,6 +148,7 @@ class App:
             title = 'Welcome to VoiceServices'
         elif path in ('/admin','/self-care'):
             title = 'Administration' if path=='/admin' else 'Self Care'
+
             rows = ''
             for key,label,role in SERVICES:
                 if (path=='/self-care' and role!='user') or (path=='/admin' and role!='admin'): continue
@@ -155,6 +156,8 @@ class App:
                 target = '<a href="'+E(url)+'" target="_blank" rel="noopener noreferrer">Open</a>' if self.valid_link(url) else '<span class="muted">Not configured</span>'
                 rows += '<tr><td>'+E(label)+'</td><td>'+target+'</td></tr>'
             content = '<p class="notice">Native applications use their own authentication. Portal access does not grant native application privileges.</p><table><tr><th>Application</th><th>Access</th></tr>'+rows+'</table>'
+            if path == '/self-care':
+                content += '<h2>Line keys and speed dials</h2><div class="panel">Use CUCM Self Care above to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension/line assignments and button-template changes require managed CUCM configuration; the custom editor is not connected yet. Roaming settings must target your Extension Mobility device profile where applicable.</div>'
         elif path == '/directory':
             title = 'Directory'
             rows = ''.join('<tr><td>'+E(c['name'])+'</td><td>'+E(c['number'])+'</td><td>'+('Shared' if c['owner'] is None else 'Personal')+'</td></tr>' for c in self.store.contacts(user['id'],data.get('q','')))
@@ -166,6 +169,20 @@ class App:
             fields = ''.join('<label>'+label+'</label><input name="'+key+'" maxlength="200" value="'+E(prefs.get(key,''))+'">' for key,label in [('weather_location','Weather location'),('rss_url','RSS feed URL'),('flight','Tracked flight')])
             options = ''.join('<option value="'+v+'"'+(' selected' if prefs.get('widget','network')==v else '')+'>'+label+'</option>' for v,label in [('network','Network status'),('weather','Weather'),('off','Disabled')])
             content = '<p class="notice">Preferences belong to your user account and follow application terminal bindings. External providers are not connected.</p><div class="panel"><form method="post">'+csrf+fields+'<label>Status widget</label><select name="widget">'+options+'</select><br><button>Save preferences</button></form></div>'
+        elif path == '/register-phone':
+            title = 'Set up a phone'
+            settings = self.config.get('self_provisioning', {})
+            rows = [('TFTP server', self.config.get('tftp_host') or 'Not configured'),
+                    ('Self-provisioning IVR number', settings.get('ivr_number') or 'Not configured'),
+                    ('Phone network / VLAN', settings.get('network') or 'Ask your administrator')]
+            content = '<p class="notice">CUCM performs registration using its universal device and line templates. This portal supplies setup details; it does not create a separate registration request.</p><h2>Connection details</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
+            content += '<h2>Register your phone</h2><div class="panel"><ol><li>Connect the phone to the designated phone network.</li><li>Obtain the configured TFTP server through DHCP, or enter the server above if your deployment requires manual setup.</li><li>Wait for CUCM auto-registration and a temporary extension.</li><li>Use the native self-provisioning screen if configured for this handset, or dial the self-provisioning IVR number above.</li><li>Provide the CUCM identification and authentication details requested by the native workflow. CUCM applies the assigned templates and extension.</li></ol></div>'
+            if guest:
+                content += '<p><a href="/login">Sign in to view your personal CUCM setup details.</a></p>'
+            else:
+                identity = settings.get('users', {}).get(user['username'], {})
+                content += '<h2>Your CUCM identity</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in [('CUCM user ID', identity.get('user_id') or 'Not linked'), ('Self-service user ID', identity.get('self_service_id') or 'Not linked'), ('Primary extension', identity.get('extension') or 'Not linked')])+'</table><p class="muted">These details are administrator-configured mappings, not live CUCM verification. Enter your PIN only in the native Cisco workflow. The portal does not store or display it.</p>'
+            content += '<p class="muted">CUCM must have auto-registration, templates, an eligible user profile, and the relevant self-provisioning services configured. Native phone login support must be checked for each 79xx model. Self-provisioning assigns a phone; Extension Mobility handles later roaming logins.</p>'
         elif path == '/my-phone':
             title = 'My phone'
             content = note+'<p class="notice">Manual application binding only. This does not configure CUCM, verify handset ownership, or perform native Extension Mobility. Anyone possessing the generated URL can read this application directory; protect it like a password. Native EM synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
@@ -201,9 +218,9 @@ class App:
         account = '<a href="/login">Sign in to edit</a>'
         if user and user['role'] != 'guest':
             account = E(user['username'])+' | '+E(user['role'])+'<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Sign out</button></form>'
-        links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
+        links = [('/','Home'),('/my-phone','My Phone'),('/register-phone','Set Up Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         links.append(('/admin','Administration'))
-        links.append(('/self-care','Self Care'))
+        links.append(('/self-care','Phone Customization'))
         links.append(('/preferences','Phone Settings'))
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)

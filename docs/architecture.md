@@ -61,3 +61,7 @@ Store call ID, owner, participants, timestamps, capture state, file references, 
 6. **Media:** actual recording backend, recording catalog, browser and phone playback.
 
 Only stage 1 is completed. No real Cisco, OpenWrt, WAN, upstream-provider, or recording integration has been validated.
+
+## User-editable line keys
+
+Portal Phone Customization links to native CUCM Self Care for available speed-dial and label settings. It does not claim that all line appearances are editable in Self Care. A future custom key editor must identify the user's owned phone or active EM profile, retrieve the assigned phone button template, and expose only policy-permitted slots and actions. Phone capability and shared-line impact must be validated. Restrict speed-dial changes separately from extension assignments, BLF configuration, and template changes. Apply edits to the roaming profile when appropriate, verify native state, and explain any phone reset needed. No live custom line-key writes are implemented.
