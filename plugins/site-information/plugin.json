@@ -1,0 +1,9 @@
+{
+  "id": "site-information",
+  "name": "Site Information",
+  "version": "1.0",
+  "kind": "text",
+  "description": "A separately installed phone screen with site contact details.",
+  "fields": {"site": "Site name", "helpdesk": "Help desk number", "message": "Notice"},
+  "text": "{site}\nHelp desk: {helpdesk}\n{message}"
+}

@@ -62,3 +62,16 @@ Tests exercise contact isolation, server-side roles, session and binding expiry,
 **Set Up Phone** supplies TFTP/network details, the self-provisioning IVR number, and instructions for CUCM auto-registration and its universal templates. It creates no local registration queue or device object. Configure `self_provisioning.ivr_number`, `network`, and explicit `users` mappings in the private config. A mapping is keyed by local portal username and contains `user_id`, `self_service_id`, and `extension`. Only that signed-in user sees their own mapping. These are operator-provided details, not live CUCM reads. Never add PINs or passwords to this section.
 
 CUCM must separately enable auto-registration and self-provisioning, assign universal device/line templates and eligible user profiles, and configure the native IVR or supported phone screen. Native URL workflow support requires testing on the selected 79xx models. Self-provisioning and Extension Mobility are distinct operations.
+
+### Phone plugins
+Applications is an installed-plugin manager. Administrators paste a separate JSON
+package to install it, edit its configuration, disable it, or remove it. Browsing
+stays public; changes require administrator login and a form token. Enabled
+packages appear in the telephone Services menu. No utilities run in the portal.
+
+Try `plugins/site-information/plugin.json`. Uploaded packages currently support
+`kind: text`, with up to twelve named `fields` and `{field}` substitutions in
+`text`. Screens are XML escaped. Packages persist in SQLite and cannot execute
+Python or fetch arbitrary URLs. Calculator ships as a trusted renderer. Dynamic
+RSS, weather, flight, and network integrations need additional trusted provider
+renderers; installing a text manifest does not implement those providers.

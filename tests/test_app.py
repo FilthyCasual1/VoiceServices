@@ -1,3 +1,4 @@
+from pathlib import Path
 import io
 import json
 import tempfile
@@ -150,6 +151,16 @@ class PortalTests(unittest.TestCase):
         self.assertIsNone(self.app.store.phone_user(old))
         with self.app.store.connect() as db: db.execute('UPDATE phones SET expires=0')
         self.assertIsNone(self.app.store.phone_user(new))
+
+    def test_plugin_management_requires_admin_and_csrf(self):
+        package = Path('plugins/site-information/plugin.json').read_text()
+        token,user = self.user('alice')
+        self.assertEqual(self.request('/applications','POST',{'csrf':user['csrf'],'action':'install','manifest':package},token)['status'],'403 Forbidden')
+        token,user = self.user('admin')
+        self.assertEqual(self.request('/applications','POST',{'action':'install','manifest':package},token)['status'],'403 Forbidden')
+        self.assertEqual(self.request('/applications','POST',{'csrf':user['csrf'],'action':'install','manifest':package},token)['status'],'303 See Other')
+        self.assertIn('Site Information',self.request('/applications')['body'])
+        self.assertNotIn('name="manifest"',self.request('/applications')['body'])
 
 
 if __name__=='__main__': unittest.main()

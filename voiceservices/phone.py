@@ -19,13 +19,16 @@ def text(title, message):
     return xml(root)
 
 
-def menu(base, token):
+def menu(base, token, plugins=None):
     root = Element('CiscoIPPhoneMenu')
     field(root, 'Title', 'VoiceServices')
     field(root, 'Prompt', 'Select an application')
-    for label, route in [('Directory','directory'), ('Calculator','calculator'), ('Weather','weather'),
-                         ('RSS feeds','rss'), ('Flight tracker','flights'), ('Recordings','recordings'),
-                         ('Network status','network'), ('Save current number','current-number')]:
+    entries = [('Directory','directory'), ('Recordings','recordings'), ('Network status','network'), ('Save current number','current-number')]
+    if plugins is None:
+        entries.insert(1, ('Calculator','calculator'))
+    else:
+        entries[1:1] = [(p['package']['name'],'plugin/'+p['id']) for p in plugins if p['enabled']]
+    for label, route in entries:
         item = SubElement(root, 'MenuItem')
         field(item, 'Name', label)
         field(item, 'URL', base+'/phone/'+route+'?'+urlencode({'token':token}))

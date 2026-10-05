@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 from . import phone
 from .core import Store, calculate
+from .plugins import Plugins
 
 E = lambda value: html.escape(str(value), quote=True)
 APPS = {'calculator':'Calculator', 'rss':'RSS Reader', 'weather':'Weather', 'flights':'Flight Tracker',
@@ -31,6 +32,7 @@ class App:
     def __init__(self, config):
         self.config = config
         self.store = Store(config.get('database','data/voiceservices.sqlite3'))
+        self.plugins = Plugins(self.store)
         self.base = config.get('public_url','http://127.0.0.1:8080').rstrip('/')
         parsed = urlsplit(self.base)
         if parsed.scheme not in ('http','https') or not parsed.netloc or parsed.query or parsed.fragment:
@@ -61,7 +63,7 @@ class App:
             size = int(env.get('CONTENT_LENGTH') or 0)
         except ValueError:
             return send('400 Bad Request','Invalid request length.')
-        if size < 0 or size > 16384:
+        if size < 0 or size > 65536:
             return send('413 Content Too Large','Request too large.')
         try:
             raw = env['wsgi.input'].read(size).decode() if method == 'POST' else env.get('QUERY_STRING','')
@@ -75,7 +77,10 @@ class App:
             if not user:
                 return send('403 Forbidden',phone.text('Sign in required','Bind this terminal from My Phone. Native Extension Mobility synchronization is not connected.'),'text/xml; charset=utf-8')
             route = path.removeprefix('/phone/')
-            if route == 'services': content = phone.menu(self.base,token)
+            if route == 'services': content = phone.menu(self.base,token, self.plugins.list())
+            elif route.startswith('plugin/'):
+                content = self.plugins.render(route[7:],self.base,token)
+                if content is None: return send('404 Not Found',phone.text('Not found','Plugin unavailable.'),'text/xml; charset=utf-8')
             elif route == 'directory': content = phone.directory(self.store.contacts(user['id'],data.get('q',''))[:32])
             elif route == 'calculator': content = phone.calculator(self.base,token)
             elif route == 'calculate':
@@ -123,6 +128,11 @@ class App:
             return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
         note = ''
         try:
+            if path == '/applications' and method == 'POST':
+                if user['role'] != 'admin': raise PermissionError('Administrator access required to manage plugins.')
+                if data.get('action') == 'install': self.plugins.install(data.get('manifest',''))
+                else: self.plugins.change(data.get('plugin',''),data)
+                return send('303 See Other','',extra=[('Location','/applications')])
             if path == '/directory' and method == 'POST':
                 self.store.add_contact(user,data.get('name',''),data.get('number',''),data.get('scope')=='shared')
                 return send('303 See Other','',extra=[('Location','/directory')])
@@ -200,7 +210,20 @@ class App:
             content = '<p class="notice">Installers are supplied by the operator. Client versions require validation against CUCM / IM&amp;P 12.5 and the desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Jabber service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
         elif path == '/applications':
             title = 'Applications'
-            content = '<p class="notice">These applications run on Cisco phones through the Services button. This portal manages their settings.</p><table><tr><th>Phone application</th><th>Status</th></tr>'+''.join('<tr><td>'+label+'</td><td>'+('Working locally' if key=='calculator' else 'Adapter not connected')+'</td></tr>' for key,label in APPS.items())+'</table><p><a href="/my-phone#settings">Configure personal phone applications</a></p>'
+            content = '<p class="notice">Install separate phone plugins and configure their settings here. Applications appear on the telephone Services menu; they run on the phone display.</p><h2>Installed plugins</h2><table><tr><th>Application / package</th><th>Version</th><th>Status</th><th>Description</th></tr>'
+            for item in self.plugins.list():
+                package = item['package']
+                content += '<tr><td><a href="#plugin-'+E(item['id'])+'">'+E(package['name'])+'</a><br><small>'+E(item['id'])+'</small></td><td>'+E(package['version'])+'</td><td>'+('Enabled' if item['enabled'] else 'Disabled')+'</td><td>'+E(package.get('description',''))+'</td></tr>'
+            content += '</table>'
+            if user['role'] == 'admin':
+                for item in self.plugins.list():
+                    package = item['package']
+                    fields = ''.join('<label>'+E(label)+'</label><input name="config_'+E(key)+'" maxlength="500" value="'+E(item['config'].get(key,''))+'">' for key,label in package.get('fields',{}).items())
+                    content += '<h2 id="plugin-'+E(item['id'])+'">'+E(package['name'])+' — Configuration</h2><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="plugin" value="'+E(item['id'])+'">'+fields+'<label>Services menu</label><select name="enabled"><option value="yes"'+(' selected' if item['enabled'] else '')+'>Enabled</option><option value="no"'+(' selected' if not item['enabled'] else '')+'>Disabled</option></select><br><button name="action" value="save">Save settings</button><button name="action" value="remove">Remove plugin</button></form></div>'
+                content += '<h2>Install a plugin</h2><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="action" value="install"><label for="manifest">Plugin package (.json contents)</label><textarea id="manifest" name="manifest" rows="12" required spellcheck="false" placeholder="Paste a VoiceServices plugin manifest"></textarea><br><button>Install plugin</button></form><p class="muted">Declarative text plugins support configurable phone screens. Packages cannot execute server code. Provider adapters for RSS, weather and flights are still pending.</p></div>'
+            else:
+                content += '<p><a href="/login">Sign in with an administrator account to install and configure plugins.</a></p>'
+            content += '<p><a href="/my-phone#settings">Personal phone preferences</a></p>'
         elif path in ('/network','/recordings'):
             title = 'Network Management' if path=='/network' else 'Call Recordings'
             content = '<p class="notice">Adapter not connected. No external data or recordings are available. See the integration roadmap for the next implementation stage.</p>'
