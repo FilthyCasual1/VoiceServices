@@ -28,23 +28,21 @@ def render(app):
             statuses={r['id']:(r['status'] if r['at']>now-10 else 'Worker heartbeat stale / unavailable') for r in db.execute('SELECT * FROM addon_status')}
         rows=[]
         for key,(title,_) in CATALOG.items():
-            if not app.modules.installed(key):
-                status='Package absent' if not (app.modules.root/key).exists() else 'Package incompatible or checksum invalid'
-            else:
-                status='Installed '+app.modules.approved[key]['version']
-                if key=='downloads': status+='; '+str(count('downloads_files'))+' hosted files; '+str(count('downloads_catalog'))+' catalog links'
-                elif key=='pxe':
-                    status+='; '+str(count('pxe_profiles'))+' profiles; '+str(count('pxe_files'))+' assets'
-                    setting=app.pxe.settings()
-                    status+='; '+(statuses.get('pxe','Enabled; worker not verified') if setting['enabled'] else 'Network boot disabled')
-                elif key=='ftp-updates':
-                    setting=app.updates.settings()
-                    status+='; '+str(count('updates_files'))+' files; '+(statuses.get('ftp-updates','Enabled; worker not verified') if setting and setting.get('enabled') else 'FTP disabled')
-                elif key=='voice': status+='; '+str(count('phones',' WHERE expires>'+str(int(now))))+' active application bindings; native phone status unavailable'
-                elif key=='esxi':
-                    raw=db.execute("SELECT value FROM portal_settings WHERE key='esxi'").fetchone()
-                    host=json.loads(raw[0]).get('host','') if raw else ''
-                    status+='; '+(host+' configured; connection unverified' if host else 'Host not configured')
-                elif key=='server-management': status+='; '+str(sum(bool(v) for v in app.config.get('services',{}).values()))+' configured service links; remote health unverified'
+            if not app.modules.installed(key): continue
+            status='Installed '+app.modules.approved[key]['version']
+            if key=='downloads': status+='; '+str(count('downloads_files'))+' hosted files; '+str(count('downloads_catalog'))+' catalog links'
+            elif key=='pxe':
+                status+='; '+str(count('pxe_profiles'))+' profiles; '+str(count('pxe_files'))+' assets'
+                setting=app.pxe.settings()
+                status+='; '+(statuses.get('pxe','Enabled; worker not verified') if setting['enabled'] else 'Network boot disabled')
+            elif key=='ftp-updates':
+                setting=app.updates.settings()
+                status+='; '+str(count('updates_files'))+' files; '+(statuses.get('ftp-updates','Enabled; worker not verified') if setting and setting.get('enabled') else 'FTP disabled')
+            elif key=='voice': status+='; '+str(count('phones',' WHERE expires>'+str(int(now))))+' active application bindings; native phone status unavailable'
+            elif key=='esxi':
+                raw=db.execute("SELECT value FROM portal_settings WHERE key='esxi'").fetchone()
+                host=json.loads(raw[0]).get('host','') if raw else ''
+                status+='; '+(host+' configured; connection unverified' if host else 'Host not configured')
+            elif key=='server-management': status+='; '+str(sum(bool(v) for v in app.config.get('services',{}).values()))+' configured service links; remote health unverified'
             rows.append((title,status))
-    return '<p>Local measurements describe the portal host. External systems have their own status; a configured address does not confirm availability.</p><h2>Portal and host</h2>'+table(resources)+'<h2>All addons</h2>'+table(rows)
+    return '<p>Local measurements describe the portal host. External systems have their own status; a configured address does not confirm availability.</p><h2>Portal and host</h2>'+table(resources)+'<h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')

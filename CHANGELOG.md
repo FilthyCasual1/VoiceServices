@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 — 2026-10-05
+
+Administration overview lists only installed addons and shows an empty state when none are installed.
+
 ## 1.0.1 — 2026-10-05
 
 Show only uploaded addon packages in Administration; uninstall removes the addon listing.

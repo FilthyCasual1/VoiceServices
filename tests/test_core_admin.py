@@ -43,7 +43,7 @@ class CoreAdminTests(unittest.TestCase):
         self.request('/account','POST',{'csrf':user['csrf'],'action':'profile','display_name':'Alice <Example>'},token)
         self.assertIn('Hello, Alice &lt;Example&gt;.',self.request(token=token)['body'])
         token,_=self.user('admin');body=self.request('/admin',token=token)['body']
-        for item in ('Accounts','Host memory','Active portal sessions','ESXi Management','PXE and Image Deployment','Data disk','All addons'): self.assertIn(item,body)
+        for item in ('Accounts','Host memory','Active portal sessions','Downloads','Voice Services','Data disk','Installed addons'): self.assertIn(item,body)
         self.assertNotIn('Open application',body)
     def test_broker_delete_is_enrolled_only(self):
         import test_account_broker
@@ -84,3 +84,16 @@ class CoreAdminTests(unittest.TestCase):
         self.request('/admin/branding','POST',{'csrf':user['csrf'],'title':'Example Network','subtitle':'My services'},token)
         body=self.request()['body'];self.assertIn('<strong>Example Network</strong>',body)
         self.assertIn('<footer>Example Network | Powered By CasualNetworks ServiceReady',body)
+
+    def test_overview_hides_uninstalled_addons(self):
+        token,_=self.user('admin')
+        for key in self.app.modules.approved: self.app.modules.change(key,False)
+        body=self.request('/admin',token=token)['body']
+        self.assertIn('No addons installed.',body)
+        self.assertNotIn('Package absent',body)
+        self.assertNotIn('<td>Voice Services</td>',body)
+        from addon_support import install
+        install(self.app,'downloads')
+        body=self.request('/admin',token=token)['body']
+        self.assertIn('<td>Downloads</td>',body)
+        self.assertNotIn('<td>ESXi Management</td>',body)
