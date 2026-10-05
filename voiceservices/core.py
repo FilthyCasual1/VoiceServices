@@ -11,7 +11,8 @@ from pathlib import Path
 
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path, accounts=None):
+        self.accounts = accounts
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.path = str(path)
         with self.connect() as db:
@@ -41,6 +42,12 @@ class Store:
     def create_user(self, username, password, role='user'):
         if not username or len(username) > 64 or len(password) < 12 or role not in ('user', 'admin'):
             raise ValueError('Username required; password must contain at least 12 characters.')
+        if self.accounts:
+            with self.connect() as db:
+                if db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone(): raise sqlite3.IntegrityError('Username already exists')
+            self.accounts.call('create',username,password)
+            with self.connect() as db: db.execute("INSERT INTO users(username,password,role) VALUES(?,'system',?)",(username,role))
+            return
         salt = secrets.token_hex(16)
         digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 310000).hex()
         with self.connect() as db:
@@ -50,13 +57,34 @@ class Store:
     def login(self, username, password):
         with self.connect() as db:
             user = db.execute('SELECT * FROM users WHERE username=?', (username,)).fetchone()
-            salt, expected = user['password'].split(':') if user else ('0'*32, '0'*64)
+            if self.accounts:
+                try: self.accounts.call('authenticate',username,password)
+                except ValueError: return None
+                if not user:
+                    db.execute("INSERT INTO users(username,password,role) VALUES(?,'system','user')",(username,))
+                    user = db.execute('SELECT * FROM users WHERE username=?',(username,)).fetchone()
+            salt, expected = user['password'].split(':') if user and not self.accounts else ('0'*32, '0'*64)
             actual = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 310000).hex()
-            if not hmac.compare_digest(actual, expected) or not user:
+            if (not self.accounts and not hmac.compare_digest(actual, expected)) or not user:
                 return None
             token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(24)
             db.execute('INSERT INTO sessions VALUES(?,?,?,?)', (token, user['id'], csrf, int(time.time())+28800))
             return token
+
+    def change_password(self, user, current, new):
+        if len(new)<12 or len(new)>1024: raise ValueError('Use a password of 12–1024 characters.')
+        if self.accounts:
+            self.accounts.call('change',user['username'],current,new)
+        else:
+            proof=self.login(user['username'],current)
+            if not proof: raise ValueError('Current password is incorrect.')
+            self.logout(proof)
+            salt=secrets.token_hex(16)
+            digest=hashlib.pbkdf2_hmac('sha256',new.encode(),salt.encode(),310000).hex()
+            with self.connect() as db: db.execute('UPDATE users SET password=? WHERE id=?',(salt+':'+digest,user['id']))
+        with self.connect() as db:
+            db.execute('DELETE FROM sessions WHERE user_id=?',(user['id'],))
+            db.execute('DELETE FROM phones WHERE user_id=?',(user['id'],))
 
     def session(self, token):
         with self.connect() as db:

@@ -12,6 +12,10 @@ from . import phone
 from .core import Store, calculate
 from .plugins import Plugins
 from .version import __version__
+from .accounts import LinuxAccounts
+from .updates import Updates
+from .modules import Modules
+from . import administration
 
 E = lambda value: html.escape(str(value), quote=True)
 APPS = {'calculator':'Calculator', 'rss':'RSS Reader', 'weather':'Weather', 'flights':'Flight Tracker',
@@ -33,7 +37,11 @@ SERVICES = [
 class App:
     def __init__(self, config):
         self.config = config
-        self.store = Store(config.get('database','data/voiceservices.sqlite3'))
+        accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend')=='alpine' else None
+        self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
+        self.updates = Updates(self.store,config)
+        self.modules = Modules(self.store)
+        with self.store.connect() as db: db.execute('CREATE TABLE IF NOT EXISTS portal_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
         self.plugins = Plugins(self.store)
         self.base = config.get('public_url','http://127.0.0.1:8080').rstrip('/')
         parsed = urlsplit(self.base)
@@ -50,8 +58,12 @@ class App:
                        ('Content-Security-Policy',"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
             start_response(status, headers+list(extra))
             return [body]
+        with self.store.connect() as db:
+            for row in db.execute('SELECT key,value FROM portal_settings'): self.config[row['key']]=json.loads(row['value'])
         path = env.get('PATH_INFO','/')
         method = env.get('REQUEST_METHOD','GET')
+        missing=self.modules.unavailable_for(path)
+        if missing: return send('404 Not Found',self.page('Module unavailable','<p>This module is not installed.</p>',None))
         aliases = {'/register-phone':'setup', '/self-care':'customization', '/preferences':'settings'}
         if method == 'GET' and path in aliases and not env.get('voiceservices.section'):
             return send('303 See Other','',extra=[('Location','/my-phone#'+aliases[path])])
@@ -65,6 +77,17 @@ class App:
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
+        if path == '/admin/updates/upload':
+            cookie=SimpleCookie()
+            try: cookie.load(env.get('HTTP_COOKIE',''))
+            except Exception: pass
+            user=self.store.session(cookie['vs_session'].value if 'vs_session' in cookie else '')
+            if not user: return send('303 See Other','',extra=[('Location','/login')])
+            if method!='POST': return send('405 Method Not Allowed','POST required.')
+            try: self.updates.upload(env,user)
+            except PermissionError as exc: return send('403 Forbidden',self.page('Access denied',E(exc),user))
+            except (ValueError,OSError) as exc: return send('400 Bad Request',self.page('Upload failed',E(exc),user))
+            return send('303 See Other','',extra=[('Location','/admin/updates')])
         try:
             size = int(env.get('CONTENT_LENGTH') or 0)
         except ValueError:
@@ -123,7 +146,7 @@ class App:
                     self.store.create_user(username,data.get('password',''),'user')
                     session = self.store.login(username,data['password'])
                     suffix = '; Secure' if self.secure else ''
-                    return send('303 See Other','',extra=[('Location','/my-phone'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
+                    return send('303 See Other','',extra=[('Location','/my-phone' if self.modules.installed('voice') else '/'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
                 except (ValueError,sqlite3.IntegrityError) as exc:
                     message = 'That username is already in use.' if isinstance(exc,sqlite3.IntegrityError) else str(exc)
                     error = '<p class="notice error">'+E(message)+'</p>'
@@ -163,6 +186,19 @@ class App:
         if path == '/logout' and method == 'POST':
             self.store.logout(token)
             return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+        if path == '/account':
+            if method=='POST':
+                try:
+                    if data.get('new_password')!=data.get('confirm_password'): raise ValueError('Passwords do not match.')
+                    self.store.change_password(user,data.get('current_password',''),data.get('new_password',''))
+                except ValueError as exc: return send('400 Bad Request',self.page('Change password','<p class="notice error">'+E(exc)+'</p>'+administration.password_form(user),user))
+                return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
+            return send('200 OK',self.page('Change password',administration.password_form(user),user))
+        if path=='/admin' or path.startswith('/admin/'):
+            try: content=administration.render(self,path,user,data,method,[item for item in SERVICES if self.modules.installed('voice') or item[0]=='openwrt'])
+            except PermissionError as exc: return send('403 Forbidden',self.page('Access denied',E(exc),user))
+            except ValueError as exc: return send('400 Bad Request',self.page('Check your input',E(exc),user))
+            return send('200 OK',self.page('Administration',content,user))
         note = ''
         try:
             if path == '/applications' and method == 'POST':
@@ -195,21 +231,13 @@ class App:
         if path == '/':
             title = 'Welcome to ServiceReady'
             content = '<p class="notice">Your starting point for setting up a phone and accessing your communications account.</p><h2>1. Get an account</h2><div class="panel"><p>New here? <a href="/create-account">Create a ServiceReady account</a> to get started. Contact your administrator to arrange your phone identity and extension.</p><p>Keep your username and password ready. Your phone PIN is entered only in the native phone setup or login workflow.</p></div><h2>2. Sign in</h2><div class="panel"><p>Already have an account? <a href="/login">Sign in to ServiceReady</a> to access My Phone, your directory, and phone application preferences.</p></div><h2>3. Set up your phone</h2><div class="panel"><ol><li>Connect your handset to the designated phone network and power it on.</li><li>Allow it to obtain its network and TFTP settings. Ask your administrator if manual settings are required.</li><li>Sign in here and open <a href="/my-phone">My Phone</a> for your connection details and the phone system self-provisioning instructions.</li><li>Complete the native phone setup workflow, then use My Phone to customize supported line keys and application settings.</li></ol></div><h2>Desktop clients</h2><div class="panel"><p>Visit the <a href="/downloads">Download Center</a> for available desktop client installers and setup information.</p></div>'
-        elif path in ('/admin','/self-care'):
-            title = 'Administration' if path=='/admin' else 'Self Care'
-
-            rows = ''
-            for key,label,role in SERVICES:
-                if (path=='/self-care' and role!='user') or (path=='/admin' and role!='admin'): continue
-                url = self.config.get('services',{}).get(key,'')
-                target = '<a href="'+E(url)+'" target="_blank" rel="noopener noreferrer">Open</a>' if self.valid_link(url) else '<span class="muted">Not configured</span>'
-                rows += '<tr><td>'+E(label)+'</td><td>'+target+'</td></tr>'
-            content = '<p class="notice">Native applications use their own authentication. Portal access does not grant native application privileges.</p><table><tr><th>Application</th><th>Access</th></tr>'+rows+'</table>'
-            if path == '/admin':
-                status_rows = ''.join('<tr><td>'+E(label)+'</td><td>'+('Link configured; health unverified' if self.valid_link(self.config.get('services',{}).get(key,'')) else 'Not configured')+'</td></tr>' for key,label,role in SERVICES)
-                content = '<h2>System status</h2><p class="notice">External health and provisioning are not connected.</p><table><tr><th>Application</th><th>Configuration</th></tr>'+status_rows+'</table><h2>Application administration</h2>'+content
-            if path == '/self-care':
-                content += '<h2>Line keys and speed dials</h2><div class="panel">Use Self Care above to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension/line assignments and button-template changes require managed the phone system configuration; the custom editor is not connected yet. Roaming settings must target your phone roaming device profile where applicable.</div>'
+            if not self.modules.installed('voice'):
+                content='<p class="notice">Welcome to your network service access portal.</p><h2>Your account</h2><div class="panel"><p><a href="/create-account">Create an account</a> or <a href="/login">sign in</a> to access the services installed for this deployment.</p></div><h2>Downloads</h2><div class="panel"><a href="/downloads">Open the Download Center</a></div>'
+        elif path == '/self-care':
+            title = 'Self Care'
+            url=self.config.get('services',{}).get('self_care','')
+            access='<a href="'+E(url)+'" target="_blank" rel="noopener noreferrer">Open Self Care</a>' if self.valid_link(url) else 'Not configured'
+            content='<div class="panel">'+access+'</div><h2>Line keys and speed dials</h2><div class="panel">Use Self Care to edit supported speed-dial numbers and labels. Available buttons depend on the phone model and its assigned button template. Extension and line assignments require managed phone system configuration; the custom editor is not connected yet.</div>'
         elif path == '/directory':
             title = 'Directory'
             rows = ''.join('<tr><td>'+E(c['name'])+'</td><td>'+E(c['number'])+'</td><td>'+('Shared' if c['owner'] is None else 'Personal')+'</td></tr>' for c in self.store.contacts(user['id'],data.get('q','')))
@@ -247,6 +275,7 @@ class App:
                 link = '<a href="'+E(url)+'">Download</a>' if self.valid_link(url) else 'Installer not configured'
                 rows += '<tr><td>'+label+'</td><td>'+E(item.get('version','Unspecified'))+'</td><td>'+link+'</td></tr>'
             content = '<p class="notice">Installers are supplied by the operator. Choose a client compatible with your communications system and desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Messaging service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
+            if not self.modules.installed('voice'): content='<p>No downloadable packages are available for the installed modules.</p>'
         elif path == '/applications':
             title = 'Applications'
             content = '<p class="notice">Install separate phone plugins and configure their settings here. Applications appear on the telephone Services menu; they run on the phone display.</p><h2>Installed plugins</h2><table><tr><th>Application / package</th><th>Version</th><th>Status</th><th>Description</th></tr>'
@@ -292,10 +321,12 @@ class App:
     def page(self, title, content, user):
         account = '<a href="/login">Sign in</a>'
         if user and user['role'] != 'guest':
-            account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
+            account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><a href="/account">Change password</a><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
-        links.append(('/admin','Administration'))
+        if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]
+        if user and user['role']!='guest': links.append(('/account','My Account'))
+        if user and user['role']=='admin': links.append(('/admin','Administration'))
         if not user or user['role'] == 'guest': links = [('/', 'Home'), ('/downloads', 'Downloads')]
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Integrated Services Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Version '+E(__version__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - ServiceReady</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>ServiceReady</strong><small>Integrated Network Service Access Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> ServiceReady</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">ServiceReady &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>ServiceReady &nbsp; | &nbsp; Version '+E(__version__)+'</footer></body></html>'

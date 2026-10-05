@@ -10,6 +10,8 @@ def main():
     with open(args.config) as source: config = json.load(source)
     from waitress import serve
     serve(App(config), host=config.get('listen_host','0.0.0.0'),
-          port=int(config.get('listen_port',8080)), threads=4)
+          port=int(config.get('listen_port',8080)), threads=4,
+          max_request_body_size=int(config.get('update_upload_limit',8*1024**3))+16384,
+          inbuf_overflow=1024**2)
 
 if __name__ == '__main__': main()

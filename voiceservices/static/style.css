@@ -38,3 +38,14 @@ header{grid-template-columns:minmax(332px,1fr) 600px 250px}
 @media(max-width:420px){header{grid-template-columns:1fr}}
 
 .login{margin:24px auto}
+
+/* Admin-only submenu navigation; public and personal pages retain their layout. */
+header{border-bottom:0}
+.admin-layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px}
+.admin-nav{background:#e4e9ec;border:1px solid #a5b5be;padding:10px;align-self:start}
+.admin-nav h3{font-size:12px;margin:0 0 10px}.admin-nav a{display:block;padding:7px 5px;border-bottom:1px solid #c2ced5}
+.admin-content{min-width:0}.admin-content h2:first-child{margin-top:0}
+@media(max-width:720px){.admin-layout{grid-template-columns:1fr}.admin-nav a{display:inline-block;padding:6px}}
+/* Keep account details within the fixed photo-strip height. */
+.account{padding:3px 12px;font-size:10px;line-height:1.1}
+.account .inline button{font-size:9px;line-height:1.1;padding:1px 8px;margin:1px 0 0}

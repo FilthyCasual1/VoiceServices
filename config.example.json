@@ -30,5 +30,8 @@
     "ivr_number": "",
     "network": "",
     "users": {}
-  }
+  },
+  "auth_backend": "local",
+  "account_socket": "/run/serviceready-accounts/socket",
+  "update_upload_limit": 8589934592
 }

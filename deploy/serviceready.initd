@@ -6,6 +6,7 @@ command="/opt/serviceready/venv/bin/python"
 command_args="-m voiceservices.server --config /etc/serviceready/config.json"
 command_user="serviceready:serviceready"
 directory="/var/lib/serviceready"
+export TMPDIR="/var/lib/serviceready/tmp"
 pidfile="/run/serviceready/supervisor.pid"
 output_log="/var/log/serviceready/service.log"
 error_log="/var/log/serviceready/error.log"
@@ -18,5 +19,5 @@ depend() {
     after firewall
 }
 start_pre() {
-    checkpath --directory --owner serviceready:serviceready --mode 0750 /run/serviceready /var/log/serviceready
+    checkpath --directory --owner serviceready:serviceready --mode 0750 /run/serviceready /var/log/serviceready /var/lib/serviceready/tmp
 }

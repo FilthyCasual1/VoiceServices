@@ -4,11 +4,11 @@
 
 All compute is x86 on VMware ESXi. CUCM, Unity Connection, and IM and Presence target 12.5; exact maintenance releases, hypervisor compatibility, licenses, and 79xx firmware remain to be selected. No HWIC, EHWIC, or UCS-E dependency remains. WAN links are managed Wi-Fi-client and WWAN equipment, with OpenWrt and SNMP/API control as their interfaces allow.
 
-The visual reference is an appliance portal around 2006: compact blue header, text tabs, no redundant sidebar, white pages, gray tables, small Arial/Tahoma text, plain forms. Do not introduce a modern card dashboard or replace native Cisco administration interfaces.
+The visual reference is an appliance portal around 2006: compact blue header, text tabs, no redundant general sidebar; administration has a compact submenu sidebar, white pages, gray tables, small Arial/Tahoma text, plain forms. Do not introduce a modern card dashboard or replace native Cisco administration interfaces.
 
 Utilities (calculator, RSS, weather, flights) execute only on phones. The web portal supplies configuration and availability, not utility screens.
 
-The public landing portal requires no login. Edits and private user data require authentication; native application links defer authorization to their destinations.
+Only Home and Downloads are available to guests, alongside authentication entry points. Other pages require login; administration requires an administrator role. The permanent core is the admin/user shell plus authentication. Voice Services, Server Management and the FTP update repository have independently removable lifecycle state.
 
 ## Identity boundary
 

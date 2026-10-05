@@ -1,8 +1,8 @@
 # ServiceReady
 
-An intentionally plain, circa-2006 web portal and Cisco XML phone-services server for an x86 / VMware ESXi communications system. Cisco applications target **12.5**: CUCM, Unity Connection, and IM and Presence. OpenWrt supplies network management; phones are Cisco 79xx series.
+An intentionally plain, circa-2006 modular Integrated Network Service Access Portal for x86 / VMware ESXi. The permanent core is authentication and the admin/user shell. Voice Services, Server Management, and the FTP Update Repository are independently installable/removable optional modules.
 
-## Working in this first build
+## Current capabilities
 
 - Server-rendered portal with blue header, compact top navigation, small text, tables, and conventional forms; no JavaScript dependency.
 - Local accounts with PBKDF2 password hashing, expiring sessions, CSRF protection, and administrator/user roles. Native admin links require portal login; the destination also authenticates access.
@@ -82,7 +82,7 @@ The footer and package metadata share `voiceservices/version.py` as their versio
 source. Every subsequent change increments the release version and gets a short
 entry in `CHANGELOG.md`. Use `python3 tools/bump_version.py patch "Description"`
 for fixes and small edits; use `minor` for new features and `major` for breaking
-changes. Current release: 0.2.0.
+changes. The current release is shown in the footer and CHANGELOG.md.
 
 ### Alpine testbed installation
 
@@ -90,3 +90,11 @@ See [Alpine / ESXi installation](docs/alpine-install.md). Clone the current
 `initial-portal` branch on an Alpine VM and run `sh install-alpine.sh` as root.
 The installer preserves configuration and accounts on updates and installs an
 OpenRC-managed service using Waitress.
+
+### Modular core and administration
+
+The admin/user shell and authentication form the core. Voice Services, Server
+Management and FTP Update Repository are optional modules controlled from
+Administration > Addons. Removal hides their UI and disables their routes while
+retaining data for reinstall. See [Modules and Alpine accounts](docs/modules-and-accounts.md)
+for system password integration, password changes, web uploads and FTP delivery.

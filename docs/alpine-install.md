@@ -15,12 +15,12 @@ sh install-alpine.sh
 ```
 
 The work currently lives on `initial-portal`. Once merged, use the repository's
-main branch instead. The installer prompts for the browser-facing URL, then the
+main branch instead. Fresh installs authenticate against enrolled Alpine accounts through a local privileged broker. The installer prompts for the browser-facing URL, then the
 first administrator username and password (12 characters minimum). It does not
 install the local preview's admin/admin account. For an isolated HTTP testbed,
 use a URL such as `http://192.168.10.50:8080`. Browse that URL and sign in.
 
-The installed server listens on port 8080 on all interfaces and starts on boot.
+The installed server listens on port 8080 on all interfaces and starts on boot. Administration > Addons controls the optional Voice Services, Server Management and FTP Update Repository modules. The FTP worker is installed but opens no ports until the addon is installed, configured and enabled.
 For HTTPS, place a TLS reverse proxy in front of it and supply its external HTTPS
 URL; restrict port 8080 to the proxy. Waitress does not terminate TLS itself.
 HTTP installations use non-Secure cookies; HTTPS configurations use Secure
@@ -32,7 +32,7 @@ cookies. Phone Services URLs use the configured public URL.
   links, installer links, database path and `listen_host` / `listen_port`.
 - `/var/lib/serviceready/serviceready.sqlite3`: accounts, contacts, plugin packages
   and settings. Back up this directory with the service stopped.
-- `/opt/serviceready/venv`: installed package and pinned Waitress 3.0.2.
+- `/opt/serviceready/venv`: installed package, Waitress 3.0.2 and pyftpdlib 2.1.0.
 - `/var/log/serviceready/service.log` and `error.log`: service output; request
   targets are not access-logged by this server.
 
@@ -67,3 +67,5 @@ for a longer-lived testbed.
 The Python test suite and shell syntax checks pass. Package installation, static assets and Waitress HTTP startup were verified in an isolated Python environment. Alpine container validation was blocked by this workspace's user-namespace restrictions. The
 installer also performs a local HTTP health check after startup. A live ESXi VM
 and integration with external communications applications have not been tested.
+
+See [Modules, system accounts and update files](modules-and-accounts.md) for enrollment, migration and addon controls. The installer places request temporary files on persistent disk under `/var/lib/serviceready/tmp`.

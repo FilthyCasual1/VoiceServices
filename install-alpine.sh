@@ -8,14 +8,23 @@ source_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 [ -f "$source_dir/pyproject.toml" ] || { echo "Incomplete ServiceReady checkout." >&2; exit 1; }
 umask 027
 apk add --no-cache python3 py3-pip git ca-certificates
-getent group serviceready >/dev/null 2>&1 || addgroup -S serviceready
+grep -q '^serviceready:' /etc/group || addgroup -S serviceready
 id serviceready >/dev/null 2>&1 || adduser -S -D -H -G serviceready -h /var/lib/serviceready -s /sbin/nologin serviceready
-mkdir -p /opt/serviceready /etc/serviceready /var/lib/serviceready /var/log/serviceready
+mkdir -p /opt/serviceready /etc/serviceready /var/lib/serviceready /var/log/serviceready /var/lib/serviceready/tmp
 chown serviceready:serviceready /var/lib/serviceready /var/log/serviceready
 chmod 0750 /etc/serviceready /var/lib/serviceready /var/log/serviceready
 chown root:serviceready /etc/serviceready
+grep -q '^serviceready-users:' /etc/group || addgroup -S serviceready-users
+install -m 0700 "$source_dir/deploy/account-broker.py" /opt/serviceready/account-broker.py
+install -m 0755 "$source_dir/deploy/serviceready-accounts.initd" /etc/init.d/serviceready-accounts
+rc-update add serviceready-accounts default
+rc-service serviceready-accounts restart
 python3 -m venv /opt/serviceready/venv
-/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir" 'waitress==3.0.2'
+/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir" 'waitress==3.0.2' 'pyftpdlib==2.1.0'
+chown root:serviceready /opt/serviceready
+chmod 0750 /opt/serviceready
+chgrp -R serviceready /opt/serviceready/venv
+chmod -R g+rX /opt/serviceready/venv
 if [ ! -f /etc/serviceready/config.json ]; then
     printf 'Portal URL (example: http://192.168.10.50:8080): '
     read -r portal_url
@@ -28,7 +37,9 @@ if p.scheme not in ('http','https') or not p.hostname or p.username or p.passwor
     raise SystemExit('Enter an HTTP(S) origin with no path, username or password.')
 with open(sys.argv[1]) as f: config = json.load(f)
 config.update(database='/var/lib/serviceready/serviceready.sqlite3',public_url=url,
-              secure_cookies=p.scheme=='https',listen_host='0.0.0.0',listen_port=8080)
+              secure_cookies=p.scheme=='https',listen_host='0.0.0.0',listen_port=8080,
+              auth_backend='alpine',account_socket='/run/serviceready-accounts/socket',
+              update_directory='/var/lib/serviceready/updates')
 with open('/etc/serviceready/config.json','x') as f: json.dump(config,f,indent=2)
 PY
 fi
@@ -49,6 +60,9 @@ if [ "$has_admin" = 0 ]; then
 fi
 chown -R serviceready:serviceready /var/lib/serviceready
 install -m 0755 "$source_dir/deploy/serviceready.initd" /etc/init.d/serviceready
+install -m 0755 "$source_dir/deploy/serviceready-ftp.initd" /etc/init.d/serviceready-ftp
+rc-update add serviceready-ftp default
+rc-service serviceready-ftp restart
 rc-update add serviceready default
 rc-service serviceready restart
 /opt/serviceready/venv/bin/python - <<'PY'
