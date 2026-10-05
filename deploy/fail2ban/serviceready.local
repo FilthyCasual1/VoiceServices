@@ -1,0 +1,10 @@
+[serviceready]
+enabled = false
+filter = serviceready
+logpath = /var/log/serviceready/error.log
+backend = polling
+port = 8080,8081,http,https
+maxretry = 5
+findtime = 300
+bantime = 900
+usedns = no

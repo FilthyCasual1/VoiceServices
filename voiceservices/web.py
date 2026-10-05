@@ -15,7 +15,7 @@ from .accounts import LinuxAccounts
 from .updates import Updates
 from .modules import Modules
 from .library import Library
-from . import administration,branding,account
+from . import administration,branding,account,login_protection
 
 E = lambda value: html.escape(str(value), quote=True)
 
@@ -35,6 +35,7 @@ class App:
             raise ValueError('public_url must be an absolute HTTP(S) URL without a query or fragment.')
         self.secure = config.get('secure_cookies', True)
         self.attempts = {}
+        login_protection.initialize(self)
         branding.initialize(self)
         account.initialize(self)
         account.initialize_extras(self)
@@ -180,6 +181,9 @@ class App:
         if path == '/recover':
             from . import recovery
             return recovery.public(self,env,data,cookie,method,send)
+        if path in ('/login','/login/verify') and method=='POST':
+            wait=login_protection.reserve(self,env,'mfa' if path.endswith('/verify') else 'login')
+            if wait: return send('429 Too Many Requests','Too many sign-in attempts. Please wait before trying again.',extra=[('Retry-After',str(wait))])
         if path == '/login/verify':
             from . import twofactor
             pending=cookie['vs_factor'].value if 'vs_factor' in cookie else ''
@@ -188,6 +192,7 @@ class App:
             if result:
                 with self.store.connect() as db: duration=max(1,db.execute('SELECT expires FROM sessions WHERE token=?',(result,)).fetchone()[0]-int(time.time()))
                 return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
+            if method=='POST': login_protection.failed(env,'mfa')
             return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
         if path == '/login':
             box_title,box_subtitle=branding.box_text(self,'login')
@@ -199,11 +204,6 @@ class App:
                     def retry_start(status, headers): start_response('403 Forbidden', headers)
                     response = self(retry_env, retry_start)
                     return response
-                key = env.get('REMOTE_ADDR','unknown')
-                now = time.time()
-                self.attempts = {k:v for k,v in self.attempts.items() if v[1]>now-300}
-                count, _ = self.attempts.get(key,(0,now))
-                if count >= 10: return send('429 Too Many Requests','Try again in five minutes.')
                 result = self.store.login(data.get('username',''),data.get('password',''))
                 if result:
                     from . import twofactor
@@ -212,13 +212,12 @@ class App:
                         self.store.logout(result);pending=twofactor.challenge(self,person,data.get('remember')=='yes')
                         suffix='; Secure' if self.secure else ''
                         return send('303 See Other','',extra=[('Location','/login/verify'),('Set-Cookie',f'vs_factor={pending}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=300'+suffix)])
-                    self.attempts.pop(key,None)
                     duration=2592000 if data.get('remember')=='yes' else 28800
                     if duration!=28800:
                         with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,result))
                     suffix = '; Secure' if self.secure else ''
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix)])
-                self.attempts[key] = (count+1,now)
+                login_protection.failed(env,'login')
                 error = '<p class="notice error">Invalid username or password.</p>'
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''

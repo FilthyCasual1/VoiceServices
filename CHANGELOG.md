@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0 — 2026-10-05
+
+Add persistent atomic password and MFA login rate limiting with Retry-After responses and Fail2ban-compatible authentication events.
+
 ## 1.5.1 — 2026-10-05
 
 Improve the inbox indicator with high-contrast text, stronger priority colors and a larger label.
