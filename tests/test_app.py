@@ -63,7 +63,7 @@ class PortalTests(unittest.TestCase):
         for route in ['/admin','/applications','/directory','/my-phone','/recordings','/network']:
             self.assertEqual(self.request(route)['headers']['Location'],'/login')
         self.assertEqual(self.request('/directory','POST',{'name':'Anonymous','number':'1'})['status'],'303 See Other')
-        self.assertIn('Welcome to ServiceReady',self.request()['body'])
+        self.assertIn('Welcome to CasualNetworks',self.request()['body'])
         self.assertIn('Get an account',self.request()['body'])
         self.assertNotIn('System status',self.request()['body'])
 

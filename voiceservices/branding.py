@@ -12,7 +12,9 @@ def initialize(app):
             db.executemany('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',blocks)
             db.execute("INSERT INTO module_metadata VALUES('home-blocks-seeded')")
 def defaults(app):
-    return dict({'title':'ServiceReady','subtitle':'ServiceReady INSAP'},**app.config.get('branding',{}))
+    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP'},**app.config.get('branding',{}))
+    if value['title']=='ServiceReady': value['title']='CasualNetworks'
+    return value
 def valid_url(value):
     if not value: return True
     if any(ord(c)<33 for c in value): return False
@@ -86,7 +88,7 @@ def render(app,section,user):
         fields+='</select><label>Visibility</label><select name="enabled"><option value="yes">Visible</option><option value="no"'+(' selected' if row.get('enabled',1)==0 else '')+'>Hidden</option></select><br><button name="action" value="save">'+('Save block' if row.get('id') else 'Add block')+'</button>'
         if row.get('id'): fields+='<button name="action" value="delete">Remove block</button>'
         return fields+'</form></div>'
-    content='<p>Edit blocks below. Lower position numbers appear first. Plain text and optional links are supported; blocks can depend on an installed addon.</p>'
+    content='<fieldset class="panel"><legend>Controls legend</legend><dl><dt><strong>Visibility: Visible / Hidden</strong></dt><dd>Visible publishes the block; Hidden keeps it saved without showing it on Home.</dd><dt><strong>Addon switch: Always / selected addon</strong></dt><dd>Always shows a visible block regardless of installed addons. Selecting an addon shows the block only while that addon is installed. Hidden blocks stay hidden in either case.</dd><dt><strong>Position</strong></dt><dd>Lower numbers appear first. Blocks with the same position keep their creation order.</dd><dt><strong>Save block / Remove block</strong></dt><dd>Save applies your edits. Remove deletes the block from the home page editor.</dd></dl></fieldset><p>Edit your home-page blocks below. Plain text and optional links are supported.</p>'
     with app.store.connect() as db:
         for row in db.execute('SELECT * FROM home_blocks ORDER BY position,id'): content+='<h3>'+E(row['title'])+'</h3>'+form(dict(row))
     return content+'<h3>Add a block</h3>'+form({'position':50})

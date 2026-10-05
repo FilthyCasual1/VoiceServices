@@ -10,7 +10,7 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 from .core import Store, calculate
-from .version import __version__
+from .version import __version__, __codename__
 from .accounts import LinuxAccounts
 from .updates import Updates
 from .modules import Modules
@@ -235,6 +235,7 @@ class App:
 
     def page(self, title, content, user):
         brand=branding.defaults(self)
+        footer='CasualNetworks Service Ready' if brand['title']=='CasualNetworks' else brand['title']+' | Powered By CasualNetworks ServiceReady'
         logo='/branding/logo' if brand.get('logo') else '/static/brand-arrow.svg'
         account = '<a href="/login">Sign in</a>'
         if user and user['role'] != 'guest':
@@ -250,4 +251,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(brand['title'])+' &nbsp; | &nbsp; Version '+E(__version__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0 — 2026-10-05
+
+CrystalBlue: CasualNetworks branding, custom-brand attribution, and a legend for home-page block controls.
+
 ## 0.10.0 — 2026-10-05
 
 Add administrator AXL configuration and CUCM end-user creation with explicit identity linking.

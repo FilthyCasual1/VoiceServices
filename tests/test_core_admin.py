@@ -72,3 +72,14 @@ class CoreAdminTests(unittest.TestCase):
         for value in ('Your profile','Password and security','Active sessions','Linked services','alice@example.local','America/Chicago'): self.assertIn(value,response['body'])
         self.request('/account','POST',{'csrf':user['csrf'],'action':'revoke-sessions'},token)
         self.assertIsNone(self.app.store.session(other));self.assertIsNotNone(self.app.store.session(token))
+    def test_crystalblue_brand_attribution_and_block_legend(self):
+        body=self.request()['body']
+        self.assertIn('<strong>CasualNetworks</strong>',body)
+        self.assertIn('<footer>CasualNetworks Service Ready',body)
+        self.assertIn('1.0.0 CrystalBlue',body)
+        token,user=self.user('admin')
+        legend=self.request('/admin/home',token=token)['body']
+        for phrase in ('Controls legend','Visible / Hidden','Always / selected addon','Hidden blocks stay hidden'): self.assertIn(phrase,legend)
+        self.request('/admin/branding','POST',{'csrf':user['csrf'],'title':'Example Network','subtitle':'My services'},token)
+        body=self.request()['body'];self.assertIn('<strong>Example Network</strong>',body)
+        self.assertIn('<footer>Example Network | Powered By CasualNetworks ServiceReady',body)
