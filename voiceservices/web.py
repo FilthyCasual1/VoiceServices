@@ -48,6 +48,9 @@ class App:
             return [body]
         path = env.get('PATH_INFO','/')
         method = env.get('REQUEST_METHOD','GET')
+        aliases = {'/register-phone':'setup', '/self-care':'customization', '/preferences':'settings'}
+        if method == 'GET' and path in aliases and not env.get('voiceservices.section'):
+            return send('303 See Other','',extra=[('Location','/my-phone#'+aliases[path])])
         if method not in ('GET','POST'):
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
@@ -109,7 +112,7 @@ class App:
                 self.attempts[key] = (count+1,now)
                 error = '<p class="notice error">Invalid username or password.</p>'
             return send('200 OK', self.page('Sign in',error+'<div class="panel login"><form method="post"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><br><button>Sign in</button></form></div>',None))
-        if not user and (method == 'POST' or path in ('/my-phone','/recordings')):
+        if not user and (method == 'POST' or path == '/recordings'):
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
             user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
@@ -123,11 +126,11 @@ class App:
             if path == '/directory' and method == 'POST':
                 self.store.add_contact(user,data.get('name',''),data.get('number',''),data.get('scope')=='shared')
                 return send('303 See Other','',extra=[('Location','/directory')])
-            if path == '/preferences' and method == 'POST':
+            if method == 'POST' and (path == '/preferences' or (path == '/my-phone' and data.get('action') == 'preferences')):
                 values = {k:data.get(k,'')[:200] for k in ('weather_location','rss_url','flight','widget')}
                 if values['widget'] not in ('network','weather','off'): raise ValueError('Invalid widget selection.')
                 self.store.preferences(user['id'],values)
-                return send('303 See Other','',extra=[('Location','/preferences')])
+                return send('303 See Other','',extra=[('Location','/my-phone#settings')])
             if path == '/my-phone' and method == 'POST':
                 if data.get('action') == 'unbind':
                     self.store.unbind_phone(user['id'])
@@ -168,7 +171,7 @@ class App:
             prefs = json.loads(user['preferences'])
             fields = ''.join('<label>'+label+'</label><input name="'+key+'" maxlength="200" value="'+E(prefs.get(key,''))+'">' for key,label in [('weather_location','Weather location'),('rss_url','RSS feed URL'),('flight','Tracked flight')])
             options = ''.join('<option value="'+v+'"'+(' selected' if prefs.get('widget','network')==v else '')+'>'+label+'</option>' for v,label in [('network','Network status'),('weather','Weather'),('off','Disabled')])
-            content = '<p class="notice">Preferences belong to your user account and follow application terminal bindings. External providers are not connected.</p><div class="panel"><form method="post">'+csrf+fields+'<label>Status widget</label><select name="widget">'+options+'</select><br><button>Save preferences</button></form></div>'
+            content = '<p class="notice">Preferences belong to your user account and follow application terminal bindings. External providers are not connected.</p><div class="panel"><form method="post" action="/my-phone">'+csrf+'<input type="hidden" name="action" value="preferences">'+fields+'<label>Status widget</label><select name="widget">'+options+'</select><br><button>Save preferences</button></form></div>'
         elif path == '/register-phone':
             title = 'Set up a phone'
             settings = self.config.get('self_provisioning', {})
@@ -184,7 +187,7 @@ class App:
                 content += '<h2>Your CUCM identity</h2><table>'+''.join('<tr><th>'+E(k)+'</th><td>'+E(v)+'</td></tr>' for k,v in [('CUCM user ID', identity.get('user_id') or 'Not linked'), ('Self-service user ID', identity.get('self_service_id') or 'Not linked'), ('Primary extension', identity.get('extension') or 'Not linked')])+'</table><p class="muted">These details are administrator-configured mappings, not live CUCM verification. Enter your PIN only in the native Cisco workflow. The portal does not store or display it.</p>'
             content += '<p class="muted">CUCM must have auto-registration, templates, an eligible user profile, and the relevant self-provisioning services configured. Native phone login support must be checked for each 79xx model. Self-provisioning assigns a phone; Extension Mobility handles later roaming logins.</p>'
         elif path == '/my-phone':
-            title = 'My phone'
+            title = 'My Phone'
             content = note+'<p class="notice">Manual application binding only. This does not configure CUCM, verify handset ownership, or perform native Extension Mobility. Anyone possessing the generated URL can read this application directory; protect it like a password. Native EM synchronization will replace this development mechanism.</p><div class="panel"><form method="post">'+csrf+'<label>Device name</label><input name="device" placeholder="SEP001122AABBCC" required><br><button>Bind application terminal</button></form><form method="post">'+csrf+'<input type="hidden" name="action" value="unbind"><button>Sign out application terminal</button></form></div>'
         elif path == '/downloads':
             title = 'Download Center'
@@ -197,7 +200,7 @@ class App:
             content = '<p class="notice">Installers are supplied by the operator. Client versions require validation against CUCM / IM&amp;P 12.5 and the desktop OS.</p><table><tr><th>Client</th><th>Version</th><th>Download</th></tr>'+rows+'</table><h2>Setup information</h2><div class="panel">TFTP / provisioning: '+E(self.config.get('tftp_host','Not configured'))+'<br>Jabber service domain: '+E(self.config.get('jabber_domain','Not configured'))+'</div>'
         elif path == '/applications':
             title = 'Applications'
-            content = '<p class="notice">These applications run on Cisco phones through the Services button. This portal manages their settings.</p><table><tr><th>Phone application</th><th>Status</th></tr>'+''.join('<tr><td>'+label+'</td><td>'+('Working locally' if key=='calculator' else 'Adapter not connected')+'</td></tr>' for key,label in APPS.items())+'</table><p><a href="/preferences">Configure personal phone applications</a></p>'
+            content = '<p class="notice">These applications run on Cisco phones through the Services button. This portal manages their settings.</p><table><tr><th>Phone application</th><th>Status</th></tr>'+''.join('<tr><td>'+label+'</td><td>'+('Working locally' if key=='calculator' else 'Adapter not connected')+'</td></tr>' for key,label in APPS.items())+'</table><p><a href="/my-phone#settings">Configure personal phone applications</a></p>'
         elif path in ('/network','/recordings'):
             title = 'Network Management' if path=='/network' else 'Call Recordings'
             content = '<p class="notice">Adapter not connected. No external data or recordings are available. See the integration roadmap for the next implementation stage.</p>'
@@ -207,6 +210,16 @@ class App:
             content = content[:content.index('<h2>Add contact</h2>')]+'<p><a href="/login">Sign in to add or edit contacts and view your personal directory.</a></p>'
         if guest and path == '/preferences':
             content = '<p class="notice">Phone application preferences follow your user identity.</p><p><a href="/login">Sign in to edit your preferences.</a></p>'
+        if path == '/my-phone':
+            binding_content = content if not guest else '<p><a href="/login">Sign in to manage your phone and personal settings.</a></p>'
+            sections = []
+            for route, anchor, heading in [('/register-phone','setup','Phone setup'),('/self-care','customization','Line keys and customization'),('/preferences','settings','Phone application settings')]:
+                section_env = dict(env, PATH_INFO=route, REQUEST_METHOD='GET', QUERY_STRING='', CONTENT_LENGTH='0')
+                section_env['voiceservices.section'] = True
+                body = b''.join(self(section_env, lambda status, headers: None)).decode()
+                fragment = body.split('</h1>', 1)[1].split('</main>', 1)[0]
+                sections.append('<section id="'+anchor+'"><h2>'+heading+'</h2>'+fragment+'</section>')
+            content = ''.join(sections)+'<h2>Application terminal binding</h2>'+binding_content
         return send('200 OK',self.page(title,content,user))
 
     @staticmethod
@@ -218,10 +231,8 @@ class App:
         account = '<a href="/login">Sign in to edit</a>'
         if user and user['role'] != 'guest':
             account = E(user['username'])+' | '+E(user['role'])+'<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Sign out</button></form>'
-        links = [('/','Home'),('/my-phone','My Phone'),('/register-phone','Set Up Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
+        links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         links.append(('/admin','Administration'))
-        links.append(('/self-care','Phone Customization'))
-        links.append(('/preferences','Phone Settings'))
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
         return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - VoiceServices</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="account">'+account+'</div><strong>VoiceServices</strong><small>Unified Communications Portal &nbsp; / &nbsp; Cisco 12.5</small></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">VoiceServices &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>VoiceServices &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'

@@ -41,12 +41,12 @@ class PortalTests(unittest.TestCase):
         self.assertIsNone(self.app.store.session(token))
 
     def test_public_portal_requires_login_for_edits(self):
-        for route in ['/','/downloads','/admin','/self-care','/applications','/directory','/preferences']:
+        for route in ['/','/downloads','/admin','/applications','/directory','/my-phone']:
             r = self.request(route)
             self.assertEqual(r['status'],'200 OK')
             self.assertNotIn('<aside>',r['body'])
         self.assertEqual(self.request('/directory','POST',{'name':'Anonymous','number':'1'})['status'],'303 See Other')
-        self.assertEqual(self.request('/my-phone')['status'],'303 See Other')
+        self.assertEqual(self.request('/my-phone')['status'],'200 OK')
         self.assertNotIn('<form method="post">',self.request('/directory')['body'])
 
     def test_login_cookie_and_bad_password(self):
@@ -106,7 +106,7 @@ class PortalTests(unittest.TestCase):
 
     def test_routes_and_no_simulated_health(self):
         token,user=self.user('admin')
-        for route in ['/','/admin','/self-care','/downloads','/applications','/preferences','/my-phone','/recordings','/network']:
+        for route in ['/','/admin','/downloads','/applications','/my-phone','/recordings','/network']:
             r=self.request(route,token=token)
             self.assertEqual(r['status'],'200 OK',route)
         self.assertIn('Not configured',self.request(token=token)['body'])
@@ -117,15 +117,30 @@ class PortalTests(unittest.TestCase):
 
     def test_native_self_provisioning_details_are_private(self):
         self.app.config['self_provisioning'] = {'ivr_number': '5000', 'users': {'alice': {'user_id': 'alice-cucm', 'self_service_id': '201', 'extension': '201'}}}
-        public = self.request('/register-phone')
+        public = self.request('/my-phone')
         self.assertEqual(public['status'], '200 OK')
         self.assertIn('5000', public['body'])
         self.assertNotIn('alice-cucm', public['body'])
         token, _ = self.user('alice')
-        self.assertIn('alice-cucm', self.request('/register-phone', token=token)['body'])
+        self.assertIn('alice-cucm', self.request('/my-phone', token=token)['body'])
         other, _ = self.user('bob')
-        self.assertNotIn('alice-cucm', self.request('/register-phone', token=other)['body'])
+        self.assertNotIn('alice-cucm', self.request('/my-phone', token=other)['body'])
         self.assertNotIn('Submit registration', public['body'])
+
+    def test_my_phone_consolidation(self):
+        page = self.request('/my-phone')['body']
+        for section in ['Phone setup','Line keys and customization','Phone application settings']:
+            self.assertIn(section,page)
+        self.assertNotIn('>Set Up Phone</a>',page)
+        self.assertNotIn('>Phone Customization</a>',page)
+        self.assertNotIn('>Phone Settings</a>',page)
+        for route,anchor in [('/register-phone','setup'),('/self-care','customization'),('/preferences','settings')]:
+            r = self.request(route)
+            self.assertEqual(r['headers']['Location'],'/my-phone#'+anchor)
+        token,user = self.user('alice')
+        result = self.request('/my-phone','POST',{'csrf':user['csrf'],'action':'preferences','weather_location':'Chicago','widget':'network'},token)
+        self.assertEqual(result['headers']['Location'],'/my-phone#settings')
+        self.assertEqual(json.loads(self.app.store.session(token)['preferences'])['weather_location'],'Chicago')
 
     def test_expiry_and_rebinding_device(self):
         _,alice=self.user('alice')
