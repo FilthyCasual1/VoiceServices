@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — 2026-10-05
+
+Add bare installation profile with no optional modules enabled; preserve addon changes across restarts.
+
 ## 0.5.0 — 2026-10-05
 
 Add independent internal Downloads module and optional PXE ISO/Clonezilla restoration addon with artifact hosting and proxy-DHCP/TFTP worker.

@@ -42,7 +42,7 @@ class App:
         accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend')=='alpine' else None
         self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
         self.updates = Updates(self.store,config)
-        self.modules = Modules(self.store)
+        self.modules = Modules(self.store,config.get('initial_modules'))
         self.downloads = Library(self.store,config,self.modules,'downloads')
         self.boot_files = Library(self.store,config,self.modules,'pxe')
         self.pxe = PXE(self)

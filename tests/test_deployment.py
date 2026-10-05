@@ -50,3 +50,19 @@ class DeploymentTests(unittest.TestCase):
         for path in ('/admin/downloads','/admin/pxe'): self.assertEqual(self.request(path,token=token)['status'],'200 OK')
         self.app.modules.change('pxe',False)
         self.assertEqual(self.request('/pxe/boot.ipxe')['status'],'404 Not Found')
+
+    def test_bare_bootstrap_persists_installs_and_removals(self):
+        from voiceservices.web import App
+        config={'database':self.tmp.name+'/bare.sqlite','initial_modules':[],'secure_cookies':False}
+        app=App(config)
+        for name in ('downloads','voice','server-management','pxe'): self.assertFalse(app.modules.installed(name))
+        self.assertIsNone(app.updates.settings())
+        app.modules.change('downloads',True)
+        app=App(config)
+        self.assertTrue(app.modules.installed('downloads'))
+        app.modules.change('downloads',False)
+        app=App(config)
+        self.assertFalse(app.modules.installed('downloads'))
+        app.store.create_user('operator','long-enough-password','admin')
+        token=app.store.login('operator','long-enough-password')
+        self.assertEqual(app.store.session(token)['role'],'admin')

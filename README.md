@@ -102,3 +102,5 @@ retaining data for reinstall. See [Modules and Alpine accounts](docs/modules-and
 for system password integration, password changes, web uploads and FTP delivery.
 
 Internal tools, downloadable packages, and optional PXE ISO/image restoration are described in [Downloads and PXE](docs/downloads-and-pxe.md).
+
+For a core-only deployment with no optional modules enabled, see [Bare installation](docs/bare-install.md) and use `./install-alpine.sh --bare` on a fresh Alpine VM.

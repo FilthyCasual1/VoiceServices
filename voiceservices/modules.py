@@ -10,14 +10,17 @@ CATALOG={
     'server-management':('Server Management','External application administration links and deployment configuration.'),
 }
 class Modules:
-    def __init__(self,store):
+    def __init__(self,store,initial_modules=None):
         self.store=store
+        initial_modules=list(initial_modules) if initial_modules is not None else ['voice','server-management','downloads']
+        if any(key not in CATALOG for key in initial_modules): raise ValueError('Unknown initial module.')
         with store.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS platform_modules(id TEXT PRIMARY KEY)')
             db.execute('CREATE TABLE IF NOT EXISTS module_metadata(key TEXT PRIMARY KEY)')
             if not db.execute("SELECT 1 FROM module_metadata WHERE key='seeded'").fetchone():
-                db.executemany('INSERT OR IGNORE INTO platform_modules VALUES(?)',[(key,) for key in ('voice','server-management','downloads')])
+                db.executemany('INSERT OR IGNORE INTO platform_modules VALUES(?)',[(key,) for key in initial_modules])
                 db.execute("INSERT INTO module_metadata VALUES('seeded')")
+                db.execute("INSERT INTO module_metadata VALUES('downloads-migrated')")
             if not db.execute("SELECT 1 FROM module_metadata WHERE key='downloads-migrated'").fetchone():
                 db.execute("INSERT OR IGNORE INTO platform_modules VALUES('downloads')")
                 db.execute("INSERT INTO module_metadata VALUES('downloads-migrated')")

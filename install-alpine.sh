@@ -6,6 +6,13 @@ set -eu
 command -v rc-service >/dev/null || { echo "OpenRC is required; use a normal Alpine VM installation." >&2; exit 1; }
 source_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 [ -f "$source_dir/pyproject.toml" ] || { echo "Incomplete ServiceReady checkout." >&2; exit 1; }
+config_template="$source_dir/config.example.json"
+case "${1:-}" in
+    --bare) config_template="$source_dir/config.bare.json"
+        [ ! -f /etc/serviceready/config.json ] || { echo "Bare installation requires a fresh VM; existing settings are preserved." >&2; exit 1; } ;;
+    "") ;;
+    *) echo "Usage: $0 [--bare]" >&2; exit 1 ;;
+esac
 umask 027
 apk add --no-cache python3 py3-pip git ca-certificates dnsmasq
 grep -q '^serviceready:' /etc/group || addgroup -S serviceready
@@ -28,7 +35,7 @@ chmod -R g+rX /opt/serviceready/venv
 if [ ! -f /etc/serviceready/config.json ]; then
     printf 'Portal URL (example: http://192.168.10.50:8080): '
     read -r portal_url
-    /opt/serviceready/venv/bin/python - "$source_dir/config.example.json" "$portal_url" <<'PY'
+    /opt/serviceready/venv/bin/python - "$config_template" "$portal_url" <<'PY'
 import json,sys
 from urllib.parse import urlsplit
 url = sys.argv[2].rstrip('/')

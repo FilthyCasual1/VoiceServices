@@ -12,7 +12,7 @@ from .modules import Modules
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);args=parser.parse_args()
     with open(args.config) as source: config=json.load(source)
-    store=Store(config['database']);modules=Modules(store)
+    store=Store(config['database']);modules=Modules(store,config.get('initial_modules'))
     root=Path(config.get('pxe_directory',str(Path(store.path).parent/'pxe')))
     def stop(signum,frame): raise SystemExit(0)
     signal.signal(signal.SIGTERM,stop)
