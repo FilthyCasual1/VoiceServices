@@ -81,3 +81,15 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .account-details>div:not(:has(span)){display:block}
 .account-details span{min-width:0}
 @media(max-width:720px){.account{gap:5px;padding:5px 6px}.account-avatar{width:28px;height:28px;flex-basis:28px}.account-details>div{grid-template-columns:60px minmax(0,1fr);column-gap:2px}}
+
+/* Account page: one profile panel, compact inbox and paired security sections. */
+.account-section-links{display:flex;flex-wrap:wrap;gap:0;background:#e4e9ec;border:1px solid #aab5bb}
+.account-section-links a{padding:8px 14px;border-right:1px solid #aab5bb}
+.account-profile-grid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px}
+.account-profile-grid .profile-picture{border:0;box-shadow:none;padding:0 20px 0 0;border-right:1px solid #c7d0d5;background:none}
+.profile-details{max-width:540px}.profile-details p{margin-top:0;line-height:1.6}
+.profile-details form{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:10px}
+.profile-details form label{margin:0}.profile-details form input{width:100%}.profile-details form br{display:none}.profile-details form button{grid-column:2;justify-self:start;margin:0}
+.my-account .panel{margin-bottom:0}.my-account section{margin-bottom:0}
+.account-security-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.account-security-grid .login{max-width:none;margin:0}
+@media(max-width:720px){.account-profile-grid,.account-security-grid{grid-template-columns:1fr}.account-profile-grid .profile-picture{border-right:0;border-bottom:1px solid #c7d0d5;padding:0 0 15px}.profile-details form{grid-template-columns:1fr}.profile-details form button{grid-column:1}}

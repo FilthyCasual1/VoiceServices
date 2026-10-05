@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2 — 2026-10-05
+
+Organize My Account into a combined profile panel, notification inbox and aligned security/session sections.
+
 ## 1.1.1 — 2026-10-05
 
 Align masthead account details beside the avatar with tighter, consistent label spacing.

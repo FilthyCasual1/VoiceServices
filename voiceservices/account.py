@@ -68,25 +68,27 @@ def render(app,user,token,note=''):
     from .administration import password_form
     from .modules import CATALOG
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';value=profile(app,user)
-    content='<p><a href="#profile">Profile</a> | <a href="#inbox">Inbox</a> | <a href="#security">Security</a> | <a href="#sessions">Sessions</a> | <a href="#services">Linked services</a></p>'
+    content='<div class="my-account"><div class="account-section-links"><a href="#profile">Profile</a><a href="#inbox">Inbox</a><a href="#security">Security</a><a href="#sessions">Sessions</a><a href="#services">Linked services</a></div>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
-    content+='<div class="panel profile-picture"><img class="avatar" src="/account/photo" alt="Profile picture"><form action="/account/photo/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Profile picture (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload picture</button></form><form method="post">'+csrf+'<button name="action" value="remove-photo">Remove picture</button></form></div>'
+    picture='<div class="panel profile-picture"><img class="avatar" src="/account/photo" alt="Profile picture"><form action="/account/photo/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Profile picture (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload picture</button></form><form method="post">'+csrf+'<button name="action" value="remove-photo">Remove picture</button></form></div>'
+    content+='<section><h2 id="profile">Your profile</h2><div class="panel account-profile-grid">'+picture
+    content+='<div class="profile-details"><p>Username: <strong>'+E(user['username'])+'</strong><br>Access: '+E(user['role'])+'<br>Authentication: '+('Alpine system account' if app.store.accounts else 'Local portal account')+'</p><form method="post">'+csrf+'<input name="action" type="hidden" value="profile">'
+    for key,label,entry in [('display_name','Display name',user['display_name']),('email','Email address',value['email']),('phone','Contact number',value['phone']),('timezone','Time zone',value['timezone'])]: content+='<label>'+label+'</label><input name="'+key+'" value="'+E(entry or '')+'">'
+    content+='<br><button>Save profile</button></form></div></div></section>'
     content+='<h2 id="inbox">Notification inbox</h2>'
     messages=inbox(app,user)
     if not messages: content+='<p>Your inbox is empty.</p>'
     for message in messages:
         content+='<div class="panel"><strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(datetime.fromtimestamp(message['created'],timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
-    content+='<h2 id="profile">Your profile</h2><div class="panel"><p>Username: <strong>'+E(user['username'])+'</strong><br>Access: '+E(user['role'])+'<br>Authentication: '+('Alpine system account' if app.store.accounts else 'Local portal account')+'</p><form method="post">'+csrf+'<input name="action" type="hidden" value="profile">'
-    for key,label,entry in [('display_name','Display name',user['display_name']),('email','Email address',value['email']),('phone','Contact number',value['phone']),('timezone','Time zone',value['timezone'])]: content+='<label>'+label+'</label><input name="'+key+'" value="'+E(entry or '')+'">'
-    content+='<br><button>Save profile</button></form></div><h2 id="security">Password and security</h2>'+password_form(user)+'<h2 id="sessions">Active sessions</h2><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
+    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires (UTC)</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT token,expires FROM sessions WHERE user_id=? AND expires>? ORDER BY expires DESC',(user['id'],int(time.time()))):
             content+='<tr><td>'+('This session' if row['token']==token else 'Other session')+'</td><td>'+E(datetime.fromtimestamp(row['expires'],timezone.utc).strftime('%Y-%m-%d %H:%M'))+'</td></tr>'
-    content+='</table><form method="post">'+csrf+'<button name="action" value="revoke-sessions">Sign out other sessions</button></form><h2 id="services">Linked services</h2>'
+    content+='</table><form method="post">'+csrf+'<button name="action" value="revoke-sessions">Sign out other sessions</button></form></div></section></div><h2 id="services">Linked services</h2>'
     panels=[]
     for key,(title,_) in CATALOG.items():
         if app.modules.installed(key):
             provider=app.modules.load(key);hook=getattr(provider,'account_panel',None)
             if hook: panels.append(hook(app,user))
     content+=''.join(panels) if panels else '<p>No installed service has linked an identity to your account.</p>'
-    return content
+    return content+'</div>'
