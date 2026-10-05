@@ -32,7 +32,7 @@ header strong{font-size:22px;line-height:1.1}header small{margin-top:3px;font-si
 @media(max-width:420px){header{grid-template-columns:1fr}.brand{border-right:0;border-bottom:3px solid white}.account{padding:6px 12px}}
 /* A fixed photographic window: neither its dimensions nor its crop resize. */
 header{grid-template-columns:minmax(332px,1fr) 600px 250px}
-.masthead-image{width:600px;height:68px;min-height:0;background-size:700px auto;background-position:center 43%;border-right:0;outline:4px solid white;outline-offset:-4px}
+.masthead-image{width:600px;height:68px;min-height:0;background-size:700px auto;background-position:center 43%;border-left:4px solid white;border-right:4px solid white;outline:none}
 @media(max-width:1182px){header{grid-template-columns:minmax(0,1fr) 250px}.masthead-image{display:none}}
 @media(max-width:720px){header{grid-template-columns:1fr 190px}}
 @media(max-width:420px){header{grid-template-columns:1fr}}
