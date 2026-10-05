@@ -17,7 +17,7 @@ button{border-radius:0;background:linear-gradient(#91aaba,#68889b);color:white;f
 button:hover{background:#55788c;color:#fff}
 @media(max-width:720px){header{grid-template-columns:1fr 1fr;min-height:78px}.brand{padding:13px 12px}.masthead-image{display:none}.account{padding:10px;font-size:10px}.account small{font-size:9px}nav{padding:4px 4px 0}nav a{padding:6px 8px;margin-bottom:3px}}
 
-.masthead-image{background:#253039 url("/static/masthead.png") center 43% / cover no-repeat}
+.masthead-image{background:#253039 url("/static/masthead.png") center 43% / 700px auto no-repeat}
 
 /* Compact iLO2 masthead, with a white directional brand mark. */
 header{grid-template-columns:332px minmax(0,1fr) 250px;min-height:68px;border-top-width:3px}
