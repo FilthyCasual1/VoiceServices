@@ -57,6 +57,8 @@ class App:
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
             return send('200 OK',json.dumps({'service':'VoiceServices','status':'running','integrations':'not probed'}),'application/json')
+        if path == '/static/brand-arrow.svg':
+            return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
         if path == '/static/masthead.png':
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
@@ -253,11 +255,11 @@ class App:
         return parsed.scheme in ('http','https') and bool(parsed.netloc) and not parsed.username and not parsed.password and not any(ord(c)<32 for c in url)
 
     def page(self, title, content, user):
-        account = '<a href="/login">Sign in to edit</a>'
+        account = '<div><span>Current user:</span> Guest</div><a href="/login">Sign in to edit</a>'
         if user and user['role'] != 'guest':
-            account = E(user['username'])+' | '+E(user['role'])+'<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Sign out</button></form>'
+            account = '<div><span>Current user:</span> '+E(user['username'])+'</div><div><span>Access:</span> '+E(user['role'])+'</div><form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         links.append(('/admin','Administration'))
         content = re.sub(r'<label>(.*?)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - VoiceServices</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><strong>VoiceServices</strong><small>Unified Communications Portal</small></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><small>Application baseline: Cisco 12.5</small>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">VoiceServices &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>VoiceServices &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - VoiceServices</title><link rel="stylesheet" href="/static/style.css"></head><body><header><div class="brand"><img class="brand-arrow" src="/static/brand-arrow.svg" alt=""><div><strong>VoiceServices</strong><small>Unified Communications Portal</small></div></div><div class="masthead-image" aria-hidden="true"></div><div class="account"><div><span>System:</span> VoiceServices</div><div><span>Applications:</span> Cisco 12.5</div>'+account+'</div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">VoiceServices &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>VoiceServices &nbsp; | &nbsp; Initial development build &nbsp; | &nbsp; CUCM · Unity Connection · IM and Presence · OpenWrt</footer></body></html>'
