@@ -1,6 +1,7 @@
 """Authenticator enrollment and short-lived, single-use login challenges."""
 import hashlib,html,io,json,secrets,time
 import pyotp,segno
+from . import security
 E=lambda v:html.escape(str(v),quote=True)
 H=lambda v:hashlib.sha256(v.encode()).hexdigest()
 def initialize(app):
@@ -96,7 +97,7 @@ def finish(app,token,csrf,code):
         db.execute('UPDATE factor_challenges SET attempts=attempts+1 WHERE token=?',(H(token),))
         if not check(db,row['user_id'],code): return None
         session=secrets.token_urlsafe(32)
-        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(session,row['user_id'],secrets.token_urlsafe(24),int(time.time())+(2592000 if row['remember'] else 28800)))
+        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(session,row['user_id'],secrets.token_urlsafe(24),int(time.time())+security.duration(app,bool(row['remember']))))
         db.execute('DELETE FROM factor_challenges WHERE user_id=?',(row['user_id'],))
         return session
 def login_page(app,token,error=''):

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 — 2026-10-05
+
+Add a core Security administration page for login limits, automatic source blocks, session policy and account registration.
+
 ## 1.6.0 — 2026-10-05
 
 Add persistent atomic password and MFA login rate limiting with Retry-After responses and Fail2ban-compatible authentication events.

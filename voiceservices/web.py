@@ -15,7 +15,7 @@ from .accounts import LinuxAccounts
 from .updates import Updates
 from .modules import Modules
 from .library import Library
-from . import administration,branding,account,login_protection
+from . import administration,branding,account,login_protection,security
 
 E = lambda value: html.escape(str(value), quote=True)
 
@@ -148,6 +148,7 @@ class App:
         token = cookie['vs_session'].value if 'vs_session' in cookie else ''
         user = self.store.session(token)
         if path == '/create-account':
+            if not security.settings(self)['registration_enabled']: return send('403 Forbidden','Account registration is disabled. Contact your administrator.')
             box_title,box_subtitle=branding.box_text(self,'create')
             error = ''
             nonce = cookie['vs_signup'].value if 'vs_signup' in cookie else ''
@@ -166,8 +167,10 @@ class App:
                     if data.get('password') != data.get('confirm_password'): raise ValueError('Passwords do not match.')
                     self.store.create_user(username,data.get('password',''),'user')
                     session = self.store.login(username,data['password'])
+                    duration=security.duration(self)
+                    with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,session))
                     suffix = '; Secure' if self.secure else ''
-                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
+                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
                 except (ValueError,sqlite3.IntegrityError) as exc:
                     message = 'That username is already in use.' if isinstance(exc,sqlite3.IntegrityError) else str(exc)
                     error = '<p class="notice error">'+E(message)+'</p>'
@@ -192,7 +195,7 @@ class App:
             if result:
                 with self.store.connect() as db: duration=max(1,db.execute('SELECT expires FROM sessions WHERE token=?',(result,)).fetchone()[0]-int(time.time()))
                 return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
-            if method=='POST': login_protection.failed(env,'mfa')
+            if method=='POST': login_protection.failed(env,'mfa',self)
             return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
         if path == '/login':
             box_title,box_subtitle=branding.box_text(self,'login')
@@ -212,16 +215,19 @@ class App:
                         self.store.logout(result);pending=twofactor.challenge(self,person,data.get('remember')=='yes')
                         suffix='; Secure' if self.secure else ''
                         return send('303 See Other','',extra=[('Location','/login/verify'),('Set-Cookie',f'vs_factor={pending}; HttpOnly; SameSite=Lax; Path=/login; Max-Age=300'+suffix)])
-                    duration=2592000 if data.get('remember')=='yes' else 28800
-                    if duration!=28800:
-                        with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,result))
+                    duration=security.duration(self,data.get('remember')=='yes')
+                    with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,result))
                     suffix = '; Secure' if self.secure else ''
                     return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix)])
-                login_protection.failed(env,'login')
+                login_protection.failed(env,'login',self)
                 error = '<p class="notice error">Invalid username or password.</p>'
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
+            policy=security.settings(self)
+            if policy['remember_enabled']: form=form.replace('Stay signed in for 30 days','Stay signed in for '+str(policy['remember_days'])+' days')
+            else: form=re.sub(r'<label class="remember-login">.*?</label>','',form)
+            if not policy['registration_enabled']: form=re.sub(r'<p class="signin-help">New here\?.*?</p>','',form)
             look=branding.defaults(self)
             if look['login_disclaimer_enabled']:
                 form+='<div class="login-disclaimer panel"><h2>Notice</h2><p>'+E(look['login_disclaimer'])+'</p></div>'

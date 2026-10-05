@@ -1,6 +1,8 @@
 # Login protection
 
-Core password sign-in and two-factor verification each allow 10 POST submissions per source IP in a five-minute window. This includes successful, failed and expired-form submissions. Atomic SQLite reservations are shared across threads/processes and survive portal restarts. Expired buckets are pruned automatically. A throttled request receives a styled HTTP 429 response and Retry-After in seconds. Existing authenticated sessions are unaffected.
+Administration → System Operator → Security controls password and MFA budgets, time windows, automatic IP blocking, block duration, standard session duration, persistent sign-in and self-registration. Automatic blocks can be cleared there. These are portal-level controls; the optional Fail2ban firewall service remains host-managed.
+
+By default, core password sign-in and two-factor verification each allow 10 POST submissions per source IP in a five-minute window. This includes successful, failed and expired-form submissions. Atomic SQLite reservations are shared across threads/processes and survive portal restarts. Expired buckets are pruned automatically. A throttled request receives a styled HTTP 429 response and Retry-After in seconds. Existing authenticated sessions are unaffected.
 
 Failed password and MFA submissions emit timestamped `serviceready-auth login_failed ip=...` or `mfa_failed ip=...` events to standard error. Passwords, usernames, tokens and forwarded headers are not logged. On Alpine these go to `/var/log/serviceready/error.log`.
 

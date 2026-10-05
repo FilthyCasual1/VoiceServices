@@ -28,3 +28,28 @@ class LoginProtectionTests(unittest.TestCase):
         with self.assertLogs('serviceready.auth',level='WARNING') as logs:
             login_protection.failed({'REMOTE_ADDR':'192.0.2.3','HTTP_X_FORWARDED_FOR':'203.0.113.5','username':'bad\nlogin_failed ip=203.0.113.5'},'login')
         self.assertIn('login_failed ip=192.0.2.3',logs.output[0]);self.assertNotIn('203.0.113.5',logs.output[0])
+    def test_configurable_security_and_source_block(self):
+        from voiceservices import security
+        user={'role':'admin','csrf':'test'};env={'REMOTE_ADDR':'192.0.2.4'}
+        security.change(self.app,user,{'login_limit':'2','window':'120','automatic_blocks':'yes','failure_limit':'2','block_seconds':'600','remember_enabled':'no','registration_enabled':'no','session_hours':'2'})
+        self.assertEqual(security.duration(self.app,True),7200)
+        self.assertEqual(login_protection.reserve(self.app,env,'login'),0)
+        self.assertEqual(login_protection.reserve(self.app,env,'login'),0)
+        self.assertGreater(login_protection.reserve(self.app,env,'login'),0)
+        login_protection.failed(env,'login',self.app);login_protection.failed(env,'mfa',self.app)
+        self.assertGreater(login_protection.reserve(self.app,env,'mfa'),500)
+        self.assertIn('192.0.2.4',security.render(self.app,user))
+        security.change(self.app,user,{'action':'unblock','source':'192.0.2.4'})
+        self.assertEqual(login_protection.reserve(self.app,env,'login'),0)
+        reloaded=App(self.config)
+        with reloaded.store.connect() as db:
+            import json
+            reloaded.config['security']=json.loads(db.execute("SELECT value FROM portal_settings WHERE key='security'").fetchone()[0])
+        self.assertEqual(security.settings(reloaded)['login_limit'],2)
+        with self.assertRaises(PermissionError): security.change(self.app,{'role':'user'},{})
+        with self.assertRaises(ValueError): security.change(self.app,user,{'window':'0'})
+        response={}
+        body=b''.join(self.app({'PATH_INFO':'/create-account','REQUEST_METHOD':'GET'},lambda s,h:response.update(status=s)))
+        self.assertEqual(response['status'],'403 Forbidden')
+        body=b''.join(self.app({'PATH_INFO':'/login','REQUEST_METHOD':'GET'},lambda s,h:None))
+        self.assertNotIn(b'name="remember"',body);self.assertNotIn(b'New here?',body)
