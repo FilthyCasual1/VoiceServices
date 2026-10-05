@@ -37,8 +37,8 @@ class FactorTests(unittest.TestCase):
         admin_token,admin=self.user('admin');token,user=self.user('alice')
         payload={'csrf':admin['csrf'],'recipient':str(user['id']),'title':'Maintenance','body':'Service restart tonight.'}
         self.assertEqual(self.request('/admin/notifications','POST',payload,admin_token)['status'],'200 OK')
-        self.assertIn('Maintenance',self.request('/account',token=token)['body'])
-        self.assertNotIn('Maintenance',self.request('/account',token=admin_token)['body'])
+        self.assertIn('Maintenance',self.request('/account/inbox',token=token)['body'])
+        self.assertNotIn('Maintenance',self.request('/account/inbox',token=admin_token)['body'])
         payload['csrf']=user['csrf']
         self.assertEqual(self.request('/admin/notifications','POST',payload,token)['status'],'403 Forbidden')
 

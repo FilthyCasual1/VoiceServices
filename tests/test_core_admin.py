@@ -69,7 +69,7 @@ class CoreAdminTests(unittest.TestCase):
         token,user=self.user('alice');other=self.app.store.login('alice','a-long-password')
         response=self.request('/account','POST',{'csrf':user['csrf'],'action':'profile','display_name':'Alice','email':'alice@example.local','phone':'+1 555 0100','timezone':'America/Chicago'},token)
         self.assertEqual(response['status'],'200 OK')
-        for value in ('Your profile','Password and security','Active sessions','Linked services','alice@example.local','America/Chicago'): self.assertIn(value,response['body'])
+        for value in ('Your profile','Linked services','alice@example.local','America/Chicago'): self.assertIn(value,response['body'])
         self.request('/account','POST',{'csrf':user['csrf'],'action':'revoke-sessions'},token)
         self.assertIsNone(self.app.store.session(other));self.assertIsNotNone(self.app.store.session(token))
     def test_crystalblue_brand_attribution_and_block_legend(self):
@@ -157,9 +157,17 @@ class CoreAdminTests(unittest.TestCase):
         self.assertTrue(any(m['id']==key for m in account.inbox(self.app,user)))
         account.change(self.app,user,{'action':'read-notification','notification':str(key)},token)
         self.assertTrue(next(m['is_read'] for m in account.inbox(self.app,user) if m['id']==key))
-        body=self.request('/account',token=token)['body']
-        self.assertIn('Notification inbox',body);self.assertIn('/account/photo/upload',body)
+        body=self.request('/account/inbox',token=token)['body']
+        self.assertIn('Notification inbox',body);self.assertIn('/account/photo/upload',self.request('/account',token=token)['body'])
         self.assertNotIn('Private notice',self.request('/account',token=other_token)['body'])
         branding.upload_logo(self.app,image,'header-fill')
         self.assertEqual(branding.logo(self.app,'header-fill')[0],image)
         self.assertIn('Upload secondary masthead',self.request('/admin/branding',token=other_token)['body'])
+
+    def test_account_sections_are_separate_pages(self):
+        token,_=self.user('alice')
+        profile=self.request('/account',token=token)['body']
+        self.assertNotIn('Password and security',profile)
+        self.assertNotIn('Notification inbox',profile)
+        self.assertIn('Password and security',self.request('/account/security',token=token)['body'])
+        self.assertIn('Notification inbox',self.request('/account/inbox',token=token)['body'])

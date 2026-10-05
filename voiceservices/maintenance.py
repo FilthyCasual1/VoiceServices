@@ -9,7 +9,7 @@ def change(app,user,data):
     app.store.accounts.call('maintenance-start',kind,'')
     return 'Update started. Refresh this page to see progress.'
 def render(app,user):
-    content='<h2>Portal and host updates</h2><div class="panel"><p>OS updates upgrade installed Alpine packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
+    content='<h2>Portal and host updates</h2><div class="panel host-updates"><img class="alpine-logo" src="/host/distro-logo" alt="Host distribution logo"><p>OS updates upgrade installed Alpine packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
     if not app.store.accounts: return content+'<p class="muted">One-click updates are available on the Alpine installation.</p><button disabled>Update OS</button><button disabled>Update INSAP</button></div>'
     try: state=app.store.accounts.call('maintenance-status','','')
     except ValueError as exc: return content+'<p class="notice error">'+E(exc)+'</p></div>'

@@ -97,3 +97,5 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .factor-qr{width:220px;max-width:100%;height:auto;background:white;border:1px solid #aab5bb}
 
 .signin-card{max-width:420px;margin:24px auto;border:1px solid #849ba8;background:#f4f4f3}.signin-banner{padding:18px 22px;background:linear-gradient(110deg,#244b60,#64899a);color:white;border-bottom:4px solid #cad7dd}.signin-banner strong{display:block;font:20px 'Trebuchet MS',Arial}.signin-banner small{display:block;margin-top:5px}.signin-card .login{margin:0;border:0;padding:18px 22px}.signin-card input{width:100%}.signin-help{text-align:center;padding:4px 12px}.recovery-page{max-width:620px;margin:auto}.recovery-page input[type=checkbox]{width:auto}
+
+.host-updates{display:flow-root;min-height:130px}.alpine-logo{float:right;width:96px;height:auto;margin:0 0 12px 20px}

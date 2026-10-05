@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.3 — 2026-10-05
+
+Detect the host distribution and fetch its logo with a sanitized local cache and offline fallback.
+
+## 1.2.2 — 2026-10-05
+
+Separate My Account profile, inbox and security pages.
+
+## 1.2.1 — 2026-10-05
+
+Add the supplied Alpine Linux logo to the host-update overview panel.
+
 ## 1.2.0 — 2026-10-05
 
 Authenticator two-factor login with local QR enrollment, replay protection and single-use recovery codes; administrator notification delivery and inbox read controls; Secondary masthead naming; administrator-reviewed password/account recovery and a styled centered sign-in panel; one-click Alpine OS and INSAP updates with status and backups; expanded OS, kernel, CPU and runtime overview.
