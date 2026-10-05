@@ -237,6 +237,8 @@ class App:
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
             user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
+        if path=='/admin/recovery' and method=='GET':
+            return send('303 See Other','',extra=[('Location','/admin/users#recovery')])
         if method == 'POST' and not secrets.compare_digest(data.get('csrf',''),user['csrf']):
             return send('403 Forbidden','Invalid or expired form token.')
         if path == '/logout' and method == 'POST':

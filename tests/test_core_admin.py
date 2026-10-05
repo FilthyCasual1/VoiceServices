@@ -223,3 +223,14 @@ class CoreAdminTests(unittest.TestCase):
         self.request('/account/inbox','POST',{'csrf':alice['csrf'],'action':'read-all-notifications'},token)
         self.assertNotIn('notification-indicator',self.request(token=token)['body'])
         with self.assertRaises(ValueError): notifications.change(self.app,admin,{'recipient':str(bob['id']),'title':'Bad','body':'Bad','priority':'invalid'})
+
+    def test_combined_users_and_recovery_routes(self):
+        from voiceservices import recovery
+        token,admin=self.user('admin')
+        page=self.request('/admin/users',token=token)['body']
+        self.assertIn('Users and Accounts',page);self.assertIn('value="authorize-recovery"',page)
+        self.assertNotIn('href="/admin/recovery"',page)
+        with patch.object(recovery,'issue',return_value='Recovery authorized') as issue:
+            result=self.request('/admin/users','POST',{'csrf':admin['csrf'],'action':'authorize-recovery','username':'alice'},token)
+            self.assertIn('Recovery authorized',result['body']);issue.assert_called_once()
+        self.assertEqual(self.request('/admin/recovery',token=token)['headers']['Location'],'/admin/users#recovery')

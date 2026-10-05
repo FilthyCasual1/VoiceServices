@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2 — 2026-10-05
+
+Combine user management, passwords and account recovery under Users and Accounts.
+
 ## 1.8.1 — 2026-10-05
 
 Condense Look and Feel and home block editors into grouped collapsible controls and compact field grids.
