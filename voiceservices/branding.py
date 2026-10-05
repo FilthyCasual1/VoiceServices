@@ -14,6 +14,10 @@ def initialize(app):
             blocks=[('1. Get an account','Create your account to get started. Your administrator assigns access to the services available on your network.','/create-account',10,'',1),('2. Sign in','Sign in to configure your services and manage your account settings. Use My Account to change your password.','/login',20,'',1),('3. Set up your services','Storage: configure network shares and shared storage.\nVoice: set up phones and calling accounts.\nEmail: configure mailboxes and email clients.\nDomain services: set up your network identity and enroll devices.\nAvailable tools depend on the installed modules. Ask your administrator for setup details.','',30,'',1),('Downloads and setup','Download internal tools and applications for your machines.','/downloads',40,'downloads',1)]
             db.executemany('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',blocks)
             db.execute("INSERT INTO module_metadata VALUES('home-blocks-seeded')")
+        if 'audience' not in {r[1] for r in db.execute('PRAGMA table_info(home_blocks)')}:
+            db.execute("ALTER TABLE home_blocks ADD COLUMN audience TEXT NOT NULL DEFAULT 'guest'")
+            db.execute("INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) SELECT title,body,url,position,module,enabled,'signed-in' FROM home_blocks WHERE url NOT IN ('/login','/create-account')")
+            db.execute("INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) VALUES('My Account','Manage your profile, security and notifications.','/account',10,'',1,'signed-in')")
 SESSION_TEXT = {
     'logout_title': ('Logout heading', 'End your session?'),
     'logout_subtitle': ('Logout subtitle', 'Confirm before signing out.'),
@@ -85,10 +89,12 @@ def change(app,section,data):
         if not 1<=len(title)<=120 or len(body)>5000 or not valid_url(url) or (module and module not in CATALOG): raise ValueError('Check block title, text, link and addon selection.')
         try: position=int(data.get('position','0'))
         except ValueError: raise ValueError('Enter a numeric block position.')
-        values=(title,body,url,position,module,int(data.get('enabled')=='yes'))
+        audience=data.get('audience','guest')
+        if audience not in ('guest','signed-in'): raise ValueError('Choose Guest or Signed-in users.')
+        values=(title,body,url,position,module,int(data.get('enabled')=='yes'),audience)
         if data.get('block'):
-            db.execute('UPDATE home_blocks SET title=?,body=?,url=?,position=?,module=?,enabled=? WHERE id=?',values+(int(data['block']),))
-        else: db.execute('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',values)
+            db.execute('UPDATE home_blocks SET title=?,body=?,url=?,position=?,module=?,enabled=?,audience=? WHERE id=?',values+(int(data['block']),))
+        else: db.execute('INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) VALUES(?,?,?,?,?,?,?)',values)
     return 'Home block saved.'
 def save(app,value):
     with app.store.connect() as db: db.execute("INSERT OR REPLACE INTO portal_settings VALUES('branding',?)",(json.dumps(value),))
@@ -117,10 +123,10 @@ def logo(app,kind='logo'):
     if not path.is_file() or path.is_symlink(): return None
     return path.read_bytes(),'image/png' if name.endswith('.png') else 'image/jpeg'
 
-def home(app):
+def home(app,user=None):
     content='<p class="notice">Your starting point for setting up network services and managing your account.</p>'
     with app.store.connect() as db:
-        for row in db.execute('SELECT * FROM home_blocks WHERE enabled=1 ORDER BY position,id'):
+        for row in db.execute('SELECT * FROM home_blocks WHERE enabled=1 AND audience=? ORDER BY position,id',('signed-in' if user and user['role']!='guest' else 'guest',)):
             if row['module'] and not app.modules.installed(row['module']): continue
             content+='<h2>'+E(row['title'])+'</h2><div class="panel"><p>'+E(row['body']).replace('\n','<br>')+'</p>'
             if row['url']: content+='<p><a href="'+E(row['url'])+'">'+E(row['title'])+'</a></p>'
@@ -161,6 +167,7 @@ def render(app,section,user):
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'"><div class="settings-grid">'
         for key,label,limit in [('title','Block title',120),('url','Link (optional)',500),('position','Position',10)]: fields+='<div class="setting-field"><label>'+label+'</label><input name="'+key+'" maxlength="'+str(limit)+'" value="'+E(row.get(key,''))+'"></div>'
+        fields+='<div class="setting-field"><label>Home page</label><select name="audience"><option value="guest">Guest</option><option value="signed-in"'+(' selected' if row.get('audience')=='signed-in' else '')+'>Signed-in users</option></select></div>'
         fields+='<div class="setting-field"><label>Show when addon is installed</label><select name="module"><option value="">Always</option>'
         for key,(title,_) in CATALOG.items(): fields+='<option value="'+key+'"'+(' selected' if row.get('module')==key else '')+'>'+E(title)+'</option>'
         fields+='</select></div><div class="setting-field"><label>Visibility</label><select name="enabled"><option value="yes">Visible</option><option value="no"'+(' selected' if row.get('enabled',1)==0 else '')+'>Hidden</option></select></div><div class="setting-field setting-wide"><label>Text</label><textarea name="body" rows="3" maxlength="5000">'+E(row.get('body',''))+'</textarea></div></div><button name="action" value="save">'+('Save block' if row.get('id') else 'Add block')+'</button>'
@@ -172,7 +179,9 @@ def render(app,section,user):
         if app.modules.installed(key): pages.extend(links)
     content='<div class="compact-settings"><details class="settings-section"><summary>Page links legend</summary><div class="panel"><p>Use these paths in a block’s Link field. Account and administration pages require sign-in; administration requires administrator access.</p><table><tr><th>Page</th><th>Link path</th></tr>'+''.join('<tr><td>'+E(title)+'</td><td><code>'+E(url)+'</code></td></tr>' for url,title in pages)+'</table><p>Addon page links are shown only while their addon is installed.</p></div></details><p>Edit your home-page blocks below. Plain text and optional links are supported.</p>'
     with app.store.connect() as db:
-        for row in db.execute('SELECT * FROM home_blocks ORDER BY position,id'): content+='<details class="settings-section"><summary>'+E(row['title'])+' <span class="muted">— '+('Visible' if row['enabled'] else 'Hidden')+' · Position '+str(row['position'])+'</span></summary>'+form(dict(row))+'</details>'
+        for audience,label in [('guest','Guest home'),('signed-in','Signed-in home')]:
+            content+='<h3>'+label+'</h3>'
+            for row in db.execute('SELECT * FROM home_blocks WHERE audience=? ORDER BY position,id',(audience,)): content+='<details class="settings-section"><summary>'+E(row['title'])+' <span class="muted">— '+('Visible' if row['enabled'] else 'Hidden')+' · Position '+str(row['position'])+'</span></summary>'+form(dict(row))+'</details>'
     return content+'<details class="settings-section"><summary>Add a block</summary>'+form({'position':50})+'</details></div>'
 
 def box_text(app,kind):

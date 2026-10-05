@@ -1,6 +1,6 @@
 # Receive-only SMTP notifications
 
-Upload `smtp-notifications-1.11.0.sraddon` through Administration → System Operator → Addons. Its SMTP page appears only while installed. The listener is initially disabled. Uninstall removes the implementation and stops receiving mail; saved settings and delivered inbox messages remain.
+Upload `smtp-notifications-1.12.0.sraddon` through Administration → System Operator → Addons. Its SMTP page appears only while installed. The listener is initially disabled. Uninstall removes the implementation and stops receiving mail; saved settings and delivered inbox messages remain.
 
 The Alpine installer includes aiosmtpd 1.4.6 and the `serviceready-smtp` OpenRC supervisor. Existing installations gain these through INSAP update. Other hosts can install the optional dependency with `pip install '.[smtp]'` and supervise `python -m voiceservices.smtp_service --config config.json`. The voice addon is not required.
 

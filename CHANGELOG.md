@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.0 — 2026-10-05
+
+Separate guest and signed-in home blocks with independent editing and automatic session-based selection.
+
 ## 1.11.0 — 2026-10-05
 
 Add separately installable SNMPv2c monitoring, trap/inform reception, portal configuration and Alpine worker service.

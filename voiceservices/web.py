@@ -297,7 +297,7 @@ class App:
         if result is not None: return result
         if path == '/':
             title = 'Welcome to '+branding.defaults(self)['title']
-            content = branding.home(self)
+            content = branding.home(self,user)
         else:
             return send('404 Not Found',self.page('Page not found','<p class="notice error">The page you requested could not be found. It may have moved or its service may have been removed.</p><p><a href="/">Return home</a></p>',user))
         return send('200 OK',self.page(title,content,user))

@@ -277,3 +277,12 @@ class CoreAdminTests(unittest.TestCase):
         self.assertEqual(response['status'],'304 Not Modified')
         body=self.request()['body']
         self.assertIn('/static/portal.js?v=',body)
+
+    def test_separate_home_audiences(self):
+        token,admin=self.user('admin')
+        for audience,title in [('guest','Guest only'),('signed-in','Member only')]:
+            self.request('/admin/home','POST',{'csrf':admin['csrf'],'title':title,'body':'Test','audience':audience,'enabled':'yes'},token)
+        guest=self.request()['body'];member=self.request(token=token)['body']
+        self.assertIn('Guest only',guest);self.assertNotIn('Member only',guest)
+        self.assertIn('Member only',member);self.assertNotIn('Guest only',member)
+        self.assertNotIn('<h2>1. Get an account',member)
