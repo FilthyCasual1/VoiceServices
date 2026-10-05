@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 — 2026-10-05
+
+Align masthead account details beside the avatar with tighter, consistent label spacing.
+
 ## 1.1.0 — 2026-10-05
 
 Secondary header image, profile picture uploads, and a private notification inbox with read and delete actions.

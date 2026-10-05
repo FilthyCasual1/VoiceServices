@@ -72,3 +72,12 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 @media(max-width:420px){header.masthead-compact{grid-template-columns:1fr}}
 
 .avatar{width:96px;height:96px;object-fit:cover;border:1px solid #a5b6bf}.account-avatar{width:40px;height:40px;object-fit:cover;float:left;margin:4px 8px 4px 0;border:1px solid white}
+
+/* One label column for all masthead account rows, beside the profile picture. */
+.account{display:flex;gap:8px;align-items:flex-start;text-align:left}
+.account-avatar{float:none;flex:0 0 40px;margin:4px 0 0}
+.account-details{flex:1;min-width:0}
+.account-details>div{display:grid;grid-template-columns:68px minmax(0,1fr);column-gap:4px;overflow-wrap:anywhere}
+.account-details>div:not(:has(span)){display:block}
+.account-details span{min-width:0}
+@media(max-width:720px){.account{gap:5px;padding:5px 6px}.account-avatar{width:28px;height:28px;flex-basis:28px}.account-details>div{grid-template-columns:60px minmax(0,1fr);column-gap:2px}}
