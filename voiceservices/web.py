@@ -57,6 +57,8 @@ class App:
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
             return send('200 OK',json.dumps({'service':'VoiceServices','status':'running','integrations':'not probed'}),'application/json')
+        if path == '/static/masthead.png':
+            return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
         try:
