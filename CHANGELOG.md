@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.6 — 2026-10-05
+
+Place logout below the header profile picture and move guest sign-in away from the system row.
+
 ## 1.2.5 — 2026-10-05
 
 Right-align the sign-in and create-account action buttons to finish the portal shell.

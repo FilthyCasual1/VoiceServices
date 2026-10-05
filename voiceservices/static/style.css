@@ -101,3 +101,5 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .host-updates{display:flow-root;min-height:130px}.alpine-logo{float:right;width:96px;height:auto;margin:0 0 12px 20px}
 
 .signin-card form button{display:block;margin-left:auto;margin-right:0}
+
+.account-picture{flex:0 0 44px;display:flex;flex-direction:column;align-items:flex-start}.account-picture .account-avatar{flex:none;margin:0}.account-picture .inline button{margin-top:3px;padding:2px 3px;white-space:nowrap}.account-details{display:flex;flex-direction:column;align-self:stretch}.guest-signin{margin-top:auto;align-self:flex-end;padding:4px 2px}
