@@ -19,8 +19,7 @@ umask 027
 log=/var/log/serviceready-install.log
 [[ ! -L $log ]] || { echo 'Installer log must not be a symlink.'; exit 1; }
 touch "$log"; chmod 0600 "$log"
-run() { "$@" >>"$log" 2>&1 || { tail -n 35 "$log" >&2; return 1; }; }
-step() { stage=$1; echo "==> $stage"; }
+source "$source_dir/deploy/rocky-progress.sh"
 [[ ! -f /etc/nginx/conf.d/serviceready.conf ]] || grep -q '^# ServiceReady managed nginx configuration$' /etc/nginx/conf.d/serviceready.conf || { echo 'Existing Nginx portal configuration is not installer-managed.'; exit 1; }
 step 'Official repositories and dependency preflight'
 run dnf -y install dnf-plugins-core newt
@@ -33,6 +32,7 @@ if [[ $use_menu == 1 ]]; then
     fi
     source "$source_dir/deploy/rocky-menu.sh"
     rocky_menu || { echo 'Setup cancelled; no portal settings or accounts changed.'; exit 0; }
+    progress_ui=1
 fi
 packages=(python3 python3-pip python3-devel gcc make krb5-workstation krb5-devel libffi-devel openssl nginx iproute git shadow-utils libxcrypt dnsmasq policycoreutils policycoreutils-python-utils firewalld)
 run dnf -y --downloadonly install "${packages[@]}"
@@ -120,5 +120,6 @@ step 'Verify HTTP and HTTPS'
 run /opt/serviceready/venv/bin/python "$source_dir/deploy/rocky-setup.py" verify
 /opt/serviceready/venv/bin/python -c 'from voiceservices.version import __version__; print(__version__)' > /etc/serviceready/installed-version
 /opt/serviceready/venv/bin/python -c 'import json; print("Portal: "+json.load(open("/etc/serviceready/config.json"))["public_url"])'
+progress_complete
 echo 'Installation complete. Trust /etc/serviceready/tls/ca.crt on browser machines. Never export ca.key.'
 echo "Installer log: $log"

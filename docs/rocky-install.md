@@ -11,7 +11,7 @@ cd VoiceServices
 sudo bash install-rocky.sh
 ```
 
-The installer bootstraps the official DNF tools and `newt`, then opens a **menuconfig-style setup screen**. Use arrows, Space to select addons, Tab to move between buttons, and Enter to choose. Configure the portal address, whether to open HTTPS through firewalld, and addon packages to install/update. Review the summary and confirm Apply. Cancelling does not change portal settings or accounts; bootstrap packages may already be installed.
+The installer bootstraps the official DNF tools and `newt`, then opens a **menuconfig-style setup screen**. Use arrows, Space to select addons, Tab to move between buttons, and Enter to choose. Configure the portal address, whether to open HTTPS through firewalld, and addon packages to install/update. Review the summary and confirm Apply. Installation then shows a progress gauge with the current stage, command, elapsed time and latest log line. The percentage tracks completed stages, not download bytes; it reaches 100% only after health checks pass. Console mode and initial bootstrap show text progress instead. Cancelling does not change portal settings or accounts; bootstrap packages may already be installed.
 
 The default is a bare portal, automatic DHCP/static addressing, and HTTPS on port 443. All addons are unchecked initially. Unchecking an existing addon does not uninstall it; remove addons from the portal. Selected packages are installed from the checkout's matching release. Optional listener configuration and firewall rules are still separate.
 

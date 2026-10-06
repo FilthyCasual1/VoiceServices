@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.15.1 — 2026-10-06
+
+Show installer stage progress, elapsed time, current activity and live log output in a gauge, with console progress fallback.
+
 ## 1.15.0 — 2026-10-06
 
 Add menuconfig-style Rocky Linux 10 deployment with address/firewall/addon choices, systemd, OS-account authentication, Nginx HTTPS, local CA, DHCP address tracking and DNF maintenance.
