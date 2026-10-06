@@ -317,7 +317,7 @@ class App:
                 except ValueError as exc: return send('400 Bad Request',self.page('My Account',account.render(self,user,token,str(exc),section),user))
                 return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
             return send('200 OK',self.page('My Account',account.render(self,user,token,section=section),user))
-        if path in ('/admin/terminal/io','/admin/host') and (path.endswith('/io') or method=='POST'):
+        if path in ('/admin/terminal/io','/admin/host') and (path.endswith('/io') or (method=='POST' and bool(data.get('task')))):
             from . import host_tools
             return host_tools.page(self,path,method,data,user,env,send)
         if path=='/admin' or path.startswith('/admin/'):

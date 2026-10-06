@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.6 — 2026-10-06
+
+Combine updates and schedules into Host maintenance; remove repeated password entry for confirmed log, temporary-file and package-cache cleanup.
+
 ## 1.17.5 — 2026-10-06
 
 Embed the authenticated host terminal in Host maintenance and remove its separate navigation entry; retain compatibility with existing terminal links.

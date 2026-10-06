@@ -68,3 +68,23 @@ class HostToolTests(unittest.TestCase):
         body=self.request('/admin/host',token=token)['body']
         self.assertIn('Clean package cache',body);self.assertIn('Host power',body);self.assertIn('id="host-terminal"',body)
         self.assertIn('<summary>Host terminal</summary>',body);self.assertNotIn('href="/admin/terminal"',body)
+
+    def test_cleanup_uses_admin_session_and_confirmation_without_password(self):
+        token,user=self.user('admin');self.app.base='https://portal.example';self.app.secure=True
+        self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={}
+        for task in ('package-cache','portal-temp','portal-logs'):
+            with patch('voiceservices.twofactor.password') as password:
+                result=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':task,'confirm':'yes'},token)
+            self.assertEqual(result['status'],'303 See Other');password.assert_not_called()
+            self.app.store.accounts.call.assert_called_with('maintenance-start',task,'')
+        self.assertEqual(self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'portal-logs'},token)['status'],'400 Bad Request')
+        self.assertEqual(self.request('/admin/host','POST',{'csrf':'bad','task':'portal-logs','confirm':'yes'},token)['status'],'403 Forbidden')
+    def test_combined_host_page_has_updates_and_schedules(self):
+        token,user=self.user('admin')
+        body=self.request('/admin/host',token=token)['body']
+        self.assertIn('Update INSAP',body);self.assertIn('Automatic update schedules',body)
+        self.assertNotIn('href="/admin/system-updates"',body)
+        self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
+        result=self.request('/admin/host','POST',{'csrf':user['csrf'],'update':'insap'},token)
+        self.assertEqual(result['status'],'200 OK')
+        self.assertIn('data-update-state="starting"',result['body'])

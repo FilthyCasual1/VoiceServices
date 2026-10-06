@@ -12,13 +12,12 @@ def password_form(user,app):
 def render(app,path,user,data,method,services):
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     section=path.removeprefix('/admin').strip('/') or 'overview'
-    if section=='terminal': section='host'
-    if section=='schedules': section='system-updates'
+    if section in ('terminal','schedules','system-updates'): section='host'
     if section not in HEADINGS: raise ValueError('Unknown administration submenu.')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';note=''
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
-        elif section=='system-updates': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
+        elif section=='host': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
         elif section=='addons':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
@@ -34,7 +33,7 @@ def render(app,path,user,data,method,services):
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview': content+=overview.render(app)
-    elif section=='system-updates': content+=maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))+'<details class="settings-section" id="update-schedules"'+(' open' if data.get('action')=='save-update-schedules' else '')+'><summary>Automatic update schedules</summary>'+update_schedule.render(app,user)+'</details>'
+
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
     elif section=='notifications': content+=notifications.render(app,user)
@@ -43,7 +42,7 @@ def render(app,path,user,data,method,services):
     elif section=='authentication': content+=external_auth.render(app,user)
     elif section=='users': content+=user_management.render(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
     elif section=='terminal': content+=host_tools.terminal_render(app,user)
-    elif section=='host': content+=host_tools.admin_render(app,user,services)+'<details class="settings-section" id="terminal"'+(' open' if path.rstrip('/')=='/admin/terminal' else '')+'><summary>Host terminal</summary><div class="panel">'+host_tools.terminal_render(app,user)+'</div></details>'
+    elif section=='host': content+=host_tools.admin_render(app,user,services)+'<h2>Portal and host updates</h2>'+maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))+'<details class="settings-section" id="update-schedules"'+(' open' if data.get('action')=='save-update-schedules' else '')+'><summary>Automatic update schedules</summary>'+update_schedule.render(app,user)+'</details>'+'<details class="settings-section" id="terminal"'+(' open' if path.rstrip('/')=='/admin/terminal' else '')+'><summary>Host terminal</summary><div class="panel">'+host_tools.terminal_render(app,user)+'</div></details>'
     elif section in ('storage','network-host'): content+=host_configuration.render(app,user,section)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
     elif section=='addons':
@@ -56,7 +55,7 @@ def render(app,path,user,data,method,services):
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    operator=[('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
             (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))

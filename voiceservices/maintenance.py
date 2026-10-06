@@ -22,5 +22,5 @@ def render(app,user,started=False):
     content=content.replace('class="panel host-updates"','class="panel host-updates" data-update-state="'+E(watch)+'" data-update-version="'+E(__version__)+'"')
     content+='<p class="notice" data-update-status role="status" aria-live="polite">'+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'
     content+='<div class="update-actions">'
-    for kind,label in [('os','Update OS'),('insap','Update INSAP')]: content+='<form class="inline" method="post" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="'+kind+'"'+(' disabled' if state.get('state')=='running' else '')+'>'+label+'</button></form>'
+    for kind,label in [('os','Update OS'),('insap','Update INSAP')]: content+='<form class="inline" method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="'+kind+'"'+(' disabled' if state.get('state')=='running' else '')+'>'+label+'</button></form>'
     return content+'</div></div>'
