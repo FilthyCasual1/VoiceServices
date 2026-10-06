@@ -216,4 +216,16 @@ class PortalTests(unittest.TestCase):
         fresh=SimpleCookie();fresh.load(expired['headers']['Set-Cookie']);fresh_nonce=fresh['vs_login'].value
         self.assertEqual(post(fresh_nonce,'vs_login='+fresh_nonce)['status'],'303 See Other')
 
+
+    def test_session_backgrounds_are_independent_public_assets(self):
+        from voiceservices import branding
+        raw=Path('voiceservices/static/masthead.png').read_bytes()
+        for kind in branding.BOX_IMAGES:branding.upload_logo(self.app,raw,kind)
+        css=self.request('/branding/style.css')['body']
+        for kind in branding.BOX_IMAGES:
+            self.assertIn('/branding/'+kind,css)
+            self.assertEqual(branding.logo(self.app,kind)[0],raw)
+        self.assertIn('login-background',self.request('/login')['body'])
+        self.assertIn('loggedout-background',self.request('/logged-out')['body'])
+
 if __name__=='__main__': unittest.main()

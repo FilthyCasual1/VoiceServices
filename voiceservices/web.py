@@ -97,7 +97,7 @@ class App:
             return send('405 Method Not Allowed','Method not allowed.')
         if path == '/healthz':
             return send('200 OK',json.dumps({'service':'ServiceReady','status':'running','integrations':'not probed'}),'application/json')
-        if path in ('/branding/logo','/branding/masthead','/branding/header-fill'):
+        if path in ('/branding/logo','/branding/masthead','/branding/header-fill',*( '/branding/'+kind for kind in branding.BOX_IMAGES)):
             asset=branding.logo(self,path.rsplit('/',1)[-1])
             if path.endswith('/masthead') and not asset: asset=(Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
             return send('200 OK',asset[0],asset[1]) if asset else send('404 Not Found','Logo unavailable.')
@@ -116,10 +116,11 @@ class App:
         if path=='/branding/style.css':
             brand=branding.defaults(self)
             masthead=brand.get('masthead',__version__);fill=brand.get('header-fill','none')
-            return send('200 OK','.masthead-compact .masthead-image{background-image:url("/branding/masthead?v='+masthead+'")}.masthead-wide .brand{background-image:url("/branding/header-fill?v='+fill+'")}', 'text/css')
+            box_css=''.join('.signin-card.'+kind+'{background-image:url("/branding/'+kind+'?v='+brand[kind]+'")}' for kind in branding.BOX_IMAGES if brand.get(kind))
+            return send('200 OK',box_css+'.masthead-compact .masthead-image{background-image:url("/branding/masthead?v='+masthead+'")}.masthead-wide:not(.masthead-full) .brand{background-image:url("/branding/header-fill?v='+fill+'")}', 'text/css')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
-        if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload','/admin/branding/header-fill/upload','/account/photo/upload'):
+        if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload','/admin/branding/header-fill/upload','/account/photo/upload',*('/admin/branding/'+kind+'/upload' for kind in branding.BOX_IMAGES)):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))
             except Exception: pass
@@ -143,7 +144,7 @@ class App:
                 if set(fields)!={'csrf','file'} or any(not isinstance(v,bytes) for v in fields.values()): raise ValueError('Invalid package fields.')
                 if not secrets.compare_digest(fields.get('csrf',b''),user['csrf'].encode()): return send('403 Forbidden','Invalid form token.')
                 if path=='/account/photo/upload': account.upload_photo(self,user,fields['file'])
-                elif path.startswith('/admin/branding/'): branding.upload_logo(self,fields['file'],'header-fill' if '/header-fill/' in path else 'masthead' if '/masthead/' in path else 'logo')
+                elif path.startswith('/admin/branding/'): branding.upload_logo(self,fields['file'],path.split('/')[-2] if path.split('/')[-2] in branding.BOX_IMAGES else 'header-fill' if '/header-fill/' in path else 'masthead' if '/masthead/' in path else 'logo')
                 else: self.modules.install(fields['file'])
             except (ValueError,OSError) as exc: return send('400 Bad Request',self.page('Package installation failed',E(exc),user))
             return send('303 See Other','',extra=[('Location','/account' if path=='/account/photo/upload' else '/admin/branding' if path.startswith('/admin/branding/') else '/admin/addons')])
@@ -212,14 +213,14 @@ class App:
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             from . import onboarding
-            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login">'+onboarding.form(self,nonce,data)+'</div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
+            form = error+'<div class="signin-card login-background"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login">'+onboarding.form(self,nonce,data)+'</div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
         if path == '/welcome':
             if not user or user['role']=='guest':return send('303 See Other','',extra=[('Location','/login')])
             return send('200 OK',self.page('Welcome','<div class="signin-card"><div class="signin-banner"><strong>Your account is ready</strong><small>Welcome to your network services portal.</small></div><div class="panel"><p>You are signed in. Choose your next step:</p><p><a class="button" href="/account">Finish your profile</a></p><p><a href="/account/security">Set up two-factor authentication</a></p><p><a href="/">Explore your services</a></p></div></div>',user))
         if path == '/logged-out':
             session_text=branding.defaults(self)
-            return send('200 OK',self.page('You have been logged out','<div class="signin-card"><div class="signin-banner"><strong>'+E(session_text['logged_out_title'])+'</strong><small>'+E(session_text['logged_out_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logged_out_message'])+'</p><p class="signin-help"><a href="/login">'+E(session_text['logged_out_link'])+'</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])
+            return send('200 OK',self.page('You have been logged out','<div class="signin-card loggedout-background"><div class="signin-banner"><strong>'+E(session_text['logged_out_title'])+'</strong><small>'+E(session_text['logged_out_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logged_out_message'])+'</p><p class="signin-help"><a href="/login">'+E(session_text['logged_out_link'])+'</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])
         if path == '/recover':
             from . import recovery
             return recovery.public(self,env,data,cookie,method,send)
@@ -264,7 +265,7 @@ class App:
                 error = '<p class="notice error">Invalid username or password.</p>'
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
-            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
+            form = error+'<div class="signin-card login-background"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
             providers=[(key,label) for key,label in external_auth.KINDS.items() if external_auth.settings(self,key)['enabled']]
             if providers:
                 picker='<label>Sign in with</label><select name="provider"><option value="local">Local account</option>'+''.join('<option value="'+key+'">'+label+'</option>' for key,label in providers)+'</select>'
@@ -302,7 +303,7 @@ class App:
         if path == '/logout' and method == 'POST':
             if data.get('confirm')!='yes':
                 session_text=branding.defaults(self)
-                form='<div class="signin-card session-card"><div class="signin-banner"><strong>'+E(session_text['logout_title'])+'</strong><small>'+E(session_text['logout_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logout_message'])+'</p><p class="muted">'+E(session_text['logout_detail'])+'</p><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="confirm" value="yes"><div class="session-actions"><a class="session-cancel" href="/">'+E(session_text['logout_cancel'])+'</a><button class="end-session">'+E(session_text['logout_confirm'])+'</button></div></form></div></div>'
+                form='<div class="signin-card session-card logout-background"><div class="signin-banner"><strong>'+E(session_text['logout_title'])+'</strong><small>'+E(session_text['logout_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logout_message'])+'</p><p class="muted">'+E(session_text['logout_detail'])+'</p><form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="confirm" value="yes"><div class="session-actions"><a class="session-cancel" href="/">'+E(session_text['logout_cancel'])+'</a><button class="end-session">'+E(session_text['logout_confirm'])+'</button></div></form></div></div>'
                 return send('200 OK',self.page('End your session?',form,user))
             self.store.logout(token)
             return send('303 See Other','',extra=[('Location','/logged-out'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
@@ -363,7 +364,7 @@ class App:
         brand=branding.defaults(self)
         footer='CasualNetworks Service Ready' if brand['title']=='CasualNetworks' else brand['title']+' | Powered By CasualNetworks ServiceReady'
         logo='/branding/logo?v='+brand['logo'] if brand.get('logo') else '/static/brand-arrow.svg'
-        brand_style='/branding/style.css?v='+brand.get('masthead',__version__)+'-'+brand.get('header-fill','none')
+        brand_style='/branding/style.css?v='+brand.get('masthead',__version__)+'-'+brand.get('header-fill','none')+'-'+ '-'.join(brand.get(kind,'none') for kind in branding.BOX_IMAGES)
         masthead_url='/branding/masthead?v='+brand.get('masthead',__version__)
         avatar_url='/account/photo'
         if user and user['role']!='guest':

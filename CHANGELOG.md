@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.9 — 2026-10-06
+
+Add independently uploadable and removable login, logout-confirmation and logged-out box background images in Appearance, with readable overlays.
+
 ## 1.27.8 — 2026-10-06
 
 Offer distinct full-width, wide with small secondary masthead, and right-justified masthead layouts while retaining existing branding images.
