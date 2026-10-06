@@ -1,5 +1,10 @@
 # SNMP Monitoring changelog
 
+## 1.24.0
+
+- Package for INSAP 1.24.0. No functional addon changes; repository installation is a core feature.
+
+
 ## 1.23.0
 
 - Package for INSAP 1.23.0. No functional addon changes; IPv6 configuration and invited account onboarding are core features.

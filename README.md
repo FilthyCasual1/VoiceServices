@@ -19,7 +19,7 @@ The [Alpine installer](docs/alpine-install.md) remains available for existing de
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.23.0](packages/addons/1.23.0/) and
+Download `.sraddon` files from [packages/addons/1.24.0](packages/addons/1.24.0/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -73,3 +73,5 @@ Root console recovery: `sudo serviceready-admin-reset <administrator>` prompts f
 Create a single-use invitation in Administration → Users and Accounts → Account invitations. Give the code to the new user, who enters it during account onboarding. Codes can expire after 1, 7 or 30 days and can be revoked before use. Registration must also be enabled in Security. Existing accounts and administrator-created accounts continue to work.
 
 Network and time supports IPv4 and IPv6 independently. Keep existing settings when changing only the other protocol; IPv6 supports automatic addressing, DHCPv6, static addresses and disabling. Network changes must still be confirmed within 90 seconds or the original profile is restored. The managed HTTPS proxy listens on both protocols and refreshes certificate addresses from current host interfaces.
+
+Install official addons from Administration → Addons → Install from repository, or upload a compatible `.sraddon` file using Manual installation. Repository installation downloads the package version approved by the installed core; it does not execute newer unapproved addon code.

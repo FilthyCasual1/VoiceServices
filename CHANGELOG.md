@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.24.0 — 2026-10-06
+
+Add official repository addon installation using core-compatible packages pinned to a repository commit, while retaining manual uploads and installed-only addon listings.
+
 ## 1.23.0 — 2026-10-06
 
 Add IPv6 host configuration, invitation-gated account onboarding with single-use expiring administrator codes, and compact user management actions.

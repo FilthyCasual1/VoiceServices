@@ -62,3 +62,33 @@ def render(app,user,key):
         messages={'current':'Addon is up to date.','declined':'This addon version was declined.','installed':'Addon update installed.','core-required':'This release changes addon code approved by the core. Update INSAP before installing it.'}
         text+='<p class="muted">'+E(messages.get(review.get('state'),'Check this addon again.'))+'</p>'
     return text
+
+def install_from_repository(app,user,data):
+    import io,zipfile
+    if user['role']!='admin':raise PermissionError('Administrator access required.')
+    key=data.get('module','')
+    if key not in CATALOG or key not in app.modules.approved:raise ValueError('Choose an official addon.')
+    if (app.modules.root/key).exists():raise ValueError('This addon is already present. Use its update controls or uninstall it first.')
+    version=app.modules.approved[key]['version']
+    if not re.fullmatch(r'\d+\.\d+\.\d+',version):raise ValueError('Invalid approved addon version.')
+    try:
+        commit=json.loads(fetch('https://api.github.com/repos/FilthyCasual1/VoiceServices/commits/main',1024*1024))['sha']
+        if not isinstance(commit,str) or not re.fullmatch('[a-f0-9]{40}',commit):raise ValueError('Invalid repository revision.')
+        url='https://raw.githubusercontent.com/FilthyCasual1/VoiceServices/'+commit+'/packages/addons/'+version+'/'+key+'-'+version+'.sraddon'
+        raw=fetch(url)
+        import io,zipfile
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:manifest=json.loads(archive.read('manifest.json'))
+        if not isinstance(manifest,dict) or manifest.get('id')!=key or manifest.get('version')!=version:raise ValueError('Repository package does not match the selected addon and portal release.')
+        app.modules.install(raw)
+    except (OSError,KeyError,TypeError,ValueError,zipfile.BadZipFile) as exc:
+        raise ValueError('Repository installation failed: '+str(exc)+'. You can still upload a compatible package manually.') from None
+    import time
+    with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],'Installed repository addon '+key+' '+version+' at '+commit))
+    return CATALOG[key][0]+' installed from the repository; version '+version+'.'
+
+def repository_installer(app,user):
+    options=''.join('<option value="'+E(key)+'">'+E(title)+' — '+E(app.modules.approved[key]['version'])+'</option>' for key,(title,_) in CATALOG.items() if key in app.modules.approved and not (app.modules.root/key).exists())
+    text='<details class="settings-section"><summary>Install from repository</summary><div class="panel"><p>Download an official addon from the project repository. The installer selects a package compatible with this portal release and validates its approved code before installing.</p>'
+    if options:text+='<form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><label>Addon</label><select name="module">'+options+'</select><button name="action" value="install-repository-addon">Download and install</button></form>'
+    else:text+='<p>All official addons are already present.</p>'
+    return text+'</div></details>'

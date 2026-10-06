@@ -18,6 +18,7 @@ def render(app,path,user,data,method,services):
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
         elif section=='host': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
+        elif section=='addons' and data.get('action')=='install-repository-addon':note=addon_updates.install_from_repository(app,user,data)
         elif section=='addons' and data.get('action') in ('check-addon-update','install-addon-update','decline-addon-update'):note=addon_updates.change(app,user,data)
         elif section=='addons':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
@@ -47,7 +48,8 @@ def render(app,path,user,data,method,services):
     elif section in ('storage','network-host'): content+=host_configuration.render(app,user,section)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
     elif section=='addons':
-        content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'
+        content+=addon_updates.repository_installer(app,user)
+        content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<h3>Manual installation</h3><label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'
         for key,(name,description) in CATALOG.items():
             present=(app.modules.root/key).exists()
             if not present: continue
