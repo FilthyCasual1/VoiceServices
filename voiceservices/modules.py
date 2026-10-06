@@ -36,14 +36,14 @@ class Modules:
         if module not in self.approved: return False
         try: return hashlib.sha256((self.root/module/'module.py').read_bytes()).hexdigest()==self.approved[module]['sha256']
         except OSError: return False
-    def install(self,raw):
+    def install(self,raw,replace=False):
         if len(raw)>2*1024**2: raise ValueError('Addon package exceeds 2 MiB.')
         with _lock:
             try:
                 with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-                    if set(archive.namelist())!={'manifest.json','module.py'} or len(archive.infolist())!=2: raise ValueError('Invalid package layout.')
+                    if set(archive.namelist()) not in ({'manifest.json','module.py'},{'manifest.json','module.py','CHANGELOG.md'}) or len(archive.infolist())!=len(set(archive.namelist())): raise ValueError('Invalid package layout.')
                     if any(item.file_size>2*1024**2 for item in archive.infolist()): raise ValueError('Package is too large.')
-                    manifest=json.loads(archive.read('manifest.json'));code=archive.read('module.py')
+                    manifest=json.loads(archive.read('manifest.json'));code=archive.read('module.py');changelog=archive.read('CHANGELOG.md') if 'CHANGELOG.md' in archive.namelist() else b''
                 key=manifest['id']
                 if key not in self.approved: raise ValueError('Unknown addon package.')
                 if set(manifest)!={'id','version','api','sha256'} or not isinstance(manifest['version'],str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',manifest['version']): raise ValueError('Invalid addon manifest.')
@@ -53,12 +53,23 @@ class Modules:
                 if hashlib.sha256(code).hexdigest()!=manifest['sha256']: raise ValueError('Package checksum is not approved.')
                 compile(code,'module.py','exec')
             except (KeyError,TypeError,SyntaxError,zipfile.BadZipFile,json.JSONDecodeError,UnicodeError,RuntimeError,EOFError) as exc: raise ValueError('Invalid addon package.') from exc
-            if (self.root/key).exists(): raise ValueError('Uninstall the existing package before installing a replacement.')
+            destination=self.root/key
+            if destination.exists() and not replace: raise ValueError('Uninstall the existing package before installing a replacement.')
+            if replace and not self.installed(key):raise ValueError('Only installed approved addons can be updated.')
             temporary=Path(tempfile.mkdtemp(prefix='.install-',dir=self.root))
             try:
                 (temporary/'module.py').write_bytes(code)
                 (temporary/'manifest.json').write_text(json.dumps(manifest))
-                temporary.rename(self.root/key)
+                if changelog:(temporary/'CHANGELOG.md').write_bytes(changelog)
+                backup=None
+                if replace:
+                    backup=Path(tempfile.mkdtemp(prefix='.previous-',dir=self.root));backup.rmdir();destination.rename(backup)
+                try:temporary.rename(destination)
+                except Exception:
+                    if backup:backup.rename(destination)
+                    raise
+                if backup:shutil.rmtree(backup)
+                self.cache.pop(key,None);self.resources={k:v for k,v in self.resources.items() if k[0]!=key}
             finally:
                 if temporary.exists(): shutil.rmtree(temporary)
             with self.store.connect() as db: db.execute('INSERT OR IGNORE INTO platform_modules VALUES(?)',(key,))

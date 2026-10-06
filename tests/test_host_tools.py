@@ -82,7 +82,7 @@ class HostToolTests(unittest.TestCase):
     def test_combined_host_page_has_updates_and_schedules(self):
         token,user=self.user('admin')
         body=self.request('/admin/host',token=token)['body']
-        self.assertIn('Update INSAP',body);self.assertIn('Automatic update schedules',body)
+        self.assertIn('Grab INSAP update',body);self.assertIn('Automatic update schedules',body)
         self.assertNotIn('href="/admin/system-updates"',body)
         self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
         result=self.request('/admin/host','POST',{'csrf':user['csrf'],'update':'insap'},token)
@@ -101,3 +101,16 @@ class HostToolTests(unittest.TestCase):
             self.assertEqual(bad['status'],'400 Bad Request');power.assert_not_called()
             good=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'power','operation':'restart','confirm':'yes','current_password':'secret'},token)
             self.assertEqual(good['status'],'200 OK');self.assertEqual(power.call_args.args[2]['confirm'],'restart')
+
+    def test_cleanup_checklist_has_one_run_and_batches_selected_tasks(self):
+        token,user=self.user('admin');self.app.base='https://portal.example';self.app.secure=True
+        self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
+        body=self.request('/admin/host',token=token)['body']
+        self.assertEqual(body.count('Run selected tasks</button>'),1)
+        for key in ('package-cache','portal-temp','portal-logs'):self.assertIn('name="task_'+key+'"',body)
+        empty=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'cleanup'},token)
+        self.assertEqual(empty['status'],'400 Bad Request')
+        result=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'cleanup','task_package-cache':'yes','task_portal-logs':'yes'},token)
+        self.assertEqual(result['status'],'303 See Other')
+        call=self.app.store.accounts.call.call_args
+        self.assertEqual(call.args[:2],('maintenance-start','cleanup'));self.assertEqual(json.loads(call.args[2]),['package-cache','portal-logs'])

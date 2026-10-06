@@ -76,4 +76,4 @@ class FactorTests(unittest.TestCase):
         self.app.store.accounts.call.return_value={'state':'idle','message':'Ready'}
         maintenance.change(self.app,admin,{'update':'insap'})
         self.app.store.accounts.call.assert_called_with('maintenance-start','insap','')
-        self.assertIn('Update INSAP',maintenance.render(self.app,admin))
+        self.assertIn('Grab INSAP update',maintenance.render(self.app,admin))

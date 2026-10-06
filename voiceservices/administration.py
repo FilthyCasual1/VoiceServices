@@ -1,7 +1,7 @@
 """Permanent administrator shell with addon-provided subpages."""
 import html
 from .modules import CATALOG
-from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration
+from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration,addon_updates
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
 HEADINGS={'system-updates':'Portal and host updates','storage':'Upload storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
@@ -18,6 +18,7 @@ def render(app,path,user,data,method,services):
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
         elif section=='host': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
+        elif section=='addons' and data.get('action') in ('check-addon-update','install-addon-update','decline-addon-update'):note=addon_updates.change(app,user,data)
         elif section=='addons':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
@@ -53,6 +54,7 @@ def render(app,path,user,data,method,services):
             installed=app.modules.installed(key)
             content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
+            if installed:content+=addon_updates.render(app,user,key)
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
     operator=[('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]

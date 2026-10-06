@@ -137,14 +137,37 @@ def handle(request):
         control.status('running','Starting host operation')
         subprocess.Popen(['/usr/bin/python3',str(worker),base64.b64encode(json.dumps(payload).encode()).decode()],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         return {'ok':True}
-    if request.get('action') in ('maintenance-start','maintenance-status'):
+    if request.get('action') in ('maintenance-start','maintenance-status','maintenance-decline'):
         from pathlib import Path
         state_path=Path('/run/serviceready-accounts/maintenance.json')
         state=json.loads(state_path.read_text()) if state_path.exists() else {'state':'idle','message':'No updates started.'}
-        if request['action']=='maintenance-status': return {'ok':True,'status':state}
+        review_path=Path('/etc/serviceready/update-review.json')
+        review=json.loads(review_path.read_text()) if review_path.exists() else {}
+        if request['action']=='maintenance-status':
+            state['review']=review;return {'ok':True,'status':state}
+        if request['action']=='maintenance-decline':
+            import fcntl
+            with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
+                try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                except BlockingIOError:raise ValueError('Wait for the current host operation before declining a release.')
+                review=json.loads(review_path.read_text()) if review_path.exists() else {}
+                if review.get('commit')!=request.get('password') or review.get('state')!='ready':raise ValueError('The release changed. Reload and review it again.')
+                review['state']='declined';review['declined_versions']=list(dict.fromkeys(review.get('declined_versions',[])+[review['version']]))
+                temporary=review_path.with_suffix('.new');temporary.write_text(json.dumps(review));os.chmod(temporary,0o600);temporary.replace(review_path)
+            return {'ok':True}
         kind=request.get('username')
-        if kind not in ('os','insap','vmtools','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
+        if kind not in ('os','insap','insap-install','vmtools','cleanup','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
         if state.get('state')=='running': raise ValueError('An update is already running.')
+        approved=''
+        if kind=='cleanup':
+            selected=json.loads(request.get('password','[]'))
+            if not isinstance(selected,list) or not selected or len(selected)>3 or any(task not in ('package-cache','portal-temp','portal-logs') for task in selected):raise ValueError('Select valid cleanup tasks.')
+            approved=json.dumps(list(dict.fromkeys(selected)))
+        if kind=='insap-install':
+            approved=request.get('password','')
+            if not re.fullmatch('[a-f0-9]{40}',approved) or review.get('commit')!=approved or review.get('state')!='ready':raise ValueError('Reload and approve the current release before installing.')
+            kind='insap'
+        elif kind=='insap':kind='insap-check'
         if kind=='vmtools':
             helper=Path('/opt/serviceready/vm-tools.py')
             if not helper.exists():
@@ -158,7 +181,7 @@ def handle(request):
         starting={'kind':kind,'state':'running','message':'Starting host update worker','at':int(time.time())}
         temporary=state_path.with_suffix('.starting');temporary.write_text(json.dumps(starting));os.chmod(temporary,0o600);temporary.replace(state_path)
         try:
-            subprocess.Popen(['/usr/bin/python3',str(worker),kind],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+            subprocess.Popen(['/usr/bin/python3',str(worker),kind,approved],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         except OSError:
             starting.update(state='failed',message='The host update worker could not start.');temporary.write_text(json.dumps(starting));temporary.replace(state_path)
             raise ValueError(starting['message']) from None

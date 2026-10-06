@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fixed Linux update operations; invoked only by the peer-restricted root broker."""
-import fcntl,json,os,pathlib,shutil,sqlite3,subprocess,sys,tempfile,time
+import fcntl,json,re,os,pathlib,shutil,sqlite3,subprocess,sys,tempfile,time
 ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-accounts/maintenance.json')
 def status(kind,state,message):
     temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':int(time.time())}));os.chmod(temporary,0o600);temporary.replace(STATE)
@@ -28,15 +28,50 @@ def trim_logs(folder):
             if size>1024*1024:
                 log.seek(-1024*1024,2);tail=log.read();log.seek(0);log.write(tail);log.truncate();trimmed+=1
     return trimmed
-def main(kind):
+REVIEW=pathlib.Path('/etc/serviceready/update-review.json')
+def read_review():
+    try:return json.loads(REVIEW.read_text())
+    except FileNotFoundError:return {}
+def write_review(value):
+    temporary=REVIEW.with_suffix('.new');temporary.write_text(json.dumps(value));os.chmod(temporary,0o600);temporary.replace(REVIEW)
+def stage_review(source):
+    commit=subprocess.check_output(['git','-C',str(source),'rev-parse','origin/main'],text=True).strip()
+    raw=subprocess.check_output(['git','-C',str(source),'show',commit+':voiceservices/version.py'],text=True)
+    match=re.search(r"__version__ = '([0-9]+\.[0-9]+\.[0-9]+)'",raw)
+    if not match:raise ValueError('The available release has invalid version metadata.')
+    version=match[1];previous=read_review();declined=previous.get('declined_versions',[])
+    current=subprocess.check_output(['git','-C',str(source),'show','HEAD:voiceservices/version.py'],text=True)
+    installed=re.search(r"__version__ = '([0-9]+\.[0-9]+\.[0-9]+)'",current)
+    changelog=subprocess.check_output(['git','-C',str(source),'show',commit+':CHANGELOG.md'],text=True)
+    if len(changelog)>262144:raise ValueError('Release changelog exceeds the review size limit.')
+    state='declined' if version in declined else 'ready'
+    if installed and tuple(map(int,version.split('.')))<=tuple(map(int,installed[1].split('.'))):state='current'
+    value={'commit':commit,'version':version,'changelog':changelog,'state':state,'declined_versions':declined,'at':int(time.time())}
+    write_review(value);return value
+
+def main(kind,approved_commit=''):
+    checking=kind=='insap-check'
+    if checking:kind='insap'
     rocky=pathlib.Path('/etc/rocky-release').is_file()
-    if kind not in ('os','insap','vmtools','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
+    if kind not in ('os','insap','vmtools','cleanup','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
     with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             status(kind,'failed','Another host operation is running. Wait for it to finish before starting an update.');return
         try:
             status(kind,'running','Preparing update')
+            if kind=='cleanup':
+                selected=json.loads(approved_commit)
+                if not isinstance(selected,list) or not selected or len(selected)>3 or any(task not in ('package-cache','portal-temp','portal-logs') for task in selected):raise ValueError('Select valid cleanup tasks.')
+                messages=[]
+                for task in dict.fromkeys(selected):
+                    status(kind,'running','Cleaning '+task)
+                    if task=='package-cache':run(['/usr/bin/dnf','clean','packages'] if rocky else ['/sbin/apk','cache','clean']);messages.append('Package cache cleaned')
+                    elif task=='portal-temp':
+                        config=json.loads(pathlib.Path('/etc/serviceready/config.json').read_text())
+                        removed=clean_temp(pathlib.Path(config.get('data_mount','/var/lib/serviceready'))/'tmp');messages.append(str(removed)+' old temporary files removed')
+                    else:messages.append(str(trim_logs(pathlib.Path('/var/log/serviceready')))+' logs trimmed')
+                status(kind,'complete','; '.join(messages)+'.');return
             if kind=='vmtools':
                 import importlib.util
                 file=ROOT/'vm-tools.py'
@@ -66,11 +101,19 @@ def main(kind):
             if subprocess.check_output(['git','-C',str(source),'status','--porcelain'],text=True).strip(): raise ValueError('Update checkout has local edits; resolve them before updating.')
             remote=subprocess.check_output(['git','-C',str(source),'remote','get-url','origin'],text=True).strip()
             if remote!='https://github.com/FilthyCasual1/VoiceServices.git': raise ValueError('Update source is not the approved repository.')
+            if checking:
+                status(kind,'running','Fetching release metadata and changelog; installed version is unchanged')
+                run(['git','-C',str(source),'fetch','origin','main'])
+                review=stage_review(source)
+                message={'ready':'Release '+review['version']+' is ready for review. Read the changelog and proceed or decline.', 'declined':'Release '+review['version']+' was declined; it will not install.', 'current':'INSAP is up to date.'}[review['state']]
+                status(kind,'complete',message);return
+            review=read_review()
+            if not re.fullmatch('[a-f0-9]{40}',approved_commit) or review.get('commit')!=approved_commit or review.get('state')!='ready':raise ValueError('Fetch and approve the available INSAP release before installing.')
             backup=pathlib.Path('/var/backups/serviceready')/str(int(time.time()));backup.mkdir(parents=True,mode=0o700);os.chmod(backup.parent,0o700)
             config=json.loads(pathlib.Path('/etc/serviceready/config.json').read_text());shutil.copy2('/etc/serviceready/config.json',backup/'config.json')
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
-            status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
-            run(['git','-C',str(source),'merge','--ff-only','origin/main'])
+            status(kind,'running','Installing approved INSAP release '+review['version'])
+            run(['git','-C',str(source),'merge','--ff-only',approved_commit])
             run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
             status(kind,'running','Restoring service-account runtime access and verifying imports')
             run(['/usr/bin/python3',str(source/'deploy/runtime-access.py')])
@@ -97,6 +140,7 @@ def main(kind):
                     run(['/sbin/rc-update','add',service,'default'])
             status(kind,'running','Restarting portal services')
             for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/usr/bin/systemctl','restart',service] if rocky else ['/sbin/rc-service',service,'restart'])
+            review['state']='installed';write_review(review)
             status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/usr/bin/systemctl','restart','serviceready-accounts'] if rocky else ['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
@@ -104,4 +148,4 @@ def main(kind):
             if kind=='insap':
                 subprocess.run(['/usr/bin/systemctl','start','serviceready'] if rocky else ['/sbin/rc-service','serviceready','start'],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
-if __name__=='__main__': main(sys.argv[1])
+if __name__=='__main__': main(sys.argv[1],sys.argv[2] if len(sys.argv)>2 else '')

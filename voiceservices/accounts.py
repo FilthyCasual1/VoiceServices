@@ -12,7 +12,8 @@ class LinuxAccounts:
                 connection.settimeout(15)
                 connection.connect(self.path)
                 connection.sendall(json.dumps(request).encode()+b'\n')
-                response = connection.makefile('rb').readline(8193)
+                response = connection.makefile('rb').readline(2*1024*1024+1)
+                if len(response)>2*1024*1024:raise ValueError('Account service response too large.')
             result=json.loads(response)
         except (OSError,ValueError): raise ValueError('System account service is unavailable.') from None
         if not result.get('ok'): raise ValueError(result.get('error','Account operation failed.'))

@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 import html,json,time
 from . import regional
 E=lambda v:html.escape(str(v),quote=True)
-KINDS={'insap':'Portal updates','os':'Operating system updates','vmtools':'VM guest tools updates'}
+KINDS={'insap':'Portal release checks','os':'Operating system updates','vmtools':'VM guest tools updates'}
 DEFAULT={'enabled':False,'frequency':'weekly','weekday':6,'time':'03:00','timezone':'portal'}
 def initialize(app):
     with app.store.connect() as db:
@@ -60,7 +60,7 @@ def render(app,user):
         s=schedules[kind];text+='<h3>'+label+'</h3><label>Automatic updates</label><select name="'+kind+'_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if s['enabled'] else '')+'>On</option></select><label>Frequency</label><select name="'+kind+'_frequency"><option value="daily">Daily</option><option value="weekly"'+(' selected' if s['frequency']=='weekly' else '')+'>Weekly</option></select><label>Weekday (weekly schedules)</label><select name="'+kind+'_weekday">'+''.join('<option value="'+str(n)+'"'+(' selected' if n==s['weekday'] else '')+'>'+day+'</option>' for n,day in enumerate(('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')))+'</select><label>Time</label><input type="time" name="'+kind+'_time" value="'+E(s['time'])+'" required><label>Time zone</label>'+regional.timezone_select(kind+'_timezone',s['timezone'],True)
         row=rows.get(kind,{});due=row.get('next_run',0)
         text+='<p>Next run: '+(E(regional.format_timestamp(app,due,s['effective_timezone'])) if s['enabled'] and due else 'Disabled')+'. Last result: '+E(row.get('status','No runs yet'))+' '+E(row.get('message',''))+'</p>'
-    return text+'<button>Save update schedules</button></form></div><p>Portal updates briefly restart services and preserve settings. OS updates upgrade installed packages without an automatic reboot. If an update is already running, other due jobs wait. Missed occurrences run once after the scheduler returns; failed requests wait for the next occurrence. Session and security policies remain separate.</p>'
+    return text+'<button>Save update schedules</button></form></div><p>Scheduled portal checks fetch the release and changelog for review. Installation requires Proceed with update; declined versions stay skipped. Portal installation briefly restarts services and preserves settings. OS updates upgrade installed packages without an automatic reboot. If an update is already running, other due jobs wait. Missed occurrences run once after the scheduler returns; failed requests wait for the next occurrence. Session and security policies remain separate.</p>'
 def tick(app,now=None):
     now=int(time.time()) if now is None else int(now);schedules=settings(app)
     with app.store.connect() as db: db.execute('INSERT OR REPLACE INTO scheduler_heartbeat VALUES(1,?)',(now,))

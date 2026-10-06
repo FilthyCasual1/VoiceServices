@@ -10,10 +10,11 @@ def admin_change(app,data,services):
 def admin_render(app,user,services):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     if not app.store.accounts:return '<p class="notice">No Linux host provider is connected. Host cleanup and terminal access are unavailable on this development deployment.</p>'
-    text='<h2>Cleanup</h2><div class="compact-host-tasks">'
+    text='<h2>Cleanup</h2><form method="post" class="compact-host-tasks">'+csrf+'<input type="hidden" name="task" value="cleanup">'
     for key,(title,detail) in TASKS.items():
-        text+='<form method="post" class="host-task-row">'+csrf+'<input type="hidden" name="task" value="'+key+'"><div><strong>'+title+'</strong><small>'+detail+'</small></div><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm</label><button>Run</button></form>'
-    text+='</div><h2>Host power</h2><form method="post" class="compact-host-power">'+csrf+'<input type="hidden" name="task" value="power"><p>All services disconnect. After shutdown, start the VM from your hypervisor.</p><label class="host-password">Local administrator password <input type="password" name="current_password" autocomplete="current-password" required></label><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm power action</label><div class="update-actions"><button name="operation" value="restart">Restart VM</button><button name="operation" value="shutdown">Shut down VM</button></div></form>'
+        text+='<label class="host-task-row host-task-choice"><input type="checkbox" name="task_'+key+'" value="yes"><div><strong>'+title+'</strong><small>'+detail+'</small></div></label>'
+    text+='<div class="cleanup-actions"><button>Run selected tasks</button></div></form>'
+    text+='<h2>Host power</h2><form method="post" class="compact-host-power">'+csrf+'<input type="hidden" name="task" value="power"><p>All services disconnect. After shutdown, start the VM from your hypervisor.</p><label class="host-password">Local administrator password <input type="password" name="current_password" autocomplete="current-password" required></label><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm power action</label><div class="update-actions"><button name="operation" value="restart">Restart VM</button><button name="operation" value="shutdown">Shut down VM</button></div></form>'
     return text
 def terminal_render(app,user):
     if not app.store.accounts:return '<p class="notice">The browser terminal requires the Linux host account broker. It is unavailable on this development deployment.</p>'
@@ -25,6 +26,11 @@ def page(app,path,method,data,user,env,send):
         if not app.store.accounts:return send('400 Bad Request','No supported host provider is connected.')
         try:
             task=data.get('task')
+            if task=='cleanup':
+                selected=[key for key in TASKS if data.get('task_'+key)=='yes']
+                if not selected:raise ValueError('Select at least one cleanup task.')
+                app.store.accounts.call('maintenance-start','cleanup',json.dumps(selected));audit(app,user,'Started cleanup: '+', '.join(selected))
+                return send('303 See Other','',extra=[('Location','/admin/host')])
             if task=='power':
                 from . import host_configuration
                 if data.get('confirm')!='yes' or data.get('operation') not in ('restart','shutdown'):raise ValueError('Choose and confirm a power action.')

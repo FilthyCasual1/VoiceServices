@@ -114,7 +114,7 @@
       }
       message.classList.toggle('error', state.state === 'failed');
       for (const button of panel.querySelectorAll('[data-start-update] button')) button.disabled = ['running','starting'].includes(panel.dataset.updateState);
-      if (['complete','failed'].includes(state.state) && result.version !== panel.dataset.updateVersion) visit(location.href, {}, 'replace', true);
+      if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review))) visit(location.href, {}, 'replace', true);
     } catch (_) {
       if (revision === generation && panel.isConnected) {
         const message = panel.querySelector('[data-update-status]');

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.19.2 — 2026-10-06
+
+Use equal-sized, evenly spaced monochrome portal, distro and VM provider logo slots.
+
+## 1.19.1 — 2026-10-06
+
+Replace separate cleanup forms with a checkbox checklist and one Run selected tasks action; execute selected cleanup tasks as a single host job.
+
+## 1.19.0 — 2026-10-06
+
+- Grab an INSAP release and read its changelog before proceeding. Installation uses the exact reviewed commit.
+- Decline a version persistently; scheduled INSAP jobs fetch releases for review instead of installing them automatically.
+- Check, review, install or decline updates for individual installed addons. Preserve addon settings and data during replacement.
+- Bundle separate addon changelogs. Releases whose addon code is not approved by the installed core require an INSAP update first.
+
 ## 1.18.3 — 2026-10-06
 
 Display detected VM provider logos alongside the CasualNetworks arrow and distro mark on Overview and Host maintenance, using bundled offline assets.

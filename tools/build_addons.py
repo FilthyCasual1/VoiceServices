@@ -10,7 +10,8 @@ for source in sorted((root/'addon_sources').glob('*.py')):
     code=source.read_bytes();compile(code,str(source),'exec')
     metadata={'version':__version__,'api':1,'sha256':hashlib.sha256(code).hexdigest()};catalog[source.stem]=metadata
     with zipfile.ZipFile(destination/(source.stem+'-'+__version__+'.sraddon'),'w',zipfile.ZIP_DEFLATED) as archive:
-        for name,content in [('manifest.json',json.dumps(dict(metadata,id=source.stem)).encode()),('module.py',code)]:
+        notes=root/'addon_sources/changelogs'/(source.stem+'.md')
+        for name,content in [('manifest.json',json.dumps(dict(metadata,id=source.stem)).encode()),('module.py',code),('CHANGELOG.md',notes.read_bytes() if notes.exists() else ('# '+source.stem+'\n\n## '+__version__+'\n\nPackage compatible with this INSAP release.\n').encode())]:
             entry=zipfile.ZipInfo(name,date_time=(2026,1,1,0,0,0));entry.compress_type=zipfile.ZIP_DEFLATED;entry.external_attr=0o100644<<16
             archive.writestr(entry,content)
 (root/'voiceservices/addon_catalog.json').write_text(json.dumps(catalog,indent=2)+'\n')
