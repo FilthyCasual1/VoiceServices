@@ -23,7 +23,7 @@ If you already manage a TLS reverse proxy, omit `--tls`, enter its external HTTP
 
 ## Addons and first checks
 
-Download matching `.sraddon` files from [the versioned package directory](../packages/addons/1.14.3/) and upload through System > Addons. Host Tools adds Host Maintenance and Host Terminal. Each terminal session requires the signed-in local administrator's Alpine password and runs with that account's OS permissions. New portal accounts have no sudo/doas privileges; grant deliberate host permissions separately if needed. See [Host Tools](host-tools.md).
+Download matching `.sraddon` files from [the versioned package directory](../packages/addons/1.14.4/) and upload through System > Addons. Host Tools adds Host Maintenance and Host Terminal. Each terminal session requires the signed-in local administrator's Alpine password and runs with that account's OS permissions. New portal accounts have no sudo/doas privileges; grant deliberate host permissions separately if needed. See [Host Tools](host-tools.md).
 
 After installation:
 
@@ -68,3 +68,14 @@ Use the same `--bare --tls` command to resume an interrupted installation. Exist
 Python tests, installer syntax, repository repair and generated configuration are checked locally. Dependency resolution for the full installer package list was verified with Alpine apk 3.0.8 against official Alpine 3.24 main/community indexes in an isolated temporary database; this was a package simulation, not a VM installation. The local development preview runs on Fedora and has no Alpine account broker. A real Alpine/OpenRC installation, private-CA certificate trust, OS account switching and reboot persistence still need validation in your VM. Report installer errors with the failed step and service error log, keeping passwords and private keys out of shared output.
 
 Local HTTPS setup follows the [Alpine Caddy instructions](https://wiki.alpinelinux.org/wiki/Caddy) and [Caddy internal TLS documentation](https://caddyserver.com/docs/caddyfile/directives/tls).
+
+## Repair a stale portal address
+
+If Alpine's address has changed but the installer-managed Caddyfile still lists the old address, run as root from the updated checkout:
+
+```sh
+git pull --ff-only
+sh repair-address.sh
+```
+
+This backs up both configurations under `/var/backups/serviceready-address-repair/`, detects current interface addresses, enables automatic address following, validates and reloads Caddy, and restarts the portal/address services. It preserves accounts and addon files and refuses a separately managed Caddyfile. A failed reload restores the previous configuration files. Open the URL it prints.

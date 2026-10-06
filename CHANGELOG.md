@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.4 — 2026-10-06
+
+Add one-command repair for stale Alpine HTTPS addresses, with backups and automatic DHCP/static address following.
+
 ## 1.14.3 — 2026-10-06
 
 Repair Alpine installer repository preflight, staged logging, resumable setup and verified HTTPS startup.
