@@ -47,7 +47,7 @@ def stage_review(source):
     match=re.search(r"__version__ = '([0-9]+\.[0-9]+\.[0-9]+)'",raw)
     if not match:raise ValueError('The available release has invalid version metadata.')
     version=match[1];previous=read_review();declined=previous.get('declined_versions',[])
-    current=subprocess.check_output(['git','-C',str(source),'show','HEAD:voiceservices/version.py'],text=True)
+    current=subprocess.check_output([str(ROOT/'venv/bin/python'),'-I','-c',"from voiceservices.version import __version__; print(\"__version__ = '\"+__version__+\"'\")"],text=True)
     installed=re.search(r"__version__ = '([0-9]+\.[0-9]+\.[0-9]+)'",current)
     changelog=subprocess.check_output(['git','-C',str(source),'show',commit+':CHANGELOG.md'],text=True)
     if len(changelog)>262144:raise ValueError('Release changelog exceeds the review size limit.')
@@ -116,10 +116,14 @@ def main(kind,approved_commit=''):
                 message={'ready':'Release '+review['version']+' is ready for review. Read the changelog and proceed or decline.', 'declined':'Release '+review['version']+' was declined; it will not install.', 'current':'INSAP is up to date.'}[review['state']]
                 status(kind,'complete',message);return
             review=read_review()
+            current=stage_review(source)
+            if current['state']=='current':
+                status(kind,'complete','INSAP is already up to date. No changes were needed.');return
             if not re.fullmatch('[a-f0-9]{40}',approved_commit) or review.get('commit')!=approved_commit or review.get('state')!='ready':raise ValueError('Fetch and approve the available INSAP release before installing.')
             backup=pathlib.Path('/var/backups/serviceready')/str(int(time.time()));backup.mkdir(parents=True,mode=0o700);os.chmod(backup.parent,0o700)
             config=json.loads(pathlib.Path('/etc/serviceready/config.json').read_text());shutil.copy2('/etc/serviceready/config.json',backup/'config.json')
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
+            review['state']='installing';write_review(review)
             status(kind,'running','Installing approved INSAP release '+review['version'])
             run(['git','-C',str(source),'merge','--ff-only',approved_commit])
             run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
@@ -132,7 +136,7 @@ def main(kind,approved_commit=''):
             spec=importlib.util.spec_from_file_location('runtime_access',source/'deploy/runtime-access.py');access=importlib.util.module_from_spec(spec);spec.loader.exec_module(access)
             access.normalise_addons(config)
             # Refresh installed official addons only; absent addons remain absent.
-            script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
+            script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.install(package.read_bytes(),replace=True)\n"""
             actor=pwd.getpwnam('serviceready')
             subprocess.run([str(ROOT/'venv/bin/python'),'-I','-c',script],check=True,timeout=1800,cwd='/var/lib/serviceready',user=actor.pw_uid,group=actor.pw_gid,extra_groups=[actor.pw_gid])
             for name in ('account-broker.py','maintenance-worker.py','host-control.py','runtime-access.py','vm-tools.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
@@ -149,11 +153,14 @@ def main(kind,approved_commit=''):
             status(kind,'running','Restarting portal services')
             for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/usr/bin/systemctl','restart',service] if rocky else ['/sbin/rc-service',service,'restart'])
             review['state']='installed';write_review(review)
-            status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
+            status(kind,'complete','INSAP and installed addons updated successfully. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/usr/bin/systemctl','restart','serviceready-accounts'] if rocky else ['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         except Exception as exc:
             if kind=='insap':
+                if not checking:
+                    review=read_review()
+                    if review.get('state')=='installing':review['state']='failed';write_review(review)
                 subprocess.run(['/usr/bin/systemctl','start','serviceready'] if rocky else ['/sbin/rc-service','serviceready','start'],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             if kind in ('vmtools','vmtools-cd') and isinstance(exc,subprocess.CalledProcessError):
                 status(kind,'failed','Guest tools installation failed. Expand Installer output below for the actual error. Kernel dependencies must match the running kernel. No reboot was performed.');return

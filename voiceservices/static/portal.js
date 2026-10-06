@@ -3,7 +3,7 @@
   let refreshEnabled = true;
   try { refreshEnabled = localStorage.getItem('overview-refresh') !== 'off'; } catch (_) {}
   function refreshControl() {
-    const ready = document.querySelector('[data-update-ready], [data-update-running]');
+    const ready = document.querySelector('[data-update-ready], [data-update-running], [data-update-result]');
     if (ready && !ready.open) ready.showModal();
     const input = document.querySelector('[data-overview-refresh]');
     if (input) { input.checked = refreshEnabled; input.closest('label').hidden = false; }
@@ -180,7 +180,7 @@
       }
       for (const other of panel.querySelectorAll('[data-update-status]')) { other.textContent = message.textContent; other.classList.toggle('error', state.state === 'failed'); }
       for (const button of panel.querySelectorAll('[data-start-update] button')) button.disabled = ['running','starting'].includes(panel.dataset.updateState);
-      if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (['vmtools', 'vmtools-cd'].includes(state.kind) && [state.kind, state.state, state.at || ''].join(':') !== panel.dataset.toolsResult) || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review))) visit(location.href, {}, 'replace', true);
+      if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (['vmtools', 'vmtools-cd'].includes(state.kind) && [state.kind, state.state, state.at || ''].join(':') !== panel.dataset.toolsResult) || (['os','insap','insap-check'].includes(state.kind) || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review)))) visit(location.href, {}, 'replace', true);
     } catch (_) {
       if (revision === generation && panel.isConnected) {
         const message = panel.querySelector('[data-update-status]');

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.1 — 2026-10-06
+
+Automatically replace installed addons alongside INSAP, prevent changelog loops during installation, and finish update checks and installations with clear current/success/declined/failure results.
+
 ## 1.25.0 — 2026-10-06
 
 Add administrator-managed download categories, editable application metadata, and a searchable internal application catalog. Existing downloads remain available as Uncategorized. Include confirmed uploaded file deletion and readable file sizes. Add password-confirmed reformatting of the current populated upload data disk, preserving core settings and external links.

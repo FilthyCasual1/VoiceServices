@@ -32,7 +32,18 @@ class ReleaseReviewTests(unittest.TestCase):
   def fetch(url,limit=0):
    if '/commits/main' in url:return json.dumps({'sha':'a'*40}).encode()
    if url.endswith('addon_catalog.json'):return json.dumps(catalog).encode()
-   if url.endswith('.sraddon'):return (Path(__file__).parents[1]/'packages/addons/1.19.0/downloads-1.19.0.sraddon').read_bytes()
+   if url.endswith('.sraddon'):
+    import io,zipfile
+    from addon_support import package
+    result=io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(package('downloads'))) as original,zipfile.ZipFile(result,'w') as archive:
+     for name in original.namelist():
+      content=original.read(name)
+      if name=='manifest.json':
+       manifest=json.loads(content);manifest['version']='1.19.0';content=json.dumps(manifest).encode()
+      archive.writestr(name,content)
+     if 'CHANGELOG.md' not in original.namelist():archive.writestr('CHANGELOG.md','# Downloads changes')
+    return result.getvalue()
    return b'# Downloads changes\nSettings retained.'
   return fetch,catalog
  def test_individual_addon_review_replace_and_settings_retained(self):
@@ -70,3 +81,29 @@ class ReleaseReviewTests(unittest.TestCase):
    with patch.object(worker,'TOOLS_LOG',log):
     with self.assertRaises(OSError):worker.tools_run(['/usr/bin/dnf','install','gcc'])
    self.assertEqual(target.read_text(),'retain')
+ def test_current_release_finishes_without_review_or_install(self):
+  with tempfile.TemporaryDirectory() as root:
+   review=Path(root)/'review.json'
+   with patch.object(worker,'REVIEW',review),patch.object(worker.subprocess,'check_output',side_effect=['a'*40,"__version__ = '1.25.0'","__version__ = '1.25.0'",'# changes']):result=worker.stage_review(Path(root))
+   self.assertEqual(result['state'],'current')
+  token,user=self.user('admin')
+  for outcome,title in [('current','INSAP is up to date'),('installed','Update succeeded'),('declined','Update declined'),('failed','Update did not complete')]:
+   body=maintenance.update_wizard(user,{'state':'complete','kind':'insap','review':{'state':outcome,'version':'1.25.0'}},'insap')
+   self.assertIn(title,body);self.assertIn('Finish',body);self.assertNotIn('Proceed with update',body);self.assertIn('data-update-result',body)
+ def test_running_update_never_reopens_ready_changelog(self):
+  token,user=self.user('admin')
+  body=maintenance.update_wizard(user,{'state':'running','kind':'insap','review':{'state':'ready','version':'1.25.0'}},'insap')
+  self.assertIn('data-update-running',body);self.assertNotIn('data-update-ready',body);self.assertNotIn('Proceed with update',body)
+ def test_core_refresh_replaces_previous_release_addon_without_uninstall(self):
+  import zipfile
+  old=(Path(__file__).parents[1]/'packages/addons/1.24.1/downloads-1.24.1.sraddon').read_bytes()
+  with zipfile.ZipFile(__import__('io').BytesIO(old)) as archive:metadata=json.loads(archive.read('manifest.json'))
+  approved=self.app.modules.approved['downloads']
+  self.app.modules.change('downloads',False);self.app.modules.approved['downloads']=metadata
+  self.app.modules.install(old);self.app.modules.approved['downloads']=approved
+  self.assertFalse(self.app.modules.installed('downloads'))
+  with self.app.store.connect() as db:db.execute("INSERT OR REPLACE INTO addons VALUES('downloads','{\"preserved\":true}')")
+  from addon_support import package
+  self.app.modules.install(package('downloads'),replace=True)
+  self.assertTrue(self.app.modules.installed('downloads'))
+  with self.app.store.connect() as db:self.assertIn('preserved',db.execute("SELECT settings FROM addons WHERE id='downloads'").fetchone()[0])

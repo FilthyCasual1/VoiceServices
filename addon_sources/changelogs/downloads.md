@@ -1,3 +1,7 @@
+## 1.25.1
+
+- Package for INSAP 1.25.1; installed addons refresh automatically with the portal update.
+
 ## 1.25.0
 
 - Add categories, searchable application cards, and editable titles, descriptions, platforms and versions for uploaded files and download links. Show readable file sizes and allow confirmed deletion of uploaded files.

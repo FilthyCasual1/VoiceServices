@@ -1,3 +1,3 @@
 """ServiceReady release version; update with tools/bump_version.py."""
-__version__ = '1.25.0'
+__version__ = '1.25.1'
 __codename__ = 'CrystalBlue'

@@ -55,7 +55,7 @@ class Modules:
             except (KeyError,TypeError,SyntaxError,zipfile.BadZipFile,json.JSONDecodeError,UnicodeError,RuntimeError,EOFError) as exc: raise ValueError('Invalid addon package.') from exc
             destination=self.root/key
             if destination.exists() and not replace: raise ValueError('Uninstall the existing package before installing a replacement.')
-            if replace and not self.installed(key):raise ValueError('Only installed approved addons can be updated.')
+            if replace and (not destination.is_dir() or destination.is_symlink()):raise ValueError('Only existing addon packages can be updated.')
             temporary=Path(tempfile.mkdtemp(prefix='.install-',dir=self.root))
             try:
                 (temporary/'module.py').write_bytes(code)

@@ -60,13 +60,18 @@ def tools_wizard(user,state):
 def update_wizard(user,state,kind):
     review=state.get('review',{});review=review if isinstance(review,dict) else {}
     title='Update OS' if kind=='os' else 'Update INSAP';identifier='update-'+kind
-    ready=kind=='insap' and review.get('state')=='ready'
+    ready=kind=='insap' and review.get('state')=='ready' and state.get('state')!='running'
     running=state.get('state')=='running' and state.get('kind') in (('os',) if kind=='os' else ('insap','insap-check'))
+    terminal=kind=='insap' and not running and review.get('state') in ('current','installed','declined','failed')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     start='<button type="button" data-update-open="'+identifier+'">'+title+'</button>'
-    header='<dialog id="'+identifier+'" class="tools-wizard" aria-labelledby="'+identifier+'-title"'+(' data-update-ready' if ready else ' data-update-running' if running else '')+'><header><h3 id="'+identifier+'-title">'+title+'</h3><button type="button" data-tools-close aria-label="Close wizard">×</button></header>'
+    header='<dialog id="'+identifier+'" class="tools-wizard" aria-labelledby="'+identifier+'-title"'+(' data-update-ready' if ready else ' data-update-running' if running else ' data-update-result' if terminal else '')+'><header><h3 id="'+identifier+'-title">'+title+'</h3><button type="button" data-tools-close aria-label="Close wizard">×</button></header>'
     if running:
         body='<div class="wizard-progress"><h3>Update in progress</h3><p data-update-status role="status" aria-live="polite">'+E(state.get('message','Working…'))+'</p><p>You can close this wizard; the operation continues in the background.</p><button type="button" data-tools-close>Close</button></div>'
+    elif terminal:
+        label={'current':'INSAP is up to date','installed':'Update succeeded','declined':'Update declined','failed':'Update did not complete'}[review['state']]
+        message={'current':'You already have the latest available INSAP release. No changes were needed.','installed':'INSAP and all installed addons were updated. You can now continue using the portal.','declined':'This version was skipped. You can check again when another release is available.','failed':'Inspect the host operation details, then check again before retrying.'}[review['state']]
+        body='<div class="wizard-progress"><h3>'+label+'</h3><p>'+message+'</p><form method="post" action="/admin/host" data-start-update>'+csrf+'<button name="update" value="insap">Check again</button><button type="button" data-tools-close>Finish</button></form></div>'
     elif ready:
         body='<form method="post" action="/admin/host" data-start-update>'+csrf+'<input type="hidden" name="release" value="'+E(review.get('commit',''))+'"><ol class="tools-steps"><li>Check</li><li aria-current="step">Review</li><li>Install</li></ol><h3>INSAP '+E(review.get('version',''))+' — release review</h3><details open><summary>Changelog</summary><pre>'+E(review.get('changelog',''))+'</pre></details><p>Settings and accounts are retained. Installing briefly restarts the portal.</p><footer><button name="update" value="insap-decline">Decline this version</button><button name="update" value="insap-install">Proceed with update</button></footer></form>'
     else:
