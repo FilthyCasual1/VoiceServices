@@ -27,13 +27,18 @@ done
 # The missing module was caused by inaccessible runtime files. No reinstall or data reset is needed.
 systemctl reset-failed serviceready
 systemctl restart serviceready serviceready-accounts
+echo 'Waiting for the portal to finish starting…'
 for attempt in {1..30}; do
     if /opt/serviceready/venv/bin/python - <<'PY'
 from urllib.request import urlopen
-import json
+from urllib.error import URLError
+import json,sys
 port=json.load(open('/etc/serviceready/config.json')).get('listen_port',8080)
-with urlopen('http://127.0.0.1:'+str(port)+'/healthz',timeout=2) as response:
-    assert response.status==200
+try:
+    with urlopen('http://127.0.0.1:'+str(port)+'/healthz',timeout=2) as response:
+        sys.exit(0 if response.status==200 else 1)
+except (URLError, TimeoutError, ConnectionError):
+    sys.exit(1)
 PY
     then
         echo 'Portal recovered. Refresh your browser. Install the latest INSAP release using the GUI when ready.'

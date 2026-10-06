@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.16 — 2026-10-06
+
+Keep expected connection failures quiet while the recovery script waits for portal startup; retain service diagnostics when recovery fails.
+
 ## 1.16.15 — 2026-10-06
 
 Preserve service-account ownership when GUI updates refresh addons and recover the portal if refresh fails.
