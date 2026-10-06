@@ -202,7 +202,7 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn('Leave &lt;now&gt;?',body);self.assertIn('Please confirm departure',body)
         body=self.request('/logged-out')['body'];self.assertIn('Goodbye Alice',body);self.assertIn('Come back soon',body)
         token,_=self.user('admin');body=self.request('/admin/branding',token=token)['body']
-        self.assertIn('Look and Feel',body);self.assertIn('name="logout_title"',body)
+        self.assertIn('Appearance',body);self.assertIn('name="logout_title"',body)
 
     def test_login_disclaimer_toggle_and_escaping(self):
         from voiceservices import branding
@@ -286,3 +286,16 @@ class CoreAdminTests(unittest.TestCase):
         self.assertIn('Guest only',guest);self.assertNotIn('Member only',guest)
         self.assertIn('Member only',member);self.assertNotIn('Guest only',member)
         self.assertNotIn('<h2>1. Get an account',member)
+
+    def test_timezone_dropdowns_and_friendly_defaults(self):
+        token,_=self.user('admin')
+        for path,name in [('/admin/branding','global_timezone'),('/account','timezone'),('/admin/schedules','os_timezone')]:
+            page=self.request(path,token=token)['body']
+            self.assertRegex(page,r'<select[^>]*name="'+name+r'"')
+            self.assertIn('value="America/Chicago"',page)
+        self.assertNotIn('before going live',self.request('/login')['body'])
+        self.assertIn('Access your account and network services.',self.request('/login')['body'])
+        from voiceservices import branding
+        with self.app.store.connect() as db: db.execute("UPDATE home_blocks SET body='Custom welcome' WHERE title='1. Get an account'")
+        branding.initialize(self.app)
+        self.assertIn('Custom welcome',self.request()['body'])

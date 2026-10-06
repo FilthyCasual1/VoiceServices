@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.2 — 2026-10-06
+
+Add timezone dropdowns, rename Appearance and restore friendly usable default home and account guidance while preserving custom copy.
+
 ## 1.12.1 — 2026-10-05
 
 Use direct setup-before-production guidance in default home blocks and account subtitles, preserving custom wording.

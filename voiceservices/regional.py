@@ -14,3 +14,11 @@ def zone(app): return ZoneInfo(settings(app)['timezone'])
 def format_timestamp(app,timestamp,tz=None):
     s=settings(app);value=datetime.fromtimestamp(timestamp,ZoneInfo(tz or s['timezone']))
     return value.strftime(DATE_FORMATS[s['date_format']][0]+' '+TIME_FORMATS[s['time_format']][0]+' %Z')
+
+def timezone_select(name,selected,inherit=False):
+    import html
+    from zoneinfo import available_timezones
+    escape=lambda value:html.escape(str(value),quote=True)
+    zones=sorted(available_timezones()|{selected,'UTC'})
+    if inherit: zones=['portal']+[z for z in zones if z!='portal']
+    return '<select name="'+escape(name)+'">'+''.join('<option value="'+escape(z)+'"'+(' selected' if z==selected else '')+'>'+escape('Use portal time zone' if z=='portal' else z.replace('_',' '))+'</option>' for z in zones)+'</select>'

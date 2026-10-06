@@ -11,20 +11,27 @@ def initialize(app):
     with app.store.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS home_blocks(id INTEGER PRIMARY KEY,title TEXT NOT NULL,body TEXT NOT NULL,url TEXT NOT NULL,position INTEGER NOT NULL,module TEXT NOT NULL,enabled INTEGER NOT NULL)')
         if not db.execute("SELECT 1 FROM module_metadata WHERE key='home-blocks-seeded'").fetchone():
-            blocks=[('1. Get an account','Create an account before setting up your services. Ask your administrator for the access you need, then check that your account works before relying on it.','/create-account',10,'',1),('2. Sign in','Sign in and get your account sorted first. Set your password and security options in My Account before using this portal in production.','/login',20,'',1),('3. Set up your services','Get your services configured and tested before putting them into production.\nStorage: verify shares, permissions and backups.\nVoice: test phone registration and calls.\nEmail: check mailbox access and delivery.\nDomain services: verify identities and device enrollment.\nInstall only the addons you need. A working portal does not mean your services are ready—test the full setup.','',30,'',1),('Downloads and setup','Get the tools you need, configure them, and test them on a spare machine before rolling them out.','/downloads',40,'downloads',1)]
+            blocks=[('1. Get an account','Create an account to access the services available on your network. Your administrator can help you get the access you need.','/create-account',10,'',1),('2. Sign in','Sign in to manage your account and use your network services. You can update your profile and security settings in My Account.','/login',20,'',1),('3. Set up your services','Find the tools and guidance you need to set up storage, voice, email and domain services. Available options depend on the addons installed on this portal. Contact your administrator if you need help getting started.','',30,'',1),('Downloads and setup','Download the internal tools and applications you need for your devices, along with any setup instructions provided by your administrator.','/downloads',40,'downloads',1)]
             db.executemany('INSERT INTO home_blocks(title,body,url,position,module,enabled) VALUES(?,?,?,?,?,?)',blocks)
             db.execute("INSERT INTO module_metadata VALUES('home-blocks-seeded')")
         if 'audience' not in {r[1] for r in db.execute('PRAGMA table_info(home_blocks)')}:
             db.execute("ALTER TABLE home_blocks ADD COLUMN audience TEXT NOT NULL DEFAULT 'guest'")
             db.execute("INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) SELECT title,body,url,position,module,enabled,'signed-in' FROM home_blocks WHERE url NOT IN ('/login','/create-account')")
-            db.execute("INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) VALUES('My Account','Check your profile, change default credentials, and set up two-factor authentication before using this account in production.','/account',10,'',1,'signed-in')")
+            db.execute("INSERT INTO home_blocks(title,body,url,position,module,enabled,audience) VALUES('My Account','Manage your profile, password, two-factor authentication and notifications in one place.','/account',10,'',1,'signed-in')")
         if not db.execute("SELECT 1 FROM module_metadata WHERE key='setup-copy-v1'").fetchone():
-            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Create an account before setting up your services. Ask your administrator for the access you need, then check that your account works before relying on it.', '1. Get an account', 'Create your account to get started. Your administrator assigns access to the services available on your network.'))
-            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Sign in and get your account sorted first. Set your password and security options in My Account before using this portal in production.', '2. Sign in', 'Sign in to configure your services and manage your account settings. Use My Account to change your password.'))
-            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Get your services configured and tested before putting them into production.\nStorage: verify shares, permissions and backups.\nVoice: test phone registration and calls.\nEmail: check mailbox access and delivery.\nDomain services: verify identities and device enrollment.\nInstall only the addons you need. A working portal does not mean your services are ready—test the full setup.', '3. Set up your services', 'Storage: configure network shares and shared storage.\nVoice: set up phones and calling accounts.\nEmail: configure mailboxes and email clients.\nDomain services: set up your network identity and enroll devices.\nAvailable tools depend on the installed modules. Ask your administrator for setup details.'))
-            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Get the tools you need, configure them, and test them on a spare machine before rolling them out.', 'Downloads and setup', 'Download internal tools and applications for your machines.'))
-            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Check your profile, change default credentials, and set up two-factor authentication before using this account in production.', 'My Account', 'Manage your profile, security and notifications.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Create an account to access the services available on your network. Your administrator can help you get the access you need.', '1. Get an account', 'Create your account to get started. Your administrator assigns access to the services available on your network.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Sign in to manage your account and use your network services. You can update your profile and security settings in My Account.', '2. Sign in', 'Sign in to configure your services and manage your account settings. Use My Account to change your password.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Find the tools and guidance you need to set up storage, voice, email and domain services. Available options depend on the addons installed on this portal. Contact your administrator if you need help getting started.', '3. Set up your services', 'Storage: configure network shares and shared storage.\nVoice: set up phones and calling accounts.\nEmail: configure mailboxes and email clients.\nDomain services: set up your network identity and enroll devices.\nAvailable tools depend on the installed modules. Ask your administrator for setup details.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Download the internal tools and applications you need for your devices, along with any setup instructions provided by your administrator.', 'Downloads and setup', 'Download internal tools and applications for your machines.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Manage your profile, password, two-factor authentication and notifications in one place.', 'My Account', 'Manage your profile, security and notifications.'))
             db.execute("INSERT INTO module_metadata VALUES('setup-copy-v1')")
+        if not db.execute("SELECT 1 FROM module_metadata WHERE key='friendly-copy-v1'").fetchone():
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Create an account to access the services available on your network. Your administrator can help you get the access you need.', '1. Get an account', 'Create an account before setting up your services. Ask your administrator for the access you need, then check that your account works before relying on it.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Sign in to manage your account and use your network services. You can update your profile and security settings in My Account.', '2. Sign in', 'Sign in and get your account sorted first. Set your password and security options in My Account before using this portal in production.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Find the tools and guidance you need to set up storage, voice, email and domain services. Available options depend on the addons installed on this portal. Contact your administrator if you need help getting started.', '3. Set up your services', 'Get your services configured and tested before putting them into production.\nStorage: verify shares, permissions and backups.\nVoice: test phone registration and calls.\nEmail: check mailbox access and delivery.\nDomain services: verify identities and device enrollment.\nInstall only the addons you need. A working portal does not mean your services are ready—test the full setup.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Download the internal tools and applications you need for your devices, along with any setup instructions provided by your administrator.', 'Downloads and setup', 'Get the tools you need, configure them, and test them on a spare machine before rolling them out.'))
+            db.execute('UPDATE home_blocks SET body=? WHERE title=? AND body=?',('Manage your profile, password, two-factor authentication and notifications in one place.', 'My Account', 'Check your profile, change default credentials, and set up two-factor authentication before using this account in production.'))
+            db.execute("INSERT INTO module_metadata VALUES('friendly-copy-v1')")
 SESSION_TEXT = {
     'logout_title': ('Logout heading', 'End your session?'),
     'logout_subtitle': ('Logout subtitle', 'Confirm before signing out.'),
@@ -39,8 +46,8 @@ SESSION_TEXT = {
 }
 
 def defaults(app):
-    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Sign in, finish the setup, and test before going live.','create_subtitle':'Get your account ready before putting services into production.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC','login_disclaimer_enabled':False,'login_disclaimer':''},**app.config.get('branding',{}))
-    for key,old,new in [('login_subtitle','Your network services, in one place.','Sign in, finish the setup, and test before going live.'),('create_subtitle','Your starting point for network services.','Get your account ready before putting services into production.')]:
+    value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Access your account and network services.','create_subtitle':'Create an account to get started with your network services.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC','login_disclaimer_enabled':False,'login_disclaimer':''},**app.config.get('branding',{}))
+    for key,old,new in [('login_subtitle','Sign in, finish the setup, and test before going live.','Access your account and network services.'),('create_subtitle','Get your account ready before putting services into production.','Create an account to get started with your network services.'),('login_subtitle','Your network services, in one place.','Access your account and network services.'),('create_subtitle','Your starting point for network services.','Create an account to get started with your network services.')]:
         if value.get(key)==old: value[key]=new
     if value['title']=='ServiceReady': value['title']='CasualNetworks'
     value.setdefault('global_timezone',value.get('greeting_timezone','UTC'))
@@ -89,7 +96,7 @@ def change(app,section,data):
         if previous_zone!=zone:
             from . import update_schedule
             update_schedule.rebase_global(app)
-        return 'Look and Feel saved.'
+        return 'Appearance saved.'
     action=data.get('action','save')
     with app.store.connect() as db:
         if action=='delete': db.execute('DELETE FROM home_blocks WHERE id=?',(int(data.get('block','')),));return 'Block removed.'
@@ -133,7 +140,7 @@ def logo(app,kind='logo'):
     return path.read_bytes(),'image/png' if name.endswith('.png') else 'image/jpeg'
 
 def home(app,user=None):
-    content='<p class="notice">Get the setup right before going live. Configure your services, secure your account, and test everything before putting it into production.</p>'
+    content='<p class="notice">Welcome to your network services portal. Find setup guidance, useful tools and account settings here.</p>'
     with app.store.connect() as db:
         for row in db.execute('SELECT * FROM home_blocks WHERE enabled=1 AND audience=? ORDER BY position,id',('signed-in' if user and user['role']!='guest' else 'guest',)):
             if row['module'] and not app.modules.installed(row['module']): continue
@@ -154,7 +161,7 @@ def render(app,section,user):
         for key,label,reset in [('reset_logo','Logo','Use default arrow'),('reset_masthead','Masthead image','Use default image'),('reset_header_fill','Secondary masthead','Clear secondary masthead')]:
             identity+=field(label,'<select name="'+key+'"><option value="no">Keep current image</option><option value="yes">'+reset+'</option></select>')
         groups=group('Brand and masthead',identity,True)
-        locale=text_field('global_timezone','Global time zone (IANA, e.g. America/Chicago)')
+        locale=field('Global time zone',regional.timezone_select('global_timezone',value['global_timezone']))
         for key,label,options in [('date_format','Date format',regional.DATE_FORMATS),('time_format','Time format',regional.TIME_FORMATS)]:
             locale+=field(label,'<select name="'+key+'">'+''.join('<option value="'+code+'"'+(' selected' if value[key]==code else '')+'>'+E(item[1])+'</option>' for code,item in options.items())+'</select>')
         groups+=group('Date, time and time zone',locale)
@@ -167,11 +174,11 @@ def render(app,section,user):
         groups+=group('Login disclaimer',body)
         groups+=group('Logout confirmation', ''.join(text_field(key,label) for key,(label,_) in SESSION_TEXT.items() if key.startswith('logout_')))
         groups+=group('Session-ended box', ''.join(text_field(key,label) for key,(label,_) in SESSION_TEXT.items() if key.startswith('logged_out_')))
-        content='<div class="compact-settings"><form method="post">'+csrf+groups+'<button>Save Look and Feel</button></form><details class="settings-section"><summary>Upload images</summary><div class="image-upload-grid">'
+        content='<div class="compact-settings"><form method="post">'+csrf+groups+'<button>Save Appearance</button></form><details class="settings-section"><summary>Upload images</summary><div class="image-upload-grid">'
         images=[('/admin/branding/upload','Brand logo','40 × 40 px recommended; 30 × 30 px on narrow screens.'),('/admin/branding/masthead/upload','Masthead image','Wide: 1284 × 963 px recommended, fixed 963 px height cropped into a 68 px header. Compact: 600 × 68 px window, fixed 700 px image width.'),('/admin/branding/header-fill/upload','Secondary masthead','600 × 68 px recommended; fixed 68 px height, cropped to the available width and aligned right.')]
         for url,label,help_text in images:
             content+='<div class="panel"><form action="'+url+'" method="post" enctype="multipart/form-data">'+csrf+'<label>'+label+' (PNG or JPEG, up to 1 MiB)</label><p class="muted">'+help_text+'</p><input type="file" name="file" accept="image/png,image/jpeg" required><button>Upload '+label.lower()+'</button></form></div>'
-        return content+'</div></details><p class="muted">Look and Feel changes apply to all portal pages.</p></div>'
+        return content+'</div></details><p class="muted">Appearance changes apply to all portal pages.</p></div>'
     from .modules import CATALOG
     def form(row):
         fields='<div class="panel"><form method="post">'+csrf+'<input type="hidden" name="block" value="'+E(row.get('id',''))+'"><div class="settings-grid">'

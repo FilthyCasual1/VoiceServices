@@ -1,4 +1,4 @@
-# Core administration (1.12.1)
+# Core administration (1.12.2)
 
 These controls are part of the permanent core and work without any addons.
 
@@ -37,7 +37,7 @@ home directory. Portal administrator roles do not grant operating-system root
 access. Broker integration has policy/mock tests but still needs real Alpine
 validation. OS and portal database deletion cannot be one atomic transaction.
 
-Look and Feel → Date, time and time zone sets the portal-wide IANA timezone and date/time presets (ISO, day-first, month-first or named dates; 12/24-hour time with optional seconds). Inbox and session timestamps and time-based greetings follow these settings. Update schedules use `portal` to inherit the global timezone; changing it recalculates their next occurrence. Explicit schedule timezone overrides remain in effect. These settings format portal data and do not change the host OS clock.
+Appearance → Date, time and time zone sets the portal-wide IANA timezone and date/time presets (ISO, day-first, month-first or named dates; 12/24-hour time with optional seconds). Inbox and session timestamps and time-based greetings follow these settings. Update schedules use `portal` to inherit the global timezone; changing it recalculates their next occurrence. Explicit schedule timezone overrides remain in effect. These settings format portal data and do not change the host OS clock.
 
 Overview refreshes local measurements every five seconds while visible. Portal navigation preserves the masthead and unchanged images; ordinary full-page navigation remains available without JavaScript. Host OEM identity comes from readable Linux DMI information: manufacturer, model, serial number, system board and BIOS. Missing or restricted fields are omitted. Virtual machines report the identity exposed by the hypervisor, rather than the physical ESXi server.
 
