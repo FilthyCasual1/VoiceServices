@@ -10,16 +10,10 @@ def admin_change(app,data,services):
 def admin_render(app,user,services):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     if not app.store.accounts:return '<p class="notice">No Linux host provider is connected. Host cleanup and terminal access are unavailable on this development deployment.</p>'
-    text='<p>Run individual cleanup tasks on the connected Linux host. Updates and schedules are available below.</p>'
-    try:
-        state=app.store.accounts.call('maintenance-status','','')
-        text+='<p class="notice">'+E(state.get('state','idle'))+': '+E(state.get('message',''))+'</p>'
-    except ValueError as exc:text+='<p class="notice error">'+E(exc)+'</p>'
-    for key,(title,detail) in TASKS.items():text+='<div class="panel"><h3>'+title+'</h3><p>'+detail+'</p><form method="post">'+csrf+'<input type="hidden" name="task" value="'+key+'"><label><input type="checkbox" name="confirm" value="yes" required> Confirm this cleanup task</label><button>Run task</button></form></div>'
-    text+='<div class="panel"><h3>Host power</h3><p>Restart or shut down this VM. All hosted services will disconnect. After shutdown, start the VM from your hypervisor.</p>'
-    for operation,label in [('restart','Restart VM'),('shutdown','Shut down VM')]:
-        text+='<form method="post">'+csrf+'<input type="hidden" name="task" value="power"><input type="hidden" name="operation" value="'+operation+'"><label>Local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><label>Type '+operation+' to confirm</label><input name="confirm" required autocomplete="off"><button>'+label+'</button></form>'
-    text+='</div>'
+    text='<h2>Cleanup</h2><div class="compact-host-tasks">'
+    for key,(title,detail) in TASKS.items():
+        text+='<form method="post" class="host-task-row">'+csrf+'<input type="hidden" name="task" value="'+key+'"><div><strong>'+title+'</strong><small>'+detail+'</small></div><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm</label><button>Run</button></form>'
+    text+='</div><h2>Host power</h2><form method="post" class="compact-host-power">'+csrf+'<input type="hidden" name="task" value="power"><p>All services disconnect. After shutdown, start the VM from your hypervisor.</p><label class="host-password">Local administrator password <input type="password" name="current_password" autocomplete="current-password" required></label><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm power action</label><div class="update-actions"><button name="operation" value="restart">Restart VM</button><button name="operation" value="shutdown">Shut down VM</button></div></form>'
     return text
 def terminal_render(app,user):
     if not app.store.accounts:return '<p class="notice">The browser terminal requires the Linux host account broker. It is unavailable on this development deployment.</p>'
@@ -33,7 +27,8 @@ def page(app,path,method,data,user,env,send):
             task=data.get('task')
             if task=='power':
                 from . import host_configuration
-                note=host_configuration.change(app,user,dict(data,kind='power'))
+                if data.get('confirm')!='yes' or data.get('operation') not in ('restart','shutdown'):raise ValueError('Choose and confirm a power action.')
+                note=host_configuration.change(app,user,dict(data,kind='power',confirm=data['operation']))
                 return send('200 OK',app.page('Host power', '<div class="panel"><h2>Host power request accepted</h2><p>The VM will '+E(data.get('operation',''))+' shortly. The portal will disconnect. After a restart, return to the home page once the VM is available.</p><a href="/">Home</a></div>',user))
             if task not in TASKS or data.get('confirm')!='yes':raise ValueError('Choose and confirm a maintenance task.')
             app.store.accounts.call('maintenance-start',task,'');audit(app,user,'Started host maintenance '+task)

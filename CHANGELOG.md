@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.2 — 2026-10-06
+
+Put updates, schedules and terminal first; condense cleanup to small rows and share one password and confirmation checkbox between VM power buttons.
+
 ## 1.18.1 — 2026-10-06
 
 Compact the host update panel with tighter spacing, smaller distro branding, aligned actions and expandable update details.

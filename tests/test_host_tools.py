@@ -88,3 +88,16 @@ class HostToolTests(unittest.TestCase):
         result=self.request('/admin/host','POST',{'csrf':user['csrf'],'update':'insap'},token)
         self.assertEqual(result['status'],'200 OK')
         self.assertIn('data-update-state="starting"',result['body'])
+
+    def test_compact_page_order_and_shared_power_confirmation(self):
+        token,user=self.user('admin');self.app.base='https://portal.example';self.app.secure=True
+        self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
+        body=self.request('/admin/host',token=token)['body']
+        self.assertLess(body.index('Portal and host updates</h2>'),body.index('Clean package cache'))
+        self.assertLess(body.index('<summary>Host terminal'),body.index('Clean package cache'))
+        self.assertEqual(body.count('name="current_password"'),1)
+        with patch('voiceservices.host_configuration.change') as power:
+            bad=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'power','operation':'restart'},token)
+            self.assertEqual(bad['status'],'400 Bad Request');power.assert_not_called()
+            good=self.request('/admin/host','POST',{'csrf':user['csrf'],'task':'power','operation':'restart','confirm':'yes','current_password':'secret'},token)
+            self.assertEqual(good['status'],'200 OK');self.assertEqual(power.call_args.args[2]['confirm'],'restart')
