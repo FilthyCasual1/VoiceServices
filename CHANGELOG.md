@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.16.15 — 2026-10-06
+
+Preserve service-account ownership when GUI updates refresh addons and recover the portal if refresh fails.
+
+## 1.16.14 — 2026-10-06
+
+Add root-only Linux console administrator recovery with optional two-factor reset and session revocation.
+
+## 1.16.13 — 2026-10-06
+
+Repair GUI update runtime permissions and verify imports as the service account before restarting; include Rocky recovery script.
+
+## 1.16.12 — 2026-10-06
+
+Serve styled Nginx outage and request error pages with safe automatic recovery during portal restarts.
+
+## 1.16.11 — 2026-10-06
+
+Automatically poll update progress, reconnect after restart, and remove the manual status refresh control.
+
 ## 1.16.10 — 2026-10-06
 
 Keep storage and network/time pages usable when host tooling is unavailable, with independent diagnostics and GUI-upgrade helper recovery.

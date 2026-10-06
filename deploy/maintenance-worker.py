@@ -33,7 +33,8 @@ def main(kind):
     if kind not in ('os','insap','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
     with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError: return
+        except BlockingIOError:
+            status(kind,'failed','Another host operation is running. Wait for it to finish before starting an update.');return
         try:
             status(kind,'running','Preparing update')
             if kind=='os':
@@ -64,10 +65,20 @@ def main(kind):
             status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
             run(['git','-C',str(source),'merge','--ff-only','origin/main'])
             run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
+            status(kind,'running','Restoring service-account runtime access and verifying imports')
+            run(['/usr/bin/python3',str(source/'deploy/runtime-access.py')])
+            # Stop the portal before repairing old root-private addon files.
+            status(kind,'running','Refreshing installed addons; portal will reconnect shortly')
+            run(['/usr/bin/systemctl','stop','serviceready'] if rocky else ['/sbin/rc-service','serviceready','stop'])
+            import importlib.util,pwd
+            spec=importlib.util.spec_from_file_location('runtime_access',source/'deploy/runtime-access.py');access=importlib.util.module_from_spec(spec);spec.loader.exec_module(access)
+            access.normalise_addons(config)
             # Refresh installed official addons only; absent addons remain absent.
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
-            run([str(ROOT/'venv/bin/python'),'-c',script])
-            for name in ('account-broker.py','maintenance-worker.py','host-control.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
+            actor=pwd.getpwnam('serviceready')
+            subprocess.run([str(ROOT/'venv/bin/python'),'-I','-c',script],check=True,timeout=1800,cwd='/var/lib/serviceready',user=actor.pw_uid,group=actor.pw_gid,extra_groups=[actor.pw_gid])
+            for name in ('account-broker.py','maintenance-worker.py','host-control.py','runtime-access.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
+            shutil.copy2(source/'deploy/admin-reset.py','/usr/local/sbin/serviceready-admin-reset');os.chmod('/usr/local/sbin/serviceready-admin-reset',0o700)
             if rocky:
                 for unit in (source/'deploy/systemd').glob('*.service'):
                     shutil.copy2(unit,pathlib.Path('/etc/systemd/system')/unit.name)
@@ -83,5 +94,7 @@ def main(kind):
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/usr/bin/systemctl','restart','serviceready-accounts'] if rocky else ['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         except Exception as exc:
+            if kind=='insap':
+                subprocess.run(['/usr/bin/systemctl','start','serviceready'] if rocky else ['/sbin/rc-service','serviceready','start'],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
 if __name__=='__main__': main(sys.argv[1])

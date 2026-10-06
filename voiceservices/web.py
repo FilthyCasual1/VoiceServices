@@ -272,6 +272,13 @@ class App:
             return send('303 See Other','',extra=[('Location','/login')])
         if not user:
             user = {'id': -1, 'username': '', 'role': 'guest', 'preferences': '{}', 'csrf': ''}
+        if path=='/admin/update-status':
+            if user['role']!='admin':return send('403 Forbidden',json.dumps({'error':'Administrator access required.'}),'application/json')
+            if method!='GET':return send('405 Method Not Allowed',json.dumps({'error':'GET required.'}),'application/json')
+            if not self.store.accounts:return send('503 Service Unavailable',json.dumps({'error':'Host update provider unavailable.'}),'application/json')
+            try:state=self.store.accounts.call('maintenance-status','','')
+            except ValueError as exc:return send('503 Service Unavailable',json.dumps({'error':str(exc)}),'application/json')
+            return send('200 OK',json.dumps({'status':state,'version':__version__}),'application/json')
         if path=='/admin/overview-stats':
             if user['role']!='admin': return send('403 Forbidden',json.dumps({'error':'Administrator access required.'}),'application/json')
             if method!='GET': return send('405 Method Not Allowed',json.dumps({'error':'GET required.'}),'application/json')

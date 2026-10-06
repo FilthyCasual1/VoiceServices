@@ -79,6 +79,10 @@
     if (event.defaultPrevented || form.target || new URL(form.action).origin !== location.origin) return;
     event.preventDefault();
     if (form.hasAttribute('data-terminal-open')) return;
+    if (form.hasAttribute('data-start-update')) {
+      const panel = form.closest('[data-update-state]');
+      if (panel) { panel.dataset.updateState = 'starting'; panel.dataset.updateIdlePolls = '0'; }
+    }
     const data = new FormData(form);
     if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
     if (form.method.toLowerCase() === 'get') { const url = new URL(form.action); url.search = new URLSearchParams(data); visit(url.href); return; }
@@ -86,6 +90,38 @@
     visit(form.action, {method: 'POST', body}, 'push', true);
   });
   window.addEventListener('popstate', () => visit(location.href, {}, 'replace'));
+  let updatePolling = false;
+  setInterval(async () => {
+    const panel = document.querySelector('[data-update-state="running"], [data-update-state="starting"]');
+    if (!panel || navigating || updatePolling) return;
+    updatePolling = true; const revision = generation;
+    try {
+      const response = await fetch('/admin/update-status', {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+      if ((response.redirected && new URL(response.url).pathname === '/login') || response.status === 401 || response.status === 403) { visit('/login', {}, 'replace'); return; }
+      if (!response.ok || !response.headers.get('Content-Type')?.includes('application/json')) throw new Error('Update provider reconnecting');
+      const result = await response.json();
+      if (revision !== generation || navigating || !panel.isConnected) return;
+      const state = result.status, message = panel.querySelector('[data-update-status]');
+      if (!state || !message) return;
+      if (state.state === 'idle' && panel.dataset.updateState === 'starting') {
+        const attempts = Number(panel.dataset.updateIdlePolls || 0) + 1;
+        panel.dataset.updateIdlePolls = String(attempts);
+        message.textContent = attempts < 15 ? 'Starting update; waiting for the host worker…' : 'No update activity was reported. Check the host update service before trying again.';
+        if (attempts >= 15) panel.dataset.updateState = 'idle';
+      } else {
+        panel.dataset.updateState = state.state;
+        message.textContent = state.state + ': ' + (state.message || '');
+      }
+      message.classList.toggle('error', state.state === 'failed');
+      for (const button of panel.querySelectorAll('[data-start-update] button')) button.disabled = ['running','starting'].includes(panel.dataset.updateState);
+      if (['complete','failed'].includes(state.state) && result.version !== panel.dataset.updateVersion) visit(location.href, {}, 'replace', true);
+    } catch (_) {
+      if (revision === generation && panel.isConnected) {
+        const message = panel.querySelector('[data-update-status]');
+        if (message) message.textContent = 'Waiting for the portal or host update service to reconnect. Progress will resume automatically…';
+      }
+    } finally { updatePolling = false; }
+  }, 2000);
   setInterval(async () => {
     if (!refreshEnabled || document.hidden || navigating || polling || location.pathname.replace(/\/$/, '') !== '/admin' || !document.querySelector('.overview-grid')) return;
     polling = true; const revision = generation;

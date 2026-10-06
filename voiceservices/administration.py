@@ -31,8 +31,8 @@ def render(app,path,user,data,method,services):
         else: raise ValueError('Unknown administration action.')
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
-    if section=='overview': content+=overview.render(app)+maintenance.render(app,user)
-    elif section=='system-updates': content+=maintenance.render(app,user)
+    if section=='overview': content+=overview.render(app)+maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))
+    elif section=='system-updates': content+=maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
     elif section=='notifications': content+=notifications.render(app,user)

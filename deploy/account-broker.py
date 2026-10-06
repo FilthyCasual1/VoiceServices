@@ -147,7 +147,13 @@ def handle(request):
         if state.get('state')=='running': raise ValueError('An update is already running.')
         worker=Path('/opt/serviceready/maintenance-worker.py')
         if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022: raise ValueError('Update worker not installed safely.')
-        subprocess.Popen(['/usr/bin/python3',str(worker),kind],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        starting={'kind':kind,'state':'running','message':'Starting host update worker','at':int(time.time())}
+        temporary=state_path.with_suffix('.starting');temporary.write_text(json.dumps(starting));os.chmod(temporary,0o600);temporary.replace(state_path)
+        try:
+            subprocess.Popen(['/usr/bin/python3',str(worker),kind],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        except OSError:
+            starting.update(state='failed',message='The host update worker could not start.');temporary.write_text(json.dumps(starting));temporary.replace(state_path)
+            raise ValueError(starting['message']) from None
         return {'ok':True}
     username=request.get('username','');password=request.get('password','')
     if not re.fullmatch('[a-z_][a-z0-9_-]{2,31}',username): raise ValueError('System usernames use 3–32 lowercase letters, numbers, underscores or hyphens.')

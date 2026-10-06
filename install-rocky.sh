@@ -64,8 +64,9 @@ if [[ ! -d /opt/serviceready/source ]]; then
 fi
 run python3 -m venv /opt/serviceready/venv
 run /opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir[identity]" waitress==3.0.2 pyftpdlib==2.1.0 aiosmtpd==1.4.6
-chgrp -R serviceready /opt/serviceready/venv; chmod -R g+rX /opt/serviceready/venv
-for file in account-broker.py maintenance-worker.py host-control.py; do install -m 0700 "$source_dir/deploy/$file" "/opt/serviceready/$file"; done
+run python3 "$source_dir/deploy/runtime-access.py"
+install -m 0700 "$source_dir/deploy/admin-reset.py" /usr/local/sbin/serviceready-admin-reset
+for file in account-broker.py maintenance-worker.py host-control.py runtime-access.py; do install -m 0700 "$source_dir/deploy/$file" "/opt/serviceready/$file"; done
 for file in "$source_dir"/deploy/systemd/*.service; do install -m 0644 "$file" /etc/systemd/system/; done
 run systemctl daemon-reload
 run systemctl enable --now serviceready-accounts

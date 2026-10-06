@@ -19,7 +19,7 @@ The [Alpine installer](docs/alpine-install.md) remains available for existing de
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.16.10](packages/addons/1.16.10/) and
+Download `.sraddon` files from [packages/addons/1.16.15](packages/addons/1.16.15/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -63,3 +63,7 @@ telephony provisioning, CTI and recording adapters remain incomplete.
 Host maintenance, terminal, network/NTP settings and upload disk setup are part of the core. See [host configuration](docs/host-configuration.md). To upgrade an existing Rocky installation to this release, pull main and rerun `sudo bash install-rocky.sh` so the new root host worker and OS dependencies are installed. Settings and accounts are retained.
 
 Later releases can be installed from Administration → System → Portal and host updates → Update INSAP. The connected host updater preserves configuration and accounts and refreshes installed official addons.
+
+If an older GUI update leaves the portal returning 502 with `No module named voiceservices.server`, run `git pull` followed by `sudo bash repair-rocky.sh` in this checkout. The repair restores service-group access to the root-owned runtime, verifies imports under the service account, and restarts the portal without resetting configuration, users or uploads. Future updates repeat this verification before restarting.
+
+Root console recovery: `sudo serviceready-admin-reset <administrator>` prompts for a new password, optional two-factor reset and confirmation, then revokes that administrator’s portal sessions. It works without the web server or portal Python environment. Enrolled Linux-backed administrators have their OS password updated too.

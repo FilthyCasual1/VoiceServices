@@ -23,7 +23,11 @@ def configure(config,addresses,reload=True,root=Path('/')):
         run(['openssl','req','-x509','-newkey','rsa:3072','-nodes','-days','3650','-sha256','-subj','/CN=ServiceReady Local CA','-addext','basicConstraints=critical,CA:TRUE','-addext','keyUsage=critical,keyCertSign,cRLSign','-keyout',str(ca/'ca.key'),'-out',str(ca/'ca.crt')])
         (ca/'ca.key').chmod(0o600);(ca/'ca.crt').chmod(0o644)
     if not (ca/'ca.key').is_file() or not (ca/'ca.crt').is_file():raise ValueError('Local CA is incomplete; restore its backup before continuing.')
+    from .proxy_errors import publish
+    errors=publish(config,root)
     target=MARKER+'server {\n    listen 443 ssl default_server;\n    listen [::]:443 ssl default_server;\n    server_name _;\n    ssl_certificate '+str(cert)+';\n    ssl_certificate_key '+str(key)+';\n    ssl_protocols TLSv1.2 TLSv1.3;\n    client_max_body_size '+str(int(config.get('update_upload_limit',8*1024**3))+16384)+';\n    location / {\n        proxy_request_buffering off;\n        proxy_http_version 1.1;\n        proxy_pass http://127.0.0.1:'+str(int(config.get('listen_port',8080)))+';\n        proxy_set_header Host $http_host;\n        proxy_set_header X-Forwarded-Proto https;\n        proxy_set_header X-Forwarded-For $remote_addr;\n        proxy_read_timeout 3600s;\n    }\n}\n'
+    locations='    error_page 500 502 503 504 /_serviceready_errors/unavailable.html;\n    error_page 400 403 404 405 413 414 429 /_serviceready_errors/request.html;\n    location ^~ /_serviceready_errors/ {\n        internal;\n        alias '+str(errors)+'/;\n        add_header Cache-Control "no-store" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header Content-Security-Policy "default-src \'none\'; style-src \'self\'; img-src \'self\'; script-src \'self\'; connect-src \'self\'; base-uri \'none\'; frame-ancestors \'none\'" always;\n    }\n    location ^~ /_serviceready_error_assets/ {\n        alias '+str(errors)+'/;\n        autoindex off;\n        limit_except GET { deny all; }\n    }\n'
+    target=target.replace('    location / {\n','    proxy_intercept_errors off;\n'+locations+'    location / {\n')
     state=ca/'addresses.json';signature=json.dumps(sorted(sans))
     changed=not cert.exists() or not key.exists() or not state.exists() or state.read_text()!=signature
     if not changed:
@@ -42,6 +46,7 @@ def configure(config,addresses,reload=True,root=Path('/')):
         proxy.write_text(target);proxy.chmod(0o644)
         if root==Path('/'):
             run(['restorecon',str(key),str(cert),str(proxy)])
+            run(['restorecon','-R',str(errors)])
             run(['nginx','-t'])
             if reload:run(['systemctl','reload','nginx'])
         state.write_text(signature)
