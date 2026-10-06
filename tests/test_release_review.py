@@ -58,3 +58,15 @@ class ReleaseReviewTests(unittest.TestCase):
   token,user=self.user('admin');fetch,catalog=self.addon_fixture();catalog['downloads']['sha256']='b'*64
   with patch.object(addon_updates,'fetch',side_effect=fetch):addon_updates.change(self.app,user,{'action':'check-addon-update','module':'downloads'})
   self.assertEqual(addon_updates.settings(self.app)['downloads']['state'],'core-required')
+
+ def test_tools_runner_captures_output_in_private_log(self):
+  with tempfile.TemporaryDirectory() as root:
+   log=Path(root)/'tools.log'
+   with patch.object(worker,'TOOLS_LOG',log),patch.object(worker.subprocess,'run') as run:
+    worker.tools_run(['/usr/bin/dnf','install','gcc'])
+   self.assertIn('Running: /usr/bin/dnf install gcc',log.read_text());self.assertEqual(log.stat().st_mode&0o777,0o600)
+   self.assertEqual(run.call_args.kwargs['stderr'],worker.subprocess.STDOUT)
+   target=Path(root)/'target';target.write_text('retain');log.unlink();log.symlink_to(target)
+   with patch.object(worker,'TOOLS_LOG',log):
+    with self.assertRaises(OSError):worker.tools_run(['/usr/bin/dnf','install','gcc'])
+   self.assertEqual(target.read_text(),'retain')

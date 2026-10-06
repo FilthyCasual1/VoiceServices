@@ -47,6 +47,23 @@ def tools_cd():
         return {'device':row['path'],'version':match[1] if match else 'VMware Tools','provider':'virtualbox' if match else 'vmware','fingerprint':fingerprint,'attempted':last.get('fingerprint')==fingerprint}
     return {}
 
+def virtualbox_running(version):
+    control=shutil.which('VBoxControl')
+    if not control:return False
+    try:
+        installed=output([control,'--version']).split('r',1)[0].strip()
+        service=output(['/usr/bin/systemctl','is-active','vboxadd-service'])
+        communication=output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer'])
+    except (OSError,subprocess.SubprocessError):return False
+    return installed==version and service=='active' and bool(re.fullmatch(r'Value:\s*\d+\.\d+\.\d+',communication))
+def run_installer(run,installer,version,report):
+    try:run(['/bin/sh',str(installer),'--nox11'])
+    except subprocess.CalledProcessError as exc:
+        report('Installer returned an error; checking installed version, guest service and host communication')
+        if not virtualbox_running(version):raise
+        return ' Installer returned exit '+str(exc.returncode)+', but the requested version, guest service and host communication are verified. See Installer output for warnings.'
+    return ''
+
 def install_cd(run,report):
     cd=tools_cd()
     if not cd:raise ValueError('Insert the VirtualBox Guest Additions CD in the VM optical drive, then try again.')
@@ -74,9 +91,9 @@ def install_cd(run,report):
         mount=root/'media';mount.mkdir();run(['/usr/bin/mount','-o','loop,ro,nosuid,nodev,noexec',str(image),str(mount)])
         try:
             report('Installing verified Guest Additions from the inserted CD')
-            run(['/bin/sh',str(mount/'VBoxLinuxAdditions.run'),'--nox11'])
+            warning=run_installer(run,mount/'VBoxLinuxAdditions.run',version,report)
         finally:run(['/usr/bin/umount',str(mount)])
-    return 'VirtualBox Guest Additions '+version+' installed from CD. A reboot may be needed; none performed.'
+    return 'VirtualBox Guest Additions '+version+' installed from CD. A reboot may be needed; none performed.'+warning
 
 def update(run,report):
     if not pathlib.Path('/etc/rocky-release').is_file():raise ValueError('Guest-tool updates currently require Rocky Linux.')
@@ -113,6 +130,6 @@ def update(run,report):
         run(['/usr/bin/mount','-o','loop,ro,nosuid,nodev,noexec',str(image),str(mount)])
         try:
             report('Installing verified VirtualBox Guest Additions; inspect /var/log/vboxadd-setup.log if kernel modules fail')
-            run(['/bin/sh',str(mount/'VBoxLinuxAdditions.run'),'--nox11'])
+            warning=run_installer(run,mount/'VBoxLinuxAdditions.run',version,report)
         finally:run(['/usr/bin/umount',str(mount)])
-    return 'VirtualBox Guest Additions '+version+' installed to match the host. A reboot may be needed; none performed.'
+    return 'VirtualBox Guest Additions '+version+' installed to match the host. A reboot may be needed; none performed.'+warning

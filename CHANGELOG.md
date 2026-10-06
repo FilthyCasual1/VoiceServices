@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.20.3 — 2026-10-06
+
+Check the installed VirtualBox version, guest service and host communication before classifying a nonzero installer exit as failure; preserve genuine failures and expose installer warnings.
+
+## 1.20.2 — 2026-10-06
+
+Expose guest-tools installer output in Host maintenance instead of generic failure messages, so legacy startup warnings can be distinguished from actual dependency or driver errors.
+
 ## 1.20.1 — 2026-10-06
 
 Label OS and VM logos ServiceReady is powered by and remove the portal arrow from that group while retaining masthead branding.

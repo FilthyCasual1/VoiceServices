@@ -5,6 +5,13 @@ ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-acc
 def status(kind,state,message):
     temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':int(time.time())}));os.chmod(temporary,0o600);temporary.replace(STATE)
 def run(args): subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1800)
+TOOLS_LOG=pathlib.Path('/run/serviceready-accounts/vm-tools.log')
+def tools_run(args):
+    fd=os.open(TOOLS_LOG,os.O_WRONLY|os.O_CREAT|os.O_APPEND|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'ab') as log:
+        os.fchmod(log.fileno(),0o600)
+        log.write(('\nRunning: '+' '.join(args)+'\n').encode());log.flush()
+        subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,timeout=1800)
 def clean_temp(folder):
     removed=0
     if folder.is_symlink():raise ValueError('Temporary directory must not be a symlink.')
@@ -73,11 +80,12 @@ def main(kind,approved_commit=''):
                     else:messages.append(str(trim_logs(pathlib.Path('/var/log/serviceready')))+' logs trimmed')
                 status(kind,'complete','; '.join(messages)+'.');return
             if kind in ('vmtools','vmtools-cd'):
+                fd=os.open(TOOLS_LOG,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600);os.close(fd)
                 import importlib.util
                 file=ROOT/'vm-tools.py'
                 if file.is_symlink() or file.stat().st_uid!=0 or file.stat().st_mode&0o022:raise ValueError('Guest-tools worker must be root-owned and not writable by other users.')
                 spec=importlib.util.spec_from_file_location('vm_tools',file);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-                message=(module.install_cd if kind=='vmtools-cd' else module.update)(run,lambda message:status(kind,'running',message))
+                message=(module.install_cd if kind=='vmtools-cd' else module.update)(tools_run,lambda message:status(kind,'running',message))
                 status(kind,'complete',message);return
             if kind=='os':
                 status(kind,'running','Refreshing host package indexes');run(['/usr/bin/dnf','makecache'] if rocky else ['/sbin/apk','update'])
@@ -148,6 +156,6 @@ def main(kind,approved_commit=''):
             if kind=='insap':
                 subprocess.run(['/usr/bin/systemctl','start','serviceready'] if rocky else ['/sbin/rc-service','serviceready','start'],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             if kind in ('vmtools','vmtools-cd') and isinstance(exc,subprocess.CalledProcessError):
-                status(kind,'failed','Guest tools installation failed. Dependencies require a repository package matching the running kernel; update OS and restart if that package is unavailable. For driver-build errors inspect /var/log/vboxadd-setup.log. No reboot was performed.');return
+                status(kind,'failed','Guest tools installation failed. Expand Installer output below for the actual error. Kernel dependencies must match the running kernel. No reboot was performed.');return
             status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
 if __name__=='__main__': main(sys.argv[1],sys.argv[2] if len(sys.argv)>2 else '')

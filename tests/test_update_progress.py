@@ -44,3 +44,9 @@ class UpdateProgressTests(unittest.TestCase):
   self.assertEqual(response['status'],'200 OK');manual.assert_not_called()
   self.assertTrue(update_schedule.settings(self.app)['os']['enabled'])
   self.assertIn('id="update-schedules" open',response['body'])
+
+ def test_failed_guest_tools_show_escaped_installer_output(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'failed','kind':'vmtools-cd','message':'Installation failed','tools_log':'actual error <script>bad</script>'}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertIn('Installer output',body);self.assertIn('actual error &lt;script&gt;',body);self.assertNotIn('actual error <script>',body)

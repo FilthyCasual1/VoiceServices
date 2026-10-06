@@ -6,6 +6,7 @@ real_tools_cd=tools.tools_cd
 class VMToolsTests(unittest.TestCase):
  def setUp(self):
   self.cd_patch=patch.object(tools,'tools_cd',return_value={});self.cd_patch.start();self.addCleanup(self.cd_patch.stop)
+  self.running_patch=patch.object(tools,'virtualbox_running',return_value=False);self.running_patch.start();self.addCleanup(self.running_patch.stop)
  def test_vmware_updates_repository_package_and_service(self):
   run=Mock()
   with patch.object(tools.pathlib.Path,'is_file',return_value=True),patch.object(tools,'hypervisor',return_value='vmware'):
@@ -90,3 +91,12 @@ class VMToolsTests(unittest.TestCase):
    app.store.accounts.call.reset_mock()
    with app.store.connect() as db:db.execute("INSERT OR REPLACE INTO portal_settings VALUES('tools_cd_auto','no')")
    update_schedule.tick(app);self.assertFalse(any(call.args[0]=='maintenance-start' for call in app.store.accounts.call.call_args_list))
+
+ def test_installer_nonzero_only_succeeds_with_verified_running_tools(self):
+  import subprocess
+  run=Mock(side_effect=subprocess.CalledProcessError(1,'installer'))
+  with patch.object(tools,'virtualbox_running',return_value=True):
+   warning=tools.run_installer(run,Path('/media/VBoxLinuxAdditions.run'),'7.2.0',Mock())
+  self.assertIn('exit 1',warning);self.assertIn('verified',warning)
+  with patch.object(tools,'virtualbox_running',return_value=False):
+   with self.assertRaises(subprocess.CalledProcessError):tools.run_installer(run,Path('/media/VBoxLinuxAdditions.run'),'7.2.0',Mock())

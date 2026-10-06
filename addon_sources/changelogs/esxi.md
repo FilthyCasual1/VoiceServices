@@ -1,5 +1,9 @@
 # ESXi Management changelog
 
+## 1.20.3
+
+- Package for INSAP 1.20.3. No functional addon changes; guest-tools installer diagnostics and verification are core features.
+
 ## 1.20.1
 
 - Package for INSAP 1.20.1. No functional addon changes.
