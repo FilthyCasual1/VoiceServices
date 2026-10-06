@@ -1,0 +1,4 @@
+VirtualBox and VMware SVG marks from Simple Icons 13.10.0.
+Source: https://github.com/simple-icons/simple-icons/tree/13.10.0/icons
+Simple Icons artwork is CC0-1.0: https://github.com/simple-icons/simple-icons/blob/13.10.0/LICENSE.md
+Brand trademarks remain property of their respective owners.

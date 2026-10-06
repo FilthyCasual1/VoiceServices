@@ -101,6 +101,8 @@ class App:
             asset=branding.logo(self,path.rsplit('/',1)[-1])
             if path.endswith('/masthead') and not asset: asset=(Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
             return send('200 OK',asset[0],asset[1]) if asset else send('404 Not Found','Logo unavailable.')
+        if path in ('/static/casualnetworks-arrow.svg','/static/provider-virtualbox.svg','/static/provider-vmware.svg'):
+            return send('200 OK',Path(__file__).with_name('static').joinpath(path.rsplit('/',1)[1]).read_bytes(),'image/svg+xml')
         if path == '/static/brand-arrow.svg':
             return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
         if path == '/static/masthead.png':

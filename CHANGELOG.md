@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.3 — 2026-10-06
+
+Display detected VM provider logos alongside the CasualNetworks arrow and distro mark on Overview and Host maintenance, using bundled offline assets.
+
 ## 1.18.2 — 2026-10-06
 
 Put updates, schedules and terminal first; condense cleanup to small rows and share one password and confirmation checkbox between VM power buttons.

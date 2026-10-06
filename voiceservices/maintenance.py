@@ -10,10 +10,10 @@ def change(app,user,data):
     return 'Update started. Progress updates automatically. The portal briefly disconnects while INSAP restarts.'
 def render(app,user,started=False):
     from .version import __version__
-    from . import distro
+    from . import distro,host_branding
     host=distro.detected();name=host.get('NAME',host.get('ID','Linux'));release=host.get('VERSION_ID','')
     identity=E((name+' '+release).strip())
-    content='<div class="panel host-updates"><div class="distro-powered"><span>Powered by</span><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"><span class="update-version">'+identity+'</span><span class="update-version">INSAP '+E(__version__)+'</span></div><p>Update host packages, INSAP or VM tools. Settings are retained; INSAP updates briefly restart the portal.</p>'
+    content='<div class="panel host-updates"><div class="distro-powered"><span>Powered by</span>'+host_branding.marks()+'<span class="update-version">'+identity+'</span><span class="update-version">INSAP '+E(__version__)+'</span></div><p>Update host packages, INSAP or VM tools. Settings are retained; INSAP updates briefly restart the portal.</p>'
     if not app.store.accounts: return content+'<p class="muted">No host update provider is connected. One-click updates are unavailable on this deployment.</p><div class="update-actions"><button disabled>Update OS</button><button disabled>Update INSAP</button></div></div>'
     content+='<p class="muted">Connected update provider: host operating system.</p>'
     try: state=app.store.accounts.call('maintenance-status','','')
