@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.17 — 2026-10-06
+
+Exclude boot and system disks, including their partition and logical-volume trees, from upload storage discovery and selection.
+
 ## 1.16.16 — 2026-10-06
 
 Keep expected connection failures quiet while the recovery script waits for portal startup; retain service diagnostics when recovery fails.

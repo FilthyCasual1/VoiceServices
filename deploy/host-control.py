@@ -7,8 +7,13 @@ MOUNT=pathlib.Path('/srv/serviceready-data')
 def run(args):return subprocess.check_output(args,text=True,stderr=subprocess.STDOUT).strip()
 def disks():
  rows=json.loads(run(['lsblk','--json','--bytes','-o','PATH,TYPE,SIZE,MODEL,SERIAL,RO,FSTYPE,UUID,MOUNTPOINTS,PTTYPE']))['blockdevices']
+ def system_disk(node):
+  mounts=node.get('mountpoints') or []
+  if any(m in ('/', '/boot', '/boot/efi', '/usr', '/var') for m in mounts):return True
+  return any(system_disk(child) for child in node.get('children') or [])
  result=[]
  for d in rows:
+  if d['type']!='disk' or system_disk(d):continue
   d['eligible']=d['type']=='disk' and not d.get('ro') and not any(d.get(k) for k in ('children','fstype','pttype')) and not any(d.get('mountpoints') or [])
   d['fingerprint']=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
   result.append(d)

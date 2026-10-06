@@ -58,3 +58,13 @@ class HostConfigurationTests(unittest.TestCase):
     storage=control.snapshot('storage');network=control.snapshot('network-host')
    self.assertEqual(storage['errors'],[])
    self.assertEqual(network['connections'],'Unavailable');self.assertEqual(len(network['errors']),3)
+
+ def test_system_disks_and_their_partition_trees_are_hidden(self):
+  blank={'path':'/dev/sdb','type':'disk','size':10000000000,'ro':False,'mountpoints':[None]}
+  rows=[{'path':'/dev/sda','type':'disk','children':[{'path':'/dev/sda2','type':'part','children':[{'path':'/dev/mapper/root','type':'lvm','mountpoints':['/']}]}]},
+        {'path':'/dev/nvme0n1','type':'disk','children':[{'path':'/dev/nvme0n1p1','type':'part','mountpoints':['/boot/efi']}]},
+        {'path':'/dev/sdc','type':'disk','children':[{'mountpoints':['/boot']}]},
+        {'path':'/dev/mapper/root','type':'lvm','mountpoints':['/']},blank]
+  with patch.object(control,'run',return_value=json.dumps({'blockdevices':rows})):
+   found=control.disks()
+  self.assertEqual([d['path'] for d in found],['/dev/sdb']);self.assertTrue(found[0]['eligible'])
