@@ -16,3 +16,5 @@ for source in sorted((root/'addon_sources').glob('*.py')):
             archive.writestr(entry,content)
 (root/'voiceservices/addon_catalog.json').write_text(json.dumps(catalog,indent=2)+'\n')
 print(destination)
+
+(root/'voiceservices/addon_notes.json').write_text(json.dumps({p.stem:p.read_text()[:8192] for p in (root/'addon_sources/changelogs').glob('*.md')},indent=2)+'\n')

@@ -43,3 +43,14 @@ class RepositoryInstallerTests(unittest.TestCase):
     with self.assertRaises(ValueError):addon_updates.install_from_repository(self.app,user,{'module':key})
    with self.assertRaises(PermissionError):addon_updates.install_from_repository(self.app,{'role':'user'},{'module':'snmp'})
    fetch.assert_not_called()
+ def test_release_notes_permission_error_never_breaks_admin(self):
+  token,user=self.user('admin')
+  original=Path.read_text
+  def read(path,*args,**kwargs):
+   if path.name=='addon_notes.json':raise PermissionError('Protected notes')
+   return original(path,*args,**kwargs)
+  with patch.object(Path,'read_text',read):body=self.request('/admin',token=token)
+  self.assertEqual(body['status'],'200 OK');self.assertIn('Release notes are unavailable',body['body']);self.assertIn('Download and install',body['body'])
+ def test_release_notes_are_bundled_with_portal(self):
+  token,user=self.user('admin');body=addon_updates.repository_installer(self.app,user)
+  self.assertIn('Release notes</summary>',body)

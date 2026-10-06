@@ -90,13 +90,17 @@ def repository_installer(app,user):
     from pathlib import Path
     from .version import __version__
     text='<details class="settings-section" id="addon-repository"><summary>Addon repository</summary><p>Browse official addons compatible with this INSAP release. Installed addons update automatically with INSAP; manual package installation remains available.</p><div class="download-grid">'
+    try:notes_catalog=json.loads(Path(__file__).with_name('addon_notes.json').read_text())
+    except (OSError,ValueError):notes_catalog={}
+    if not isinstance(notes_catalog,dict):notes_catalog={}
     for key,(title,description) in CATALOG.items():
         if key not in app.modules.approved:continue
         version=app.modules.approved[key]['version'];present=(app.modules.root/key).exists()
         text+='<article class="download-card"><span class="download-category">'+('Installed' if present else 'Available to install')+'</span><h4>'+E(title)+'</h4><p>'+E(description)+'</p><p class="download-meta">Version '+E(version)+' · API '+str(app.modules.approved[key]['api'])+'</p>'
-        notes=Path(__file__).resolve().parents[1]/'addon_sources/changelogs'/(key+'.md')
-        if not notes.is_file():notes=Path('/opt/serviceready/source/addon_sources/changelogs')/(key+'.md')
-        if notes.is_file():text+='<details><summary>Release notes</summary><pre>'+E(notes.read_text()[:8192])+'</pre></details>'
+        notes=notes_catalog.get(key,'')
+        if not isinstance(notes,str):notes=''
+        if notes:text+='<details><summary>Release notes</summary><pre>'+E(notes[:8192])+'</pre></details>'
+        else:text+='<p class="muted">Release notes are unavailable. Installation controls remain available.</p>'
         if not present:text+='<form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="module" value="'+E(key)+'"><button name="action" value="install-repository-addon">Download and install</button></form>'
         else:text+='<p>Manage this installed addon below.</p>'
         text+='</article>'

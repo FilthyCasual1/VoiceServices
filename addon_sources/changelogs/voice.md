@@ -1,3 +1,7 @@
+## 1.26.1
+
+- Package for INSAP 1.26.1 build 2; fixes core administration release-note access.
+
 ## 1.26.0
 
 - Add administrator-approved account linking requests through the core Services page.
