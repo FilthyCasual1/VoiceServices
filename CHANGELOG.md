@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.5 — 2026-10-06
+
+Embed the authenticated host terminal in Host maintenance and remove its separate navigation entry; retain compatibility with existing terminal links.
+
 ## 1.17.4 — 2026-10-06
 
 Combine automatic update schedules with Portal and host updates, keeping separate save and update actions and removing the standalone navigation entry.

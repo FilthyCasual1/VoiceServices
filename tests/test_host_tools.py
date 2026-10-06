@@ -61,3 +61,10 @@ class HostToolTests(unittest.TestCase):
         log=folder/'test.log';log.write_bytes(b'old'+b'x'*1024**2)
         (folder/'linked.log').symlink_to(outside)
         self.assertEqual(worker.trim_logs(folder),1);self.assertEqual(log.stat().st_size,1024**2);self.assertEqual(outside.read_text(),'keep')
+
+    def test_terminal_is_embedded_in_host_maintenance(self):
+        token,user=self.user('admin')
+        self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
+        body=self.request('/admin/host',token=token)['body']
+        self.assertIn('Clean package cache',body);self.assertIn('Host power',body);self.assertIn('id="host-terminal"',body)
+        self.assertIn('<summary>Host terminal</summary>',body);self.assertNotIn('href="/admin/terminal"',body)

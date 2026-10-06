@@ -20,7 +20,7 @@ def admin_render(app,user,services):
     for operation,label in [('restart','Restart VM'),('shutdown','Shut down VM')]:
         text+='<form method="post">'+csrf+'<input type="hidden" name="task" value="power"><input type="hidden" name="operation" value="'+operation+'"><label>Local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><label>Type '+operation+' to confirm</label><input name="confirm" required autocomplete="off"><button>'+label+'</button></form>'
     text+='</div>'
-    return text+'<p><a href="/admin/terminal">Open host terminal</a></p>'
+    return text
 def terminal_render(app,user):
     if not app.store.accounts:return '<p class="notice">The browser terminal requires the Linux host account broker. It is unavailable on this development deployment.</p>'
     return '<p>Open an interactive shell as <strong>'+E(user['username'])+'</strong>. Your existing OS permissions apply; this is not a root shell. Sessions close after 60 seconds without a browser heartbeat or 30 minutes total.</p><div class="panel" id="host-terminal" data-csrf="'+E(user['csrf'])+'"><form data-terminal-open><label>Confirm your local Linux password</label><input name="password" type="password" autocomplete="current-password" required><button>Open terminal</button></form><p data-terminal-status>Disconnected</p><button type="button" data-terminal-close disabled>Close terminal</button><div data-terminal-screen></div></div>'

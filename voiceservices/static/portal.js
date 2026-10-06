@@ -70,7 +70,7 @@
     const link = event.target.closest('a');
     if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download') || link.hasAttribute('data-full-navigation')) return;
     const url = new URL(link.href, location.href);
-    if (url.origin !== location.origin || url.pathname === '/admin/terminal' || /^(\/files\/|\/pxe\/|\/phone\/|\/branding\/|\/static\/)/.test(url.pathname)) return;
+    if (url.origin !== location.origin || ['/admin/terminal', '/admin/host'].includes(url.pathname) || /^(\/files\/|\/pxe\/|\/phone\/|\/branding\/|\/static\/)/.test(url.pathname)) return;
     if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
     event.preventDefault(); visit(url.href);
   });

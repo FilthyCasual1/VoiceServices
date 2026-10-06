@@ -12,6 +12,7 @@ def password_form(user,app):
 def render(app,path,user,data,method,services):
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     section=path.removeprefix('/admin').strip('/') or 'overview'
+    if section=='terminal': section='host'
     if section=='schedules': section='system-updates'
     if section not in HEADINGS: raise ValueError('Unknown administration submenu.')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';note=''
@@ -42,7 +43,7 @@ def render(app,path,user,data,method,services):
     elif section=='authentication': content+=external_auth.render(app,user)
     elif section=='users': content+=user_management.render(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
     elif section=='terminal': content+=host_tools.terminal_render(app,user)
-    elif section=='host': content+=host_tools.admin_render(app,user,services)
+    elif section=='host': content+=host_tools.admin_render(app,user,services)+'<details class="settings-section" id="terminal"'+(' open' if path.rstrip('/')=='/admin/terminal' else '')+'><summary>Host terminal</summary><div class="panel">'+host_tools.terminal_render(app,user)+'</div></details>'
     elif section in ('storage','network-host'): content+=host_configuration.render(app,user,section)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
     elif section=='addons':
@@ -55,7 +56,7 @@ def render(app,path,user,data,method,services):
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/terminal','Host terminal'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
             (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))

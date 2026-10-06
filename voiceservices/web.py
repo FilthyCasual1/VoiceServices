@@ -63,7 +63,7 @@ class App:
             if isinstance(body, str): body = body.encode()
             headers = [('Content-Type',mime),('Content-Length',str(len(body))),('Cache-Control','no-store'),
                        ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
-                       ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'"+(" 'unsafe-inline'" if env.get('PATH_INFO')=='/admin/terminal' else "")+"; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
+                       ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'"+(" 'unsafe-inline'" if env.get('PATH_INFO') in ('/admin/terminal','/admin/host') else "")+"; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
             if mime.startswith(('image/','text/css','text/javascript')):
                 etag='"'+hashlib.sha256(body).hexdigest()+'"'
                 headers=[h for h in headers if h[0] not in ('Cache-Control','Content-Length')]
