@@ -63,7 +63,7 @@ class UpdateProgressTests(unittest.TestCase):
   for cd,label in [({'provider':'virtualbox','version':'7.2.18'},'Install tools CD 7.2.18'),({'provider':'vmware','version':'VMware Tools'},'Install tools CD'),({'provider':'virtualbox','version':'not detected'},'Install tools CD')]:
    self.app.store.accounts.call.return_value={'state':'idle','tools_cd':cd}
    body=self.request('/admin/host',token=token)['body']
-   self.assertIn('value="vmtools-cd">'+label+'</option>',body)
+   self.assertIn('<strong>'+label+'</strong>',body)
 
  def test_wizard_checks_hypervisor_before_starting_worker(self):
   from voiceservices import maintenance
@@ -77,7 +77,7 @@ class UpdateProgressTests(unittest.TestCase):
   self.app.store.accounts.call.return_value={'state':'idle','tools_provider':'vmware'}
   body=self.request('/admin/host',token=token)['body']
   self.assertIn('1. Hypervisor',body);self.assertIn('2. Installation method',body);self.assertIn('3. Review and install',body)
-  self.assertNotIn('>Update VM tools</button>',body);self.assertIn('Start tools setup',body)
+  self.assertNotIn('>Update VM tools</button>',body);self.assertIn('Install / update tools',body);self.assertIn('<dialog',body);self.assertNotIn('<select name="tools_provider"',body)
 
  def test_hypervisor_and_tools_versions_below_insap(self):
   token,user=self.user('admin');self.app.store.accounts=Mock()
@@ -85,3 +85,22 @@ class UpdateProgressTests(unittest.TestCase):
   body=self.request('/admin/host',token=token)['body']
   self.assertLess(body.index('update-version">INSAP'),body.index('update-version">VirtualBox 7.2.20'))
   self.assertLess(body.index('update-version">VirtualBox 7.2.20'),body.index('update-version">Guest Additions 7.2.18'))
+
+ def test_vmware_brand_versions_and_insap_button(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'idle','tools_live':{'provider':'vmware','version':'13.0.5','state':'Running'}}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertNotIn('update-version">VMware version unavailable',body);self.assertIn('update-version">VMware Tools 13.0.5',body)
+  self.assertIn('>Update INSAP</button>',body);self.assertNotIn('Grab INSAP update',body)
+
+ def test_unknown_tools_and_host_versions_have_no_version_rows(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'idle','tools_live':{'provider':'vmware','version':'','host_version':'','state':'Not detected'}}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertNotIn('update-version">VMware',body);self.assertNotIn('version unavailable',body)
+
+ def test_overview_shows_only_detected_platform_versions(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'tools_live':{'provider':'vmware','host_version':'','version':'13.0.5'}}
+  body=self.request('/admin',token=token)['body']
+  self.assertIn('VMware Tools version',body);self.assertIn('13.0.5',body);self.assertNotIn('VMware version',body)

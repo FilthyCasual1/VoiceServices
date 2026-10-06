@@ -62,6 +62,16 @@ def virtualbox_service(version):
     return False
 
 def live_status():
+    if hypervisor()=='vmware':
+        control=shutil.which('vmware-toolbox-cmd');version=''
+        if control:
+            try:
+                match=re.match(r'(\d+\.\d+\.\d+)',output([control,'-v']))
+                version=match[1] if match else ''
+            except (OSError,subprocess.SubprocessError):pass
+        try:running=output(['/usr/bin/systemctl','is-active','vmtoolsd'])=='active'
+        except (OSError,subprocess.SubprocessError):running=False
+        return {'provider':'vmware','version':version,'host_version':'','state':'Running' if running else 'Installed; service not running' if version else 'Not detected','service':running}
     control=shutil.which('VBoxControl')
     if not control:return {'provider':hypervisor(),'state':'Not detected','version':''}
     try:version=output([control,'--version']).split('r',1)[0].strip()

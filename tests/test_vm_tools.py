@@ -5,6 +5,7 @@ spec=importlib.util.spec_from_file_location('vm_tools',Path(__file__).parents[1]
 real_tools_cd=tools.tools_cd
 class VMToolsTests(unittest.TestCase):
  def setUp(self):
+  self.provider_patch=patch.object(tools,'hypervisor',return_value='virtualbox');self.provider_patch.start();self.addCleanup(self.provider_patch.stop)
   self.cd_patch=patch.object(tools,'tools_cd',return_value={});self.cd_patch.start();self.addCleanup(self.cd_patch.stop)
   self.running_patch=patch.object(tools,'virtualbox_running',return_value=False);self.running_patch.start();self.addCleanup(self.running_patch.stop)
  def test_vmware_updates_repository_package_and_service(self):
@@ -116,3 +117,7 @@ class VMToolsTests(unittest.TestCase):
   import subprocess
   with patch.object(tools.shutil,'which',return_value='/usr/bin/VBoxControl'),patch.object(tools,'output',side_effect=['7.2.18r175117',subprocess.CalledProcessError(1,'guestproperty')]),patch.object(tools,'virtualbox_service',return_value=True),patch.object(tools.pathlib.Path,'is_dir',return_value=True):
    status=tools.live_status();self.assertEqual(status['state'],'Running');self.assertFalse(status['communication'])
+
+ def test_vmware_live_tools_version_is_not_virtualbox(self):
+  with patch.object(tools,'hypervisor',return_value='vmware'),patch.object(tools.shutil,'which',return_value='/usr/bin/vmware-toolbox-cmd'),patch.object(tools,'output',side_effect=['13.0.5.0 (build-12345)','active']):
+   status=tools.live_status();self.assertEqual(status['provider'],'vmware');self.assertEqual(status['version'],'13.0.5');self.assertEqual(status['state'],'Running');self.assertEqual(status['host_version'],'')

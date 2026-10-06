@@ -7,7 +7,7 @@ def change(app,user,data):
  if not app.base.startswith('https://') or not app.secure:raise ValueError('HTTPS and secure cookies are required.')
  from . import external_auth
  if external_auth.identity(app,user):raise ValueError('Use a local administrator account for host changes.')
- payload={key:data.get(key,'') for key in ('kind','operation','disk','fingerprint','confirm','connection','mode','address','gateway','dns','hostname','servers')}
+ payload={key:data.get(key,'') for key in ('kind','operation','disk','fingerprint','confirm','connection','mode','address','gateway','dns','hostname','servers','timezone')}
  app.store.accounts.call('host-confirm' if data.get('kind')=='confirm-network' else 'host-start',user['username'],data.get('current_password',''),json.dumps(payload))
  with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],'Host configuration: '+data.get('kind','')))
  return 'Host operation accepted. Refresh this page to see progress.'
@@ -28,8 +28,10 @@ def render(app,user,section):
    if d['eligible'] and not state['storage_available']:text+=form('storage','<input type="hidden" name="disk" value="'+E(d['path'])+'"><input type="hidden" name="fingerprint" value="'+E(d['fingerprint'])+'"><label>Type FORMAT '+E(d['path'])+' to erase this disk</label><input name="confirm" required>','Format and use disk')
  else:
   text+='<p>Current hostname: '+E(state['hostname'])+'</p><pre>'+E(state['connections'])+'</pre><pre>'+E(state['time'])+'</pre>'
-  options=''.join('<option value="'+E(line.split(':')[1])+'">'+E(line)+'</option>' for line in state['connections'].splitlines() if len(line.split(':'))>=3)
+  options=''.join('<option value="'+E(line.split(':')[1])+'">'+E(line)+'</option>' for line in state['connections'].splitlines() if len(line.split(':'))>=3 and line.rsplit(':',1)[-1]!='lo')
   text+=form('network','<h3>IPv4 configuration</h3><label>Active connection</label><select name="connection">'+options+'</select><label>Address method</label><select name="mode"><option value="auto">DHCP</option><option value="manual">Static</option></select><label>Static address / prefix</label><input name="address" placeholder="192.168.1.20/24"><label>Static gateway</label><input name="gateway"><label>DNS servers (space separated; blank uses DHCP)</label><input name="dns"><label>Hostname (blank retains current host setting)</label><input name="hostname"><p>Confirm at the new address within 90 seconds, otherwise the previous connection is restored.</p>','Apply network settings')
   if job['state']=='pending':text+=form('confirm-network','<p>Confirm that this connection works.</p>','Keep network settings')
+  from . import regional
+  text+=form('timezone','<h3>Host time zone</h3><label>Time zone</label>'+regional.timezone_select('timezone',state.get('timezone') if state.get('timezone') not in (None,'Unavailable') else regional.settings(app)['timezone']),'Save time zone')
   text+=form('ntp','<h3>Time synchronization</h3><label>NTP servers (space separated)</label><input name="servers" required placeholder="time.example.net">','Save NTP servers')
  return text

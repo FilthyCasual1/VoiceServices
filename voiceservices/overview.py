@@ -89,4 +89,10 @@ def render(app):
             rows.append((title,status))
     portal_rows=resources[:5]+[('Current date and time',regional.format_timestamp(app,now)+' ('+regional.settings(app)['timezone']+')')]+resources[-3:]
     host_rows=resources[5:-3]
+    if app.store.accounts:
+        try:live=app.store.accounts.call('maintenance-status','','').get('tools_live',{})
+        except ValueError:live={}
+        if isinstance(live,dict) and live.get('provider') in ('virtualbox','vmware'):
+            provider_label,tools=('VMware','VMware Tools') if live['provider']=='vmware' else ('VirtualBox','Guest Additions')
+            host_rows.extend((label+' version',value) for label,value in [(provider_label,live.get('host_version')),(tools,live.get('version'))] if value)
     return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__version__)+'</strong></span><span class="overview-powered">ServiceReady is powered by: '+host_branding.marks()+'</span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'

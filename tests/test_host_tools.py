@@ -82,7 +82,7 @@ class HostToolTests(unittest.TestCase):
     def test_combined_host_page_has_updates_and_schedules(self):
         token,user=self.user('admin')
         body=self.request('/admin/host',token=token)['body']
-        self.assertIn('Grab INSAP update',body);self.assertIn('Automatic update schedules',body)
+        self.assertIn('Update INSAP',body);self.assertIn('Automatic update schedules',body)
         self.assertNotIn('href="/admin/system-updates"',body)
         self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'state':'idle','message':''}
         result=self.request('/admin/host','POST',{'csrf':user['csrf'],'update':'insap'},token)

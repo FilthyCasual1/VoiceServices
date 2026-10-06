@@ -57,7 +57,7 @@ class HostConfigurationTests(unittest.TestCase):
    with patch.object(control,'CONFIG',cfg),patch.object(control,'STATE',Path(root)/'job.json'),patch.object(control,'disks',return_value=[]),patch.object(control.subprocess,'check_output',side_effect=FileNotFoundError):
     storage=control.snapshot('storage');network=control.snapshot('network-host')
    self.assertEqual(storage['errors'],[])
-   self.assertEqual(network['connections'],'Unavailable');self.assertEqual(len(network['errors']),3)
+   self.assertEqual(network['connections'],'Unavailable');self.assertEqual(len(network['errors']),4)
 
  def test_system_disks_and_their_partition_trees_are_hidden(self):
   blank={'path':'/dev/sdb','type':'disk','size':10000000000,'ro':False,'mountpoints':[None]}
@@ -86,3 +86,14 @@ class HostConfigurationTests(unittest.TestCase):
   with self.assertRaises(PermissionError):host_configuration.change(app,{'role':'user'}, {'kind':'power'})
   with patch('voiceservices.external_auth.identity',return_value=True):
    with self.assertRaises(ValueError):host_configuration.change(app,{'role':'admin'},{'kind':'power'})
+
+ def test_timezone_validated_and_loopback_hidden(self):
+  control.validate({'kind':'timezone','timezone':'America/Chicago'})
+  with self.assertRaises(ValueError):control.validate({'kind':'timezone','timezone':'bad/timezone'})
+  with tempfile.TemporaryDirectory() as root:
+   config=Path(root)/'config.json';config.write_text('{}')
+   def output(args,**kwargs):
+    return 'Loopback:uuid:lo\nEthernet:uuid:eth0' if args[0]=='nmcli' else 'UTC'
+   with patch.object(control,'CONFIG',config),patch.object(control,'STATE',Path(root)/'state.json'),patch.object(control.subprocess,'check_output',side_effect=output):
+    state=control.snapshot('network')
+   self.assertEqual(state['connections'],'Ethernet:uuid:eth0');self.assertEqual(state['timezone'],'UTC')

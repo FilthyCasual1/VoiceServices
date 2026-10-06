@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.0 — 2026-10-06
+
+Show detected platform and tools versions on Overview too. Hide unknown hypervisor and tools version rows. Add VMware-aware tools version reporting and a modal guided tools wizard; rename Update INSAP, restore host timezone selection and hide loopback connections.
+
 ## 1.21.1 — 2026-10-06
 
 Display detected VirtualBox host and Guest Additions versions below INSAP in the powered-by panel, with clear unavailable values.

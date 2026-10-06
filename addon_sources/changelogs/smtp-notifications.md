@@ -1,5 +1,10 @@
 # SMTP Notifications changelog
 
+## 1.22.0
+
+- Package for INSAP 1.22.0. No functional addon changes; guided tools setup and host network/time controls are core features.
+
+
 ## 1.21.1
 
 - Package for INSAP 1.21.1. No functional addon changes; hypervisor and tools version display is a core change.

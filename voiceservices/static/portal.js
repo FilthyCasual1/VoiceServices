@@ -68,6 +68,10 @@
     } finally { navigating = false; }
   }
   document.addEventListener('click', event => {
+    const opener = event.target.closest('[data-tools-open]');
+    if (opener) { opener.parentElement.querySelector('.tools-wizard').showModal(); return; }
+    const closer = event.target.closest('[data-tools-close]');
+    if (closer) { closer.closest('dialog').close(); return; }
     const stepButton = event.target.closest('[data-tools-next]');
     if (stepButton) {
       const form = stepButton.closest('[data-tools-wizard]');
@@ -76,11 +80,12 @@
       for (const section of form.querySelectorAll('[data-tools-step]')) section.hidden = Number(section.dataset.toolsStep) !== step;
       const provider = form.elements.tools_provider;
       const method = form.elements.update;
-      method.options[1].disabled = provider.value !== 'virtualbox';
+      form.querySelector('[data-tools-cd-choice]').hidden = provider.value !== 'virtualbox';
       if (provider.value !== 'virtualbox') method.value = 'vmtools';
       const review = form.querySelector('[data-tools-review]');
-      review.textContent = provider.options[provider.selectedIndex].text + ' — ' + method.options[method.selectedIndex].text + '. Required dependencies install automatically. Desktop integration is optional. No automatic restart.';
-      form.querySelector('[data-tools-step="' + step + '"]').querySelector('select,button')?.focus();
+      review.textContent = (provider.value === 'vmware' ? 'VMware' : 'VirtualBox') + ' — ' + (method.value === 'vmtools-cd' ? 'Install from detected CD' : 'Recommended installation / update') + '.';
+      for (const marker of form.querySelectorAll('[data-tools-marker]')) { if (Number(marker.dataset.toolsMarker) === step) marker.setAttribute('aria-current', 'step'); else marker.removeAttribute('aria-current'); }
+      form.querySelector('[data-tools-step="' + step + '"]').querySelector('input,button')?.focus();
       return;
     }
 
@@ -100,6 +105,7 @@
       const panel = form.closest('[data-update-state]');
       if (panel) { panel.dataset.updateState = 'starting'; panel.dataset.updateIdlePolls = '0'; }
     }
+    if (form.hasAttribute('data-tools-wizard')) { form.querySelector('[data-tools-progress]').hidden = false; form.querySelector('[data-tools-step="2"]').hidden = true; }
     const data = new FormData(form);
     if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
     if (form.method.toLowerCase() === 'get') { const url = new URL(form.action); url.search = new URLSearchParams(data); visit(url.href); return; }

@@ -29,8 +29,10 @@ def snapshot(section='storage'):
   try:result['disks']=disks()
   except (OSError,ValueError,subprocess.SubprocessError) as exc:result['errors'].append('Disk discovery unavailable: '+str(exc)[-400:])
  else:
-  for key,args in [('hostname',['hostname']),('connections',['nmcli','-t','-f','NAME,UUID,DEVICE','connection','show','--active']),('time',['timedatectl','status'])]:
-   try:result[key]=subprocess.check_output(args,text=True,stderr=subprocess.STDOUT,timeout=3).strip()
+  for key,args in [('timezone',['timedatectl','show','--property=Timezone','--value']),('hostname',['hostname']),('connections',['nmcli','-t','-f','NAME,UUID,DEVICE','connection','show','--active']),('time',['timedatectl','status'])]:
+   try:
+    result[key]=subprocess.check_output(args,text=True,stderr=subprocess.STDOUT,timeout=3).strip()
+    if key=='connections':result[key]='\n'.join(line for line in result[key].splitlines() if line.rsplit(':',1)[-1]!='lo')
    except (OSError,subprocess.SubprocessError) as exc:
     result[key]='Unavailable';result['errors'].append(key+': '+str(exc)[-400:])
  return result
@@ -60,6 +62,10 @@ def validate(p):
   if p.get('hostname') and not re.fullmatch(r'(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?',p['hostname']):raise ValueError('Invalid hostname.')
  elif kind=='power':
   if p.get('operation') not in ('restart','shutdown') or p.get('confirm')!=p.get('operation'):raise ValueError('Choose and confirm restart or shutdown.')
+ elif kind=='timezone':
+  from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
+  try:ZoneInfo(p.get('timezone',''))
+  except (ValueError,ZoneInfoNotFoundError):raise ValueError('Choose a valid IANA time zone.')
  elif kind=='ntp':
   import re
   servers=p.get('servers','').split()
@@ -120,6 +126,8 @@ def main(p):
     finally:
      for service in services:run(['systemctl','start',service])
     status('complete','Upload repositories moved to '+str(MOUNT)+'. Configuration and account metadata remain on the boot disk.')
+   elif p['kind']=='timezone':
+    run(['timedatectl','set-timezone',p['timezone']]);status('complete','Host time zone set to '+p['timezone']+'.')
    elif p['kind']=='ntp':
     file=pathlib.Path('/etc/chrony.conf');old=file.read_text();backup=file.with_suffix('.serviceready-backup');backup.write_text(old)
     text='\n'.join(line for line in old.splitlines() if not line.strip().startswith(('server ','pool ')))+'\n'+''.join('server '+s+' iburst\n' for s in p['servers'].split())
