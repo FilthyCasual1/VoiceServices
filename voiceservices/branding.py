@@ -177,7 +177,7 @@ def render(app,section,user):
         body=field('Show disclaimer','<select name="login_disclaimer_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if value['login_disclaimer_enabled'] else '')+'>On</option></select>')
         body+='<div class="setting-field setting-wide"><label>Disclaimer text</label><textarea name="login_disclaimer" maxlength="4000" rows="3">'+E(value['login_disclaimer'])+'</textarea></div>'
         groups+=group('Login disclaimer',body)
-        groups+=group('Session box backgrounds',''.join(field(label,'<select name="reset_'+kind+'"><option value="no">Keep current image</option><option value="yes">Remove background image</option></select>') for kind,label in BOX_IMAGES.items()))
+        groups+=group('Session box backgrounds',''.join(field(label,'<select name="reset_'+kind+'"><option value="no">Keep current image</option><option value="yes">Use default background image</option></select>') for kind,label in BOX_IMAGES.items()))
         groups+=group('Logout confirmation', ''.join(text_field(key,label) for key,(label,_) in SESSION_TEXT.items() if key.startswith('logout_')))
         groups+=group('Session-ended box', ''.join(text_field(key,label) for key,(label,_) in SESSION_TEXT.items() if key.startswith('logged_out_')))
         content='<div class="compact-settings"><form method="post">'+csrf+groups+'<button>Save Appearance</button></form><details class="settings-section"><summary>Upload images</summary><div class="image-upload-grid">'

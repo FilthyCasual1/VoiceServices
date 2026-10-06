@@ -105,6 +105,8 @@ class App:
             return send('200 OK',Path(__file__).with_name('static').joinpath(path.rsplit('/',1)[1]).read_bytes(),'image/svg+xml')
         if path == '/static/brand-arrow.svg':
             return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
+        if path == '/static/session-background.png':
+            return send('200 OK',Path(__file__).with_name('static').joinpath('session-background.png').read_bytes(),'image/png')
         if path == '/static/masthead.png':
             return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/host/distro-logo':

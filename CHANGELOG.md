@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.10 — 2026-10-06
+
+Use the supplied glass-lobby image as the default login and session box background; retain Appearance overrides.
+
 ## 1.27.9 — 2026-10-06
 
 Add independently uploadable and removable login, logout-confirmation and logged-out box background images in Appearance, with readable overlays.
