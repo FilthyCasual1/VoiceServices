@@ -5,10 +5,17 @@ from .network_address import Addresses,origin,caddy_config
 CONFIG=Path('/etc/serviceready/config.json');CADDY=Path('/etc/caddy/Caddyfile')
 def refresh(addresses):
     config=json.loads(CONFIG.read_text())
-    if not config.get('automatic_public_url'):return
+    if not config.get('automatic_public_url'):
+        if config.get('tls_proxy')=='nginx':
+            from .rocky_tls import configure
+            configure(config,addresses)
+        return
     values,primary=addresses.current()
     if not primary:return # Keep the last configuration while networking is unavailable.
-    if config.get('automatic_local_tls'):
+    if config.get('tls_proxy')=='nginx':
+        from .rocky_tls import configure
+        configure(config,addresses)
+    elif config.get('automatic_local_tls'):
         text=caddy_config(values,primary,config.get('listen_port',8080))
         old=CADDY.read_text()
         if not old.startswith('# ServiceReady managed address configuration\n'):raise ValueError('Caddyfile is no longer managed by ServiceReady.')

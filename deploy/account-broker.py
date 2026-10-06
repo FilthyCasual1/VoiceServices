@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Root broker: peer-restricted, group-restricted Alpine account operations."""
+"""Root broker: peer-restricted, group-restricted Linux account operations."""
 import ctypes
 import ctypes.util
 import grp
@@ -15,6 +15,12 @@ import time
 
 SOCKET='/run/serviceready-accounts/socket'
 GROUP='serviceready-users'
+
+def account_command(action,username):
+    rocky=os.path.isfile('/etc/rocky-release')
+    if action=='create':
+        return ['/usr/sbin/useradd','-M','-s','/sbin/nologin','-g',GROUP,username] if rocky else ['/usr/sbin/adduser','-D','-H','-s','/sbin/nologin','-G',GROUP,username]
+    return ['/usr/sbin/userdel',username] if rocky else ['/usr/sbin/deluser',username]
 
 def eligible(username):
     entry=pwd.getpwnam(username)
@@ -127,10 +133,10 @@ def handle(request):
         except KeyError: pass
         else: raise ValueError('System username already exists. Ask your administrator to enroll it.')
         if len(password)<12 or any(c in password for c in '\r\n'): raise ValueError('Use a password of at least 12 characters without line breaks.')
-        subprocess.run(['/usr/sbin/adduser','-D','-H','-s','/sbin/nologin','-G',GROUP,username],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        subprocess.run(account_command('create',username),check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try: set_password(username,password)
         except Exception:
-            subprocess.run(['/usr/sbin/deluser',username],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            subprocess.run(account_command('delete',username),check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             raise
     elif action=='reset':
         try: allowed=eligible(username)
@@ -141,7 +147,7 @@ def handle(request):
         try: allowed=eligible(username)
         except KeyError: allowed=False
         if not allowed: raise ValueError('Only enrolled non-system accounts can be deleted.')
-        subprocess.run(['/usr/sbin/deluser',username],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        subprocess.run(account_command('delete',username),check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     elif action in ('authenticate','change'):
         try: valid=authenticate(username,password)
         except KeyError: valid=False

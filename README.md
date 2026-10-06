@@ -4,21 +4,22 @@ Integrated Network Service Access Portal with an appliance-style interface,
 account authentication, an administrator/user shell, and independently installed
 addon files. The bare core installs no optional addons.
 
-## Install on Alpine
+## Install on Rocky Linux 10
 
-Clone this repository's `main` branch on a fresh Alpine/OpenRC VM, then run:
+Clone main on a fresh Rocky 10 VM, then run as root:
 
 ```sh
-./install-alpine.sh --bare
+bash install-rocky.sh
 ```
 
-The installer asks for a portal address and administrator credentials, installs
-an OpenRC service, and connects authentication to enrolled Alpine accounts.
-Rerun without `--bare` to update an existing installation.
+The menu-based installer configures the portal address, HTTPS firewall access and
+optional addon packages. It installs systemd services, Nginx HTTPS and local
+Rocky account authentication. See [Rocky deployment](docs/rocky-install.md).
+The [Alpine installer](docs/alpine-install.md) remains available for existing deployments.
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.14.4](packages/addons/1.14.4/) and
+Download `.sraddon` files from [packages/addons/1.15.0](packages/addons/1.15.0/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.

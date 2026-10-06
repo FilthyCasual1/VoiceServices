@@ -1,4 +1,4 @@
-"""Client for the root-owned Alpine account broker; never reads shadow files."""
+"""Client for the root-owned Linux account broker; never reads shadow files."""
 import json
 import socket
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixed Alpine update operations; invoked only by the peer-restricted root broker."""
+"""Fixed Linux update operations; invoked only by the peer-restricted root broker."""
 import fcntl,json,os,pathlib,shutil,sqlite3,subprocess,sys,tempfile,time
 ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-accounts/maintenance.json')
 def status(kind,state,message):
@@ -29,19 +29,20 @@ def trim_logs(folder):
                 log.seek(-1024*1024,2);tail=log.read();log.seek(0);log.write(tail);log.truncate();trimmed+=1
     return trimmed
 def main(kind):
-    if kind not in ('os','insap','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not pathlib.Path('/etc/alpine-release').is_file(): raise ValueError('Alpine root update worker required.')
+    rocky=pathlib.Path('/etc/rocky-release').is_file()
+    if kind not in ('os','insap','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
     with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError: return
         try:
             status(kind,'running','Preparing update')
             if kind=='os':
-                status(kind,'running','Refreshing Alpine package indexes');run(['/sbin/apk','update'])
-                status(kind,'running','Upgrading installed Alpine packages');run(['/sbin/apk','upgrade'])
-                status(kind,'complete','Alpine packages updated. A restart may be needed for kernel or service changes; no reboot was performed.')
+                status(kind,'running','Refreshing host package indexes');run(['/usr/bin/dnf','makecache'] if rocky else ['/sbin/apk','update'])
+                status(kind,'running','Upgrading installed host packages');run(['/usr/bin/dnf','-y','upgrade'] if rocky else ['/sbin/apk','upgrade'])
+                status(kind,'complete','Host packages updated. A restart may be needed for kernel or service changes; no reboot was performed.')
                 return
             if kind=='package-cache':
-                status(kind,'running','Cleaning unused Alpine package cache');run(['/sbin/apk','cache','clean'])
+                status(kind,'running','Cleaning host package cache');run(['/usr/bin/dnf','clean','packages'] if rocky else ['/sbin/apk','cache','clean'])
                 status(kind,'complete','Unused package cache cleaned. Installed packages retained.');return
             if kind=='portal-temp':
                 removed=clean_temp(pathlib.Path('/var/lib/serviceready/tmp'))
@@ -61,24 +62,25 @@ def main(kind):
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
             status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
             run(['git','-C',str(source),'merge','--ff-only','origin/main'])
-            run(['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
+            run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
             # Refresh installed official addons only; absent addons remain absent.
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
             run([str(ROOT/'venv/bin/python'),'-c',script])
             for name in ('account-broker.py','maintenance-worker.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
-            shutil.copy2(source/'deploy/serviceready-smtp.initd','/etc/init.d/serviceready-smtp');os.chmod('/etc/init.d/serviceready-smtp',0o755)
-            run(['/sbin/rc-update','add','serviceready-smtp','default'])
-            shutil.copy2(source/'deploy/serviceready-snmp.initd','/etc/init.d/serviceready-snmp');os.chmod('/etc/init.d/serviceready-snmp',0o755)
-            run(['/sbin/rc-update','add','serviceready-snmp','default'])
-            shutil.copy2(source/'deploy/serviceready-scheduler.initd','/etc/init.d/serviceready-scheduler');os.chmod('/etc/init.d/serviceready-scheduler',0o755)
-            run(['/sbin/rc-update','add','serviceready-scheduler','default'])
-            shutil.copy2(source/'deploy/serviceready-addresses.initd','/etc/init.d/serviceready-addresses');os.chmod('/etc/init.d/serviceready-addresses',0o755)
-            run(['/sbin/rc-update','add','serviceready-addresses','default'])
+            if rocky:
+                for unit in (source/'deploy/systemd').glob('*.service'):
+                    shutil.copy2(unit,pathlib.Path('/etc/systemd/system')/unit.name)
+                    os.chmod(pathlib.Path('/etc/systemd/system')/unit.name,0o644)
+                run(['/usr/bin/systemctl','daemon-reload'])
+            else:
+                for service in ('serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'):
+                    shutil.copy2(source/'deploy'/(service+'.initd'),'/etc/init.d/'+service);os.chmod('/etc/init.d/'+service,0o755)
+                    run(['/sbin/rc-update','add',service,'default'])
             status(kind,'running','Restarting portal services')
-            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/sbin/rc-service',service,'restart'])
+            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/usr/bin/systemctl','restart',service] if rocky else ['/sbin/rc-service',service,'restart'])
             status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
-            subprocess.Popen(['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+            subprocess.Popen(['/usr/bin/systemctl','restart','serviceready-accounts'] if rocky else ['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         except Exception as exc:
             status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
 if __name__=='__main__': main(sys.argv[1])

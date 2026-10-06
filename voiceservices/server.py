@@ -9,7 +9,10 @@ def main():
     args = parser.parse_args()
     with open(args.config) as source: config = json.load(source)
     from waitress import serve
-    serve(App(config), host=config.get('listen_host','0.0.0.0'),
+    proxy={}
+    if config.get('trusted_proxy'):
+        proxy=dict(trusted_proxy=config['trusted_proxy'],trusted_proxy_count=1,trusted_proxy_headers={'x-forwarded-for','x-forwarded-proto'})
+    serve(App(config), **proxy, host=config.get('listen_host','0.0.0.0'),
           port=int(config.get('listen_port',8080)), threads=4,
           max_request_body_size=int(config.get('update_upload_limit',8*1024**3))+16384,
           inbuf_overflow=1024**2)

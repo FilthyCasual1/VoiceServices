@@ -1,0 +1,22 @@
+[Unit]
+Description=ServiceReady smtp
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/serviceready/config.json
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/lib/serviceready
+Environment=TMPDIR=/var/lib/serviceready/tmp
+ExecStart=/opt/serviceready/venv/bin/python -m voiceservices.smtp_service --config /etc/serviceready/config.json
+RuntimeDirectory=serviceready-smtp
+RuntimeDirectoryMode=0750
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.15.0 — 2026-10-06
+
+Add menuconfig-style Rocky Linux 10 deployment with address/firewall/addon choices, systemd, OS-account authentication, Nginx HTTPS, local CA, DHCP address tracking and DNF maintenance.
+
 ## 1.14.4 — 2026-10-06
 
 Add one-command repair for stale Alpine HTTPS addresses, with backups and automatic DHCP/static address following.

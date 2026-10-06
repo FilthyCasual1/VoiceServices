@@ -23,7 +23,7 @@ If you already manage a TLS reverse proxy, omit `--tls`, enter its external HTTP
 
 ## Addons and first checks
 
-Download matching `.sraddon` files from [the versioned package directory](../packages/addons/1.14.4/) and upload through System > Addons. Host Tools adds Host Maintenance and Host Terminal. Each terminal session requires the signed-in local administrator's Alpine password and runs with that account's OS permissions. New portal accounts have no sudo/doas privileges; grant deliberate host permissions separately if needed. See [Host Tools](host-tools.md).
+Download matching `.sraddon` files from [the versioned package directory](../packages/addons/1.15.0/) and upload through System > Addons. Host Tools adds Host Maintenance and Host Terminal. Each terminal session requires the signed-in local administrator's Alpine password and runs with that account's OS permissions. New portal accounts have no sudo/doas privileges; grant deliberate host permissions separately if needed. See [Host Tools](host-tools.md).
 
 After installation:
 

@@ -32,7 +32,7 @@ class App:
         except OSError: fqdn=hostname
         short,separator,domain=fqdn.partition('.')
         self.host_label=domain+'/'+hostname.split('.')[0] if separator else hostname
-        accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend')=='alpine' else None
+        accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend') in ('alpine','system') else None
         self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
         self.updates = Updates(self.store,config)
         self.modules = Modules(self.store,config=config)

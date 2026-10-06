@@ -1,7 +1,7 @@
-"""Optional Alpine maintenance controls and authenticated user PTY terminal."""
+"""Optional Linux maintenance controls and authenticated user PTY terminal."""
 import hashlib,html,json,time
 E=lambda v:html.escape(str(v),quote=True)
-TASKS={'package-cache':('Clean package cache','Remove unused cached Alpine packages; keep installed packages.'),'portal-temp':('Clean old temporary files','Remove regular files older than seven days from the portal temporary directory.'),'portal-logs':('Trim portal logs','Keep only the latest 1 MiB of each portal log; older log content is removed.')}
+TASKS={'package-cache':('Clean package cache','Remove unused cached Linux packages; keep installed packages.'),'portal-temp':('Clean old temporary files','Remove regular files older than seven days from the portal temporary directory.'),'portal-logs':('Trim portal logs','Keep only the latest 1 MiB of each portal log; older log content is removed.')}
 def audit(app,user,action):
     with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],action))
 def admin_change(app,data,services):
@@ -9,8 +9,8 @@ def admin_change(app,data,services):
     raise ValueError('Use the host maintenance task form.')
 def admin_render(app,user,services):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
-    if not app.store.accounts:return '<p class="notice">No Alpine host provider is connected. Host cleanup and terminal access are unavailable on this development deployment.</p>'
-    text='<p>Run individual cleanup tasks on the connected Alpine host. Updates remain available on Overview.</p>'
+    if not app.store.accounts:return '<p class="notice">No Linux host provider is connected. Host cleanup and terminal access are unavailable on this development deployment.</p>'
+    text='<p>Run individual cleanup tasks on the connected Linux host. Updates remain available on Overview.</p>'
     try:
         state=app.store.accounts.call('maintenance-status','','')
         text+='<p class="notice">'+E(state.get('state','idle'))+': '+E(state.get('message',''))+'</p>'
@@ -18,8 +18,8 @@ def admin_render(app,user,services):
     for key,(title,detail) in TASKS.items():text+='<div class="panel"><h3>'+title+'</h3><p>'+detail+'</p><form method="post">'+csrf+'<input type="hidden" name="task" value="'+key+'"><label>Your local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><label><input type="checkbox" name="confirm" value="yes" required> Confirm this cleanup task</label><button>Run task</button></form></div>'
     return text+'<p><a href="/admin/terminal">Open host terminal</a></p>'
 def terminal_render(app,user):
-    if not app.store.accounts:return '<p class="notice">The browser terminal requires the Alpine host account broker. It is unavailable on this development deployment.</p>'
-    return '<p>Open an interactive shell as <strong>'+E(user['username'])+'</strong>. Your existing OS permissions apply; this is not a root shell. Sessions close after 60 seconds without a browser heartbeat or 30 minutes total.</p><div class="panel" id="host-terminal" data-csrf="'+E(user['csrf'])+'"><form data-terminal-open><label>Confirm your local Alpine password</label><input name="password" type="password" autocomplete="current-password" required><button>Open terminal</button></form><p data-terminal-status>Disconnected</p><button type="button" data-terminal-close disabled>Close terminal</button><div data-terminal-screen></div></div>'
+    if not app.store.accounts:return '<p class="notice">The browser terminal requires the Linux host account broker. It is unavailable on this development deployment.</p>'
+    return '<p>Open an interactive shell as <strong>'+E(user['username'])+'</strong>. Your existing OS permissions apply; this is not a root shell. Sessions close after 60 seconds without a browser heartbeat or 30 minutes total.</p><div class="panel" id="host-terminal" data-csrf="'+E(user['csrf'])+'"><form data-terminal-open><label>Confirm your local Linux password</label><input name="password" type="password" autocomplete="current-password" required><button>Open terminal</button></form><p data-terminal-status>Disconnected</p><button type="button" data-terminal-close disabled>Close terminal</button><div data-terminal-screen></div></div>'
 def page(app,path,method,data,user,env,send):
     if user['role']!='admin':return send('403 Forbidden','Administrator access required.')
     if method=='POST' and app.store.accounts and (not app.base.startswith('https://') or not app.secure):return send('400 Bad Request',json.dumps({'error':'Configure HTTPS and secure cookies before using host tools.'}),'application/json')
@@ -35,7 +35,7 @@ def page(app,path,method,data,user,env,send):
         return send('303 See Other','',extra=[('Location','/admin/host')])
     if path=='/admin/terminal/io':
         if method!='POST':return send('405 Method Not Allowed',json.dumps({'error':'POST required'}),'application/json')
-        if not app.store.accounts:return send('400 Bad Request',json.dumps({'error':'Alpine host provider unavailable'}),'application/json')
+        if not app.store.accounts:return send('400 Bad Request',json.dumps({'error':'Linux host provider unavailable'}),'application/json')
         from voiceservices import external_auth
         if external_auth.identity(app,user):return send('403 Forbidden',json.dumps({'error':'Local administrator required'}),'application/json')
         action=data.get('action','')
