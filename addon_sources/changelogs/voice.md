@@ -1,5 +1,10 @@
 # Voice Services changelog
 
+## 1.20.4
+
+- Package for INSAP 1.20.4. No functional addon changes; current guest-tools status and failure diagnostics are core features.
+
+
 ## 1.20.3
 
 - Package for INSAP 1.20.3. No functional addon changes; guest-tools installer diagnostics and verification are core features.

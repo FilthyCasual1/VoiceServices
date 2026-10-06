@@ -157,5 +157,7 @@ def main(kind,approved_commit=''):
                 subprocess.run(['/usr/bin/systemctl','start','serviceready'] if rocky else ['/sbin/rc-service','serviceready','start'],check=False,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             if kind in ('vmtools','vmtools-cd') and isinstance(exc,subprocess.CalledProcessError):
                 status(kind,'failed','Guest tools installation failed. Expand Installer output below for the actual error. Kernel dependencies must match the running kernel. No reboot was performed.');return
+            if kind in ('vmtools','vmtools-cd'):
+                status(kind,'failed','Guest tools operation failed: '+str(exc)+'. No reboot was performed.');return
             status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
 if __name__=='__main__': main(sys.argv[1],sys.argv[2] if len(sys.argv)>2 else '')

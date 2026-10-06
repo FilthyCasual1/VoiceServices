@@ -50,3 +50,10 @@ class UpdateProgressTests(unittest.TestCase):
   self.app.store.accounts.call.return_value={'state':'failed','kind':'vmtools-cd','message':'Installation failed','tools_log':'actual error <script>bad</script>'}
   body=self.request('/admin/host',token=token)['body']
   self.assertIn('Installer output',body);self.assertIn('actual error &lt;script&gt;',body);self.assertNotIn('actual error <script>',body)
+
+ def test_live_tools_status_does_not_erase_previous_failure(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'failed','message':'Previous failure','tools_live':{'provider':'virtualbox','version':'7.2.18','state':'Running'}}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertIn('Guest tools now:',body);self.assertIn('VirtualBox 7.2.18',body)
+  self.assertIn('Last host operation',body);self.assertIn('Previous failure',body)

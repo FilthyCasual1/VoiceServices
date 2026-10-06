@@ -47,15 +47,35 @@ def tools_cd():
         return {'device':row['path'],'version':match[1] if match else 'VMware Tools','provider':'virtualbox' if match else 'vmware','fingerprint':fingerprint,'attempted':last.get('fingerprint')==fingerprint}
     return {}
 
-def virtualbox_running(version):
-    control=shutil.which('VBoxControl')
-    if not control:return False
+def virtualbox_service(version):
     try:
-        installed=output([control,'--version']).split('r',1)[0].strip()
-        service=output(['/usr/bin/systemctl','is-active','vboxadd-service'])
-        communication=output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer'])
-    except (OSError,subprocess.SubprocessError):return False
-    return installed==version and service=='active' and bool(re.fullmatch(r'Value:\s*\d+\.\d+\.\d+',communication))
+        if output(['/usr/bin/systemctl','is-active','vboxadd-service'])=='active':return True
+    except (OSError,subprocess.SubprocessError):pass
+    # Oracle service startup may succeed without an active unit under this exact name.
+    try:processes=pathlib.Path('/proc').iterdir()
+    except OSError:return False
+    for process in processes:
+        if not process.name.isdigit():continue
+        try:executable=os.readlink(process/'exe')
+        except OSError:continue
+        if executable=='/opt/VBoxGuestAdditions-'+version+'/sbin/VBoxService':return True
+    return False
+
+def live_status():
+    control=shutil.which('VBoxControl')
+    if not control:return {'provider':hypervisor(),'state':'Not detected','version':''}
+    try:version=output([control,'--version']).split('r',1)[0].strip()
+    except (OSError,subprocess.SubprocessError):return {'provider':'virtualbox','state':'Unavailable','version':''}
+    if not re.fullmatch(r'\d+\.\d+\.\d+',version):return {'provider':'virtualbox','state':'Unrecognized version','version':''}
+    service=virtualbox_service(version)
+    try:communication=bool(re.match(r'Value:\s*\d+\.\d+\.\d+(?:\s|$)',output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer'])))
+    except (OSError,subprocess.SubprocessError):communication=False
+    driver=pathlib.Path('/sys/module/vboxguest').is_dir()
+    return {'provider':'virtualbox','version':version,'state':'Running' if service and communication and driver else 'Installed; runtime checks incomplete','service':service,'communication':communication,'driver':driver}
+
+def virtualbox_running(version):
+    live=live_status()
+    return live.get('version')==version and live.get('state')=='Running'
 def run_installer(run,installer,version,report):
     try:run(['/bin/sh',str(installer),'--nox11'])
     except subprocess.CalledProcessError as exc:

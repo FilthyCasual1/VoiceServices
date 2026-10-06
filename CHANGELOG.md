@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.4 — 2026-10-06
+
+Report guest-tools setup errors instead of a generic update failure. Show current guest-tools runtime separately from the last host operation; recognize Oracle VBoxService processes when systemd unit naming differs and verify loaded driver and host communication.
+
 ## 1.20.3 — 2026-10-06
 
 Check the installed VirtualBox version, guest service and host communication before classifying a nonzero installer exit as failure; preserve genuine failures and expose installer warnings.

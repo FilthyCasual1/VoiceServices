@@ -23,9 +23,12 @@ def render(app,user,started=False):
     except ValueError as exc: return content+'<p class="notice error">'+E(exc)+'</p></div>'
     review=state.get('review',{})
     if not isinstance(review,dict):review={}
+    live=state.get('tools_live',{})
+    if isinstance(live,dict) and live.get('provider')=='virtualbox':
+        content+='<p class="tools-live-status">Guest tools now: <strong>VirtualBox '+E(live.get('version',''))+' — '+E(live.get('state','Unknown'))+'</strong></p>'
     watch='starting' if started else state.get('state','idle')
     content=content.replace('class="panel host-updates"','class="panel host-updates" data-update-state="'+E(watch)+'" data-update-version="'+E(__version__)+'" data-review="'+E(review.get('commit','')+':'+review.get('state',''))+'"')
-    content+='<p class="notice" data-update-status role="status" aria-live="polite">'+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'
+    content+='<p class="notice" data-update-status role="status" aria-live="polite">'+'Last host operation — '+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'
     content+='<div class="update-actions">'
     for kind,label in [('os','Update OS'),('insap','Grab INSAP update'),('vmtools','Update VM tools')]: content+='<form class="inline" method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="'+kind+'"'+(' disabled' if state.get('state')=='running' else '')+'>'+label+'</button></form>'
     cd=state.get('tools_cd',{})

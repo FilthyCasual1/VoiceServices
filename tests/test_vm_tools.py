@@ -100,3 +100,13 @@ class VMToolsTests(unittest.TestCase):
   self.assertIn('exit 1',warning);self.assertIn('verified',warning)
   with patch.object(tools,'virtualbox_running',return_value=False):
    with self.assertRaises(subprocess.CalledProcessError):tools.run_installer(run,Path('/media/VBoxLinuxAdditions.run'),'7.2.0',Mock())
+
+ def test_live_status_requires_driver_service_and_host_communication(self):
+  with patch.object(tools.shutil,'which',return_value='/usr/bin/VBoxControl'),patch.object(tools,'output',side_effect=['7.2.18r175117','Value: 7.2.18']),patch.object(tools,'virtualbox_service',return_value=True),patch.object(tools.pathlib.Path,'is_dir',return_value=True):
+   self.assertEqual(tools.live_status()['state'],'Running')
+  with patch.object(tools.shutil,'which',return_value='/usr/bin/VBoxControl'),patch.object(tools,'output',side_effect=['7.2.18r175117','Value: 7.2.18']),patch.object(tools,'virtualbox_service',return_value=False),patch.object(tools.pathlib.Path,'is_dir',return_value=True):
+   self.assertNotEqual(tools.live_status()['state'],'Running')
+ def test_oracle_process_is_recognized_without_matching_systemd_unit(self):
+  import subprocess
+  with patch.object(tools,'output',side_effect=subprocess.CalledProcessError(3,'systemctl')),patch.object(tools.pathlib.Path,'iterdir',return_value=iter([Path('/proc/123')])),patch.object(tools.os,'readlink',return_value='/opt/VBoxGuestAdditions-7.2.18/sbin/VBoxService'):
+   self.assertTrue(tools.virtualbox_service('7.2.18'))
