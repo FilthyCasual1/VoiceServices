@@ -18,9 +18,12 @@ GROUP='serviceready-users'
 
 def account_command(action,username):
     rocky=os.path.isfile('/etc/rocky-release')
+    openwrt=not rocky and os.path.isfile('/etc/openwrt_release')
+    if action=='create' and openwrt:
+        return ['/usr/sbin/useradd','-M','-s','/bin/false','-g',GROUP,username]
     if action=='create':
         return ['/usr/sbin/useradd','-M','-s','/sbin/nologin','-g',GROUP,username] if rocky else ['/usr/sbin/adduser','-D','-H','-s','/sbin/nologin','-G',GROUP,username]
-    return ['/usr/sbin/userdel',username] if rocky else ['/usr/sbin/deluser',username]
+    return ['/usr/sbin/userdel',username] if rocky or openwrt else ['/usr/sbin/deluser',username]
 
 def eligible(username):
     entry=pwd.getpwnam(username)
@@ -110,7 +113,20 @@ def terminal_handle(request):
     except OSError:terminal_close(key);return {'ok':True,'status':{'closed':True}}
     return {'ok':True,'status':{'data':base64.b64encode(raw).decode()}}
 
+OPENWRT_PROVIDER=None
+def openwrt_provider():
+    global OPENWRT_PROVIDER
+    if OPENWRT_PROVIDER is None:
+        import importlib.util
+        from pathlib import Path
+        path=Path('/opt/serviceready/openwrt-host.py')
+        if path.is_symlink() or not path.is_file() or path.stat().st_uid!=0 or path.stat().st_mode&0o022:raise ValueError('OpenWrt provider is not installed safely.')
+        spec=importlib.util.spec_from_file_location('openwrt_host',path);OPENWRT_PROVIDER=importlib.util.module_from_spec(spec);spec.loader.exec_module(OPENWRT_PROVIDER)
+    return OPENWRT_PROVIDER
+
 def handle(request):
+    if os.path.isfile('/etc/openwrt_release') and request.get('action','').startswith(('host-','maintenance-','setup-')):
+        return openwrt_provider().handle(request,authenticate,account_command,set_password)
     if request.get('action') in ('host-status','host-start','host-confirm'):
         import importlib.util,base64
         from pathlib import Path
@@ -239,6 +255,9 @@ def main():
         server.listen(8);server.settimeout(1)
         while True:
             terminal_expire()
+            if os.path.isfile('/etc/openwrt_release'):
+                try:openwrt_provider().refresh()
+                except Exception as error:print('OpenWrt address refresh: '+str(error),flush=True)
             try:connection,_=server.accept()
             except socket.timeout:continue
             with connection:

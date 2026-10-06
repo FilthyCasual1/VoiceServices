@@ -14,6 +14,7 @@ def admin_render(app,user,services):
     for key,(title,detail) in TASKS.items():
         text+='<label class="host-task-row host-task-choice"><input type="checkbox" name="task_'+key+'" value="yes"><div><strong>'+title+'</strong><small>'+detail+'</small></div></label>'
     text+='<div class="cleanup-actions"><button>Run selected tasks</button></div></form>'
+    if app.config.get('tls_proxy')=='openwrt':return text+'<p class="notice">Manage host power from the hypervisor while the OpenWrt host provider is being prepared.</p>'
     text+='<h2>Host power</h2><form method="post" class="compact-host-power">'+csrf+'<input type="hidden" name="task" value="power"><p>All services disconnect. After shutdown, start the VM from your hypervisor.</p><label class="host-password">Local administrator password <input type="password" name="current_password" autocomplete="current-password" required></label><label class="host-check"><input type="checkbox" name="confirm" value="yes" required> Confirm power action</label><div class="update-actions"><button name="operation" value="restart">Restart VM</button><button name="operation" value="shutdown">Shut down VM</button></div></form>'
     return text
 def terminal_render(app,user):

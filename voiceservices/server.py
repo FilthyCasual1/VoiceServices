@@ -16,8 +16,9 @@ def main():
     if config.get('trusted_proxy'):
         proxy=dict(trusted_proxy=config['trusted_proxy'],trusted_proxy_count=1,trusted_proxy_headers={'x-forwarded-for','x-forwarded-proto'})
     serve(App(config), **proxy, host=config.get('listen_host','0.0.0.0'),
-          port=int(config.get('listen_port',8080)), threads=4,
+          port=int(config.get('listen_port',8080)), threads=max(1,min(16,int(config.get('server_threads',4)))),
           max_request_body_size=int(config.get('update_upload_limit',8*1024**3))+16384,
-          inbuf_overflow=1024**2)
+          inbuf_overflow=1024**2, connection_limit=max(8,min(1024,int(config.get('connection_limit',100)))),
+          channel_timeout=int(config.get('channel_timeout',120)))
 
 if __name__ == '__main__': main()

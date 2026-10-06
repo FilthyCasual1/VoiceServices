@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.0 — 2026-10-06
+
+Prepare a lean OpenWrt 25.12 x86-64 runtime and prebuilt DHCP appliance image path, procd services, persistent state, browser first-boot ownership/setup and native HTTPS address tracking. Add explicit VMware/VirtualBox image profiles and kernel/tool packaging contracts; block incompatible Rocky host operations pending native OpenWrt adapters. Add OVA packaging and a menuconfig-style console setup path. Guest-agent cross-build and real VM validation remain required.
+
 ## 1.26.2 — 2026-10-06
 
 Simplify update checks, handle OS results and failed checks explicitly, retain polling through reconnect failures, combine installed-addon status and controls into one table, and add a guided repository/manual installation wizard with multi-select and per-addon installation results. Rename Upload storage to Storage and disable TRIM/defragmentation on detected virtual machines. Record and display the installed GitHub commit ID after the version, with no build number displayed. Publish versioned GitHub Releases with changelogs and downloadable addon packages after CI succeeds. Include the SMTP test dependency in CI.

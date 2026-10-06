@@ -177,6 +177,9 @@ class App:
         except Exception: pass
         token = cookie['vs_session'].value if 'vs_session' in cookie else ''
         user = self.store.session(token)
+        from . import first_boot
+        if path=='/setup':return first_boot.page(self,env,data,cookie,method,send)
+        if path in ('/','/login','/create-account') and first_boot.pending(self):return send('303 See Other','',extra=[('Location','/setup')])
         if path == '/create-account':
             if not security.settings(self)['registration_enabled']: return send('403 Forbidden','Account registration is disabled. Contact your administrator.')
             box_title,box_subtitle=branding.box_text(self,'create')

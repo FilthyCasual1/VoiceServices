@@ -75,3 +75,7 @@ Create a single-use invitation in Administration → Users and Accounts → Acco
 Network and time supports IPv4 and IPv6 independently. Keep existing settings when changing only the other protocol; IPv6 supports automatic addressing, DHCPv6, static addresses and disabling. Network changes must still be confirmed within 90 seconds or the original profile is restored. The managed HTTPS proxy listens on both protocols and refreshes certificate addresses from current host interfaces.
 
 Install official addons from Administration → Addons → Install from repository, or upload a compatible `.sraddon` file using Manual installation. Repository installation downloads the package version approved by the installed core; it does not execute newer unapproved addon code.
+
+## OpenWrt appliance preparation
+
+The small-image deployment path targets current stable OpenWrt x86-64. It includes a runtime bundle builder, ImageBuilder overlay, DHCP/browser first-boot setup, and explicit guest-tool profiles. See [OpenWrt preparation and remaining migration work](docs/OPENWRT.md). Rocky remains supported while the OpenWrt guest/host adapters are validated.

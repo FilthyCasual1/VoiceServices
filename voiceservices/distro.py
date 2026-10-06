@@ -3,7 +3,7 @@ import html,platform,time
 from pathlib import Path
 from urllib.request import urlopen
 from xml.etree import ElementTree as ET
-ICONS={'alpine':'alpinelinux','debian':'debian','ubuntu':'ubuntu','fedora':'fedora','arch':'archlinux','opensuse':'opensuse','opensuse-leap':'opensuse','opensuse-tumbleweed':'opensuse','linuxmint':'linuxmint','gentoo':'gentoo','nixos':'nixos','rhel':'redhat','rocky':'rockylinux','alma':'almalinux'}
+ICONS={'openwrt':'openwrt','alpine':'alpinelinux','debian':'debian','ubuntu':'ubuntu','fedora':'fedora','arch':'archlinux','opensuse':'opensuse','opensuse-leap':'opensuse','opensuse-tumbleweed':'opensuse','linuxmint':'linuxmint','gentoo':'gentoo','nixos':'nixos','rhel':'redhat','rocky':'rockylinux','alma':'almalinux'}
 def detected():
     try: return platform.freedesktop_os_release()
     except (AttributeError,OSError): return {'ID':'linux','PRETTY_NAME':platform.system()}

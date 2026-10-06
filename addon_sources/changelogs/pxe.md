@@ -1,3 +1,7 @@
+## 1.27.0
+
+- Package for INSAP 1.27.0; prepares OpenWrt deployment while preserving existing addon settings.
+
 ## 1.26.2
 
 - Package for INSAP 1.26.2; improves core update and installation wizards.

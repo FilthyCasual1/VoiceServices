@@ -27,6 +27,7 @@ def render(app,user,started=False):
     content+='<p class="muted">Connected update provider: host operating system.</p>'
     try: state=app.store.accounts.call('maintenance-status','','')
     except ValueError as exc: return content+'<p class="notice error">'+E(exc)+'</p></div>'
+    if state.get('provider')=='openwrt':return content+'<p class="notice">'+E(state['provider_message'])+'</p></div>'
     review=state.get('review',{})
     if not isinstance(review,dict):review={}
     live=state.get('tools_live',{})

@@ -23,6 +23,11 @@ jobs:
           pathlib.Path('release-notes.md').write_text(notes+'\n')
           with open('release-version.txt','w') as f: f.write(version)
           PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build lean OpenWrt runtime bundle
+        run: python tools/build_openwrt_bundle.py
       - name: Publish versioned release and addon packages
         env:
           GH_TOKEN: ${{ github.token }}
@@ -30,4 +35,4 @@ jobs:
         run: |
           version=$(cat release-version.txt)
           if gh release view "v$version" >/dev/null 2>&1; then exit 0; fi
-          gh release create "v$version" --target "$RELEASE_COMMIT" --title "INSAP $version" --notes-file release-notes.md packages/addons/"$version"/*.sraddon
+          gh release create "v$version" --target "$RELEASE_COMMIT" --title "INSAP $version" --notes-file release-notes.md packages/addons/"$version"/*.sraddon dist/openwrt/serviceready-openwrt.tar.gz

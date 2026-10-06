@@ -6,6 +6,8 @@
     let pending; try { pending = sessionStorage.getItem('insap-update-wizard'); } catch (_) {}
     const ready = pending ? document.getElementById(pending) : null;
     if (ready && !ready.open && ready.matches('[data-update-ready], [data-update-running], [data-update-result]')) { ready.showModal(); if (ready.hasAttribute('data-update-result')) { try { sessionStorage.removeItem('insap-update-wizard'); } catch (_) {} } }
+    const setup=document.querySelector('[data-firstboot-wizard]');
+    if(setup) for(const field of setup.querySelectorAll('[data-firstboot-step]')) field.hidden=field.dataset.firstbootStep!=='0';
     const installResult=document.querySelector('[data-install-step="result"]'); if (installResult) installResult.closest('dialog').showModal();
     const addon = document.querySelector('[data-addon-active]'); if (addon && !addon.open) addon.showModal();
     const input = document.querySelector('[data-overview-refresh]');
@@ -95,6 +97,18 @@
   }, true);
   document.addEventListener('click', event => {
     const dialogOpen=event.target.closest('[data-dialog-open]'); if (dialogOpen) { document.getElementById(dialogOpen.dataset.dialogOpen)?.showModal(); return; }
+    const setupNext=event.target.closest('[data-firstboot-next]');
+    if(setupNext){
+      event.preventDefault();const form=setupNext.closest('form'),step=setupNext.dataset.firstbootNext;
+      const current=form.querySelector('[data-firstboot-step]:not([hidden])');
+      if(Number(step)>Number(current.dataset.firstbootStep)){
+        for(const field of current.querySelectorAll('input,select'))if(!field.reportValidity())return;
+        if(step==='2' && form.elements.password.value!==form.elements.confirm_password.value){form.elements.confirm_password.setCustomValidity('Passwords do not match.');form.elements.confirm_password.reportValidity();form.elements.confirm_password.setCustomValidity('');return;}
+      }
+      for(const field of form.querySelectorAll('[data-firstboot-step]'))field.hidden=field.dataset.firstbootStep!==step;
+      if(step==='2')form.querySelector('[data-firstboot-review]').textContent='Create local administrator '+form.elements.username.value+' for '+form.elements.title.value+', using '+form.elements.timezone.value+'. Setup will close after saving.';
+      return;
+    }
     const installNext=event.target.closest('[data-install-next]');
     if (installNext) {
       const dialog=installNext.closest('dialog'),step=installNext.dataset.installNext;

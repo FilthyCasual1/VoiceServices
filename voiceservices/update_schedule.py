@@ -32,6 +32,7 @@ def next_run(s,now):
         if timestamp>now: return timestamp
     raise ValueError('Unable to calculate the next schedule occurrence.')
 def change(app,user,data):
+    if app.config.get('tls_proxy')=='openwrt':raise ValueError('OpenWrt firmware scheduling requires the native attended-sysupgrade provider.')
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     current=settings(app);new={};now=int(time.time())
     for kind in KINDS:
@@ -56,6 +57,7 @@ def change(app,user,data):
                 db.execute('INSERT INTO update_schedule_runs(kind,next_run) VALUES(?,?) ON CONFLICT(kind) DO UPDATE SET next_run=excluded.next_run,status=\'Waiting\',message=\'Schedule changed\'',(kind,next_run(s,now) if s['enabled'] else 0))
     return 'Update schedules saved.'
 def render(app,user):
+    if app.config.get('tls_proxy')=='openwrt':return '<p class="notice">OpenWrt scheduled firmware upgrades are pending the native attended-sysupgrade provider.</p>'
     schedules=settings(app)
     with app.store.connect() as db:
         rows={r['kind']:dict(r) for r in db.execute('SELECT * FROM update_schedule_runs')};heartbeat=db.execute('SELECT at FROM scheduler_heartbeat WHERE id=1').fetchone()

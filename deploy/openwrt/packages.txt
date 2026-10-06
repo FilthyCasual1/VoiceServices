@@ -1,0 +1,22 @@
+# Runtime only; no compiler, pip, venv, Git, LuCI or addon daemons.
+python3-light
+python3-decimal
+python3-sqlite3
+python3-ctypes
+python3-codecs
+python3-email
+python3-logging
+python3-openssl
+python3-urllib
+python3-xml
+ip-full
+ca-bundle
+zoneinfo-core
+zoneinfo-all
+shadow-useradd
+shadow-userdel
+shadow-groupadd
+shadow-chpasswd
+nginx-ssl
+openssl-util
+whiptail

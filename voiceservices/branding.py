@@ -49,7 +49,6 @@ def defaults(app):
     value=dict({'title':'CasualNetworks','subtitle':'ServiceReady INSAP','masthead_layout':'wide','login_title':'Welcome back','create_title':'Create your account','login_subtitle':'Access your account and network services.','create_subtitle':'Create an account to get started with your network services.','login_greeting':'custom','create_greeting':'custom','greeting_timezone':'UTC','login_disclaimer_enabled':False,'login_disclaimer':''},**app.config.get('branding',{}))
     for key,old,new in [('login_subtitle','Sign in, finish the setup, and test before going live.','Access your account and network services.'),('create_subtitle','Get your account ready before putting services into production.','Create an account to get started with your network services.'),('login_subtitle','Your network services, in one place.','Access your account and network services.'),('create_subtitle','Your starting point for network services.','Create an account to get started with your network services.')]:
         if value.get(key)==old: value[key]=new
-    if value['title']=='ServiceReady': value['title']='CasualNetworks'
     value.setdefault('global_timezone',value.get('greeting_timezone','UTC'))
     value.setdefault('date_format','iso');value.setdefault('time_format','24-hour')
     for key, (_, text) in SESSION_TEXT.items(): value.setdefault(key,text)

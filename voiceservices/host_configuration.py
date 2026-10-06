@@ -17,6 +17,7 @@ def render(app,user,section):
  if not app.store.accounts:return '<p class="notice">Host controls require a connected Linux account broker.</p>'
  try:state=app.store.accounts.call('host-status','','',section)
  except ValueError as exc:return '<p class="notice error">'+E(exc)+'</p><p>Use <a href="/admin/system-updates">Portal and host updates</a> to install the current host integration, then retry this page.</p>'
+ if state.get('provider')=='openwrt':return '<p class="notice">'+E(state['provider_message'])+'</p>'
  job=state['job']
  text='<p class="notice">'+E(job['state'])+': '+E(job['message'])+'</p><p><a href="/admin/'+section+'">Refresh status</a></p>'
  text+=''.join('<p class="notice error">'+E(error)+'</p>' for error in state.get('errors',[]))
