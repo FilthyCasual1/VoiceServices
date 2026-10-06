@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.21.0 — 2026-10-06
+
+Replace direct guest-tools buttons with a compact hypervisor, method and review wizard; validate selected platform and CD before starting host tools setup.
+
 ## 1.20.6 — 2026-10-06
 
 Treat verified running VirtualBox service and driver as healthy without requiring optional host version properties; clarify headless installation warnings and show only detected CD versions on the install button.

@@ -174,3 +174,5 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 .host-task-choice{grid-template-columns:auto minmax(0,1fr);margin:0;cursor:pointer}.host-task-choice input{width:auto;margin:0;padding:0}.cleanup-actions{padding:6px 10px;background:#f4f5f6}.cleanup-actions button{margin:0}.host-task-choice>div{grid-column:auto}
 
 .host-brand-marks{gap:10px}.host-brand-marks img,.host-brand-marks .provider-mark,.overview-powered .host-brand-marks img,.overview-powered .host-brand-marks .provider-mark{flex:0 0 28px;width:28px;height:28px;margin:0;object-fit:contain;filter:brightness(0);opacity:.72}.distro-logo{filter:grayscale(1)}
+
+.tools-wizard{margin:8px 0;border:1px solid #a4b4bd;padding:6px 8px}.tools-wizard summary{cursor:pointer;font-weight:bold}.tools-wizard fieldset{margin:8px 0;padding:8px;border:1px solid #a4b4bd}.tools-wizard p{margin:6px 0}.tools-wizard label{display:block;margin:6px 0}.tools-wizard button{margin-right:6px}.tools-wizard-ready [data-tools-wizard]:not([data-tools-active]) [data-tools-step="1"],.tools-wizard-ready [data-tools-wizard]:not([data-tools-active]) [data-tools-step="2"]{display:none}

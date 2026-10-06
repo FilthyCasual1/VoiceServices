@@ -148,7 +148,7 @@ def handle(request):
             if helper.is_file() and not helper.is_symlink() and helper.stat().st_uid==0 and not helper.stat().st_mode&0o022:
                 import importlib.util
                 spec=importlib.util.spec_from_file_location('vm_tools',helper);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-                state['tools_cd']=module.tools_cd();state['tools_live']=module.live_status()
+                state['tools_cd']=module.tools_cd();state['tools_live']=module.live_status();state['tools_provider']=module.hypervisor()
             if state.get('kind') in ('vmtools','vmtools-cd'):
                 log=Path('/run/serviceready-accounts/vm-tools.log')
                 if log.is_file() and not log.is_symlink():

@@ -7,6 +7,7 @@
     if (input) { input.checked = refreshEnabled; input.closest('label').hidden = false; }
   }
   refreshControl();
+  document.documentElement.classList.add('tools-wizard-ready');
   document.addEventListener('change', event => {
     if (!event.target.matches('[data-overview-refresh]')) return;
     refreshEnabled = event.target.checked;
@@ -67,6 +68,22 @@
     } finally { navigating = false; }
   }
   document.addEventListener('click', event => {
+    const stepButton = event.target.closest('[data-tools-next]');
+    if (stepButton) {
+      const form = stepButton.closest('[data-tools-wizard]');
+      const step = Number(stepButton.dataset.toolsNext);
+      form.dataset.toolsActive = 'yes';
+      for (const section of form.querySelectorAll('[data-tools-step]')) section.hidden = Number(section.dataset.toolsStep) !== step;
+      const provider = form.elements.tools_provider;
+      const method = form.elements.update;
+      method.options[1].disabled = provider.value !== 'virtualbox';
+      if (provider.value !== 'virtualbox') method.value = 'vmtools';
+      const review = form.querySelector('[data-tools-review]');
+      review.textContent = provider.options[provider.selectedIndex].text + ' — ' + method.options[method.selectedIndex].text + '. Required dependencies install automatically. Desktop integration is optional. No automatic restart.';
+      form.querySelector('[data-tools-step="' + step + '"]').querySelector('select,button')?.focus();
+      return;
+    }
+
     const link = event.target.closest('a');
     if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download') || link.hasAttribute('data-full-navigation')) return;
     const url = new URL(link.href, location.href);
@@ -114,7 +131,7 @@
       }
       message.classList.toggle('error', state.state === 'failed');
       for (const button of panel.querySelectorAll('[data-start-update] button')) button.disabled = ['running','starting'].includes(panel.dataset.updateState);
-      if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (state.state === 'failed' && ['vmtools', 'vmtools-cd'].includes(state.kind)) || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review))) visit(location.href, {}, 'replace', true);
+      if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (['vmtools', 'vmtools-cd'].includes(state.kind) && [state.kind, state.state, state.at || ''].join(':') !== panel.dataset.toolsResult) || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review))) visit(location.href, {}, 'replace', true);
     } catch (_) {
       if (revision === generation && panel.isConnected) {
         const message = panel.querySelector('[data-update-status]');

@@ -63,4 +63,18 @@ class UpdateProgressTests(unittest.TestCase):
   for cd,label in [({'provider':'virtualbox','version':'7.2.18'},'Install tools CD 7.2.18'),({'provider':'vmware','version':'VMware Tools'},'Install tools CD'),({'provider':'virtualbox','version':'not detected'},'Install tools CD')]:
    self.app.store.accounts.call.return_value={'state':'idle','tools_cd':cd}
    body=self.request('/admin/host',token=token)['body']
-   self.assertIn('value="vmtools-cd">'+label+'</button>',body)
+   self.assertIn('value="vmtools-cd">'+label+'</option>',body)
+
+ def test_wizard_checks_hypervisor_before_starting_worker(self):
+  from voiceservices import maintenance
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'tools_provider':'vmware'}
+  with self.assertRaisesRegex(ValueError,'does not match'):
+   maintenance.change(self.app,user,{'update':'vmtools','tools_provider':'virtualbox'})
+  self.assertEqual(self.app.store.accounts.call.call_count,1)
+ def test_wizard_replaces_raw_tools_buttons(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'idle','tools_provider':'vmware'}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertIn('1. Hypervisor',body);self.assertIn('2. Installation method',body);self.assertIn('3. Review and install',body)
+  self.assertNotIn('>Update VM tools</button>',body);self.assertIn('Start tools setup',body)

@@ -1,5 +1,10 @@
 # SNMP Monitoring changelog
 
+## 1.21.0
+
+- Package for INSAP 1.21.0. No functional addon changes; the guest-tools setup wizard is a core feature.
+
+
 ## 1.20.6
 
 - Package for INSAP 1.20.6. No functional addon changes; headless guest-tools status improvements are core fixes.
