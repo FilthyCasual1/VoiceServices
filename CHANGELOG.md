@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.1 — 2026-10-06
+
+Keep distro branding and installed INSAP version on Overview; restrict all update controls and submissions to Portal and host updates.
+
 ## 1.17.0 — 2026-10-06
 
 Add confirmed local-administrator VM shutdown and restart controls to Host maintenance, using delayed host power operations.

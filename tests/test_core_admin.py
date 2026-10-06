@@ -308,3 +308,14 @@ class CoreAdminTests(unittest.TestCase):
             self.assertIn('example.org/portal',app.page('Home','',None))
         with patch('voiceservices.web.socket.gethostname',return_value='new'),patch('voiceservices.web.socket.getfqdn',return_value='new.example.net'):
             self.assertEqual(app.host_label,'example.net/new')
+
+    def test_overview_has_identity_but_updates_only_on_updates_page(self):
+        token,user=self.user('admin')
+        body=self.request('/admin',token=token)['body']
+        self.assertIn('Powered by',body);self.assertIn('/host/distro-logo',body);self.assertIn('Installed INSAP version:',body)
+        self.assertNotIn('>Update OS</button>',body);self.assertNotIn('>Update INSAP</button>',body);self.assertNotIn('data-update-state',body)
+        updates=self.request('/admin/system-updates',token=token)['body']
+        self.assertIn('>Update OS</button>',updates);self.assertIn('>Update INSAP</button>',updates)
+        with patch('voiceservices.maintenance.change') as change:
+            response=self.request('/admin','POST',{'csrf':user['csrf'],'update':'insap'},token)
+        self.assertEqual(response['status'],'400 Bad Request');change.assert_not_called()
