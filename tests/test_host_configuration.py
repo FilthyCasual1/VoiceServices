@@ -163,3 +163,48 @@ class HostConfigurationTests(unittest.TestCase):
     for table in ('downloads_files','updates_files','pxe_files','account_photos'):self.assertEqual(db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],0)
     for table in ('users','downloads_categories','downloads_catalog'):self.assertEqual(db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],1)
     self.assertEqual(db.execute('SELECT kind FROM downloads_details').fetchall(),[('link',)])
+ def test_raid_selection_confirmation_and_blank_disk_validation(self):
+  with tempfile.TemporaryDirectory() as root:
+   root=Path(root);cfg=root/'config';mount=root/'data';mount.mkdir();cfg.write_text(json.dumps({'database':str(root/'db')}))
+   disks=[{'path':'/dev/sdb','eligible':True,'fingerprint':'one','size':10*1024**3},{'path':'/dev/sdc','eligible':True,'fingerprint':'two','size':10*1024**3}]
+   payload={'kind':'storage-raid','raid_mode':'mirror','members':[{'disk':d['path'],'fingerprint':d['fingerprint']} for d in disks],'confirm':'CREATE ARRAY','erase_confirm':'yes'}
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'MOUNT',mount),patch.object(control,'ARRAY',str(root/'array')),patch.object(control,'disks',return_value=disks),patch.object(control.shutil,'which',return_value='/sbin/mdadm'),patch.object(control,'run',return_value='{"signatures":[]}'):
+    control.validate(payload);control.validate(dict(payload,raid_mode='stripe'))
+    for values in ({'raid_mode':'zfs'},{'confirm':'yes'},{'erase_confirm':''},{'members':payload['members'][:1]},{'members':[payload['members'][0]]*2},{'members':[{'disk':'/dev/sda','fingerprint':'boot'},payload['members'][1]]}):
+     with self.assertRaises(ValueError):control.validate(dict(payload,**values))
+    with patch.object(control,'run',return_value='{"signatures":[{}]}'):
+     with self.assertRaises(ValueError):control.validate(payload)
+ def test_smart_failure_and_unsupported_virtual_disks(self):
+  from types import SimpleNamespace
+  data={'smart_status':{'passed':False},'temperature':{'current':52},'power_on_time':{'hours':300}}
+  with patch.object(control.shutil,'which',return_value='/usr/sbin/smartctl'),patch.object(control.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(data),returncode=8)):
+   health=control.smart_health({'path':'/dev/sdb'})
+  self.assertEqual(health['state'],'Failed');self.assertEqual(health['temperature'],52)
+  with patch.object(control.shutil,'which',return_value='/usr/sbin/smartctl'),patch.object(control.subprocess,'run',return_value=SimpleNamespace(stdout='{"smart_support":{"available":false}}',returncode=2)):
+   self.assertEqual(control.smart_health({'path':'/dev/sdb'})['state'],'Unavailable')
+ def test_defrag_only_runs_when_fragmentation_requires_it(self):
+  with tempfile.TemporaryDirectory() as root:
+   for score in (10,60):
+    calls=[]
+    def command(args):calls.append(args);return 'Fragmentation score '+str(score)
+    with patch.object(control,'STATE',Path(root)/'job'),patch.object(control.os,'geteuid',return_value=0),patch.object(control,'validate'),patch.object(control.shutil,'which',return_value='/usr/sbin/e4defrag'),patch.object(control,'run',side_effect=command):
+     control.main({'kind':'storage-maintenance','operation':'defrag'})
+    self.assertEqual(['e4defrag',str(control.MOUNT)] in calls,score>=55)
+ def test_raid_creation_persists_layout_and_uses_selected_level(self):
+  from types import SimpleNamespace
+  import os
+  for mode,level in [('mirror','1'),('stripe','0')]:
+   with tempfile.TemporaryDirectory() as root:
+    root=Path(root);cfg=root/'config';mount=root/'data';array=str(root/'array');state=root/'job';fstab=root/'fstab';mdconf=root/'mdadm.conf'
+    cfg.write_text(json.dumps({'database':str(root/'database')}));calls=[]
+    def command(args):
+     calls.append(args)
+     if args[:3]==['mdadm','--detail','--scan']:return 'ARRAY '+array+' metadata=1.2 UUID=fake'
+     if args[0]=='blkid':return 'volume-uuid'
+     return ''
+    with patch.object(control,'CONFIG',cfg),patch.object(control,'MOUNT',mount),patch.object(control,'ARRAY',array),patch.object(control,'MDADM',mdconf),patch.object(control,'FSTAB',fstab),patch.object(control,'STATE',state),patch.object(control,'validate'),patch.object(control.os,'geteuid',return_value=0),patch.object(control.os,'chown'),patch.object(control.pwd,'getpwnam',return_value=SimpleNamespace(pw_uid=os.getuid(),pw_gid=os.getgid())),patch.object(control,'run',side_effect=command):
+     control.main({'kind':'storage-raid','raid_mode':mode,'members':[{'disk':'/dev/sdb'},{'disk':'/dev/sdc'}]})
+    self.assertEqual(json.loads(state.read_text())['state'],'complete')
+    self.assertIn('--level='+level,next(c for c in calls if c[:2]==['mdadm','--create']))
+    self.assertIn('ARRAY '+array,mdconf.read_text());self.assertIn('UUID=volume-uuid',fstab.read_text())
+    self.assertEqual(json.loads(cfg.read_text())['data_members'],['/dev/sdb','/dev/sdc']);self.assertTrue((mount/'downloads').is_dir())

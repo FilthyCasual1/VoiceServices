@@ -87,8 +87,17 @@ def install_from_repository(app,user,data):
     return CATALOG[key][0]+' installed from the repository; version '+version+'.'
 
 def repository_installer(app,user):
-    options=''.join('<option value="'+E(key)+'">'+E(title)+' — '+E(app.modules.approved[key]['version'])+'</option>' for key,(title,_) in CATALOG.items() if key in app.modules.approved and not (app.modules.root/key).exists())
-    text='<details class="settings-section"><summary>Install from repository</summary><div class="panel"><p>Download an official addon from the project repository. The installer selects a package compatible with this portal release and validates its approved code before installing.</p>'
-    if options:text+='<form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><label>Addon</label><select name="module">'+options+'</select><button name="action" value="install-repository-addon">Download and install</button></form>'
-    else:text+='<p>All official addons are already present.</p>'
+    from pathlib import Path
+    from .version import __version__
+    text='<details class="settings-section" id="addon-repository"><summary>Addon repository</summary><p>Browse official addons compatible with this INSAP release. Installed addons update automatically with INSAP; manual package installation remains available.</p><div class="download-grid">'
+    for key,(title,description) in CATALOG.items():
+        if key not in app.modules.approved:continue
+        version=app.modules.approved[key]['version'];present=(app.modules.root/key).exists()
+        text+='<article class="download-card"><span class="download-category">'+('Installed' if present else 'Available to install')+'</span><h4>'+E(title)+'</h4><p>'+E(description)+'</p><p class="download-meta">Version '+E(version)+' · API '+str(app.modules.approved[key]['api'])+'</p>'
+        notes=Path(__file__).resolve().parents[1]/'addon_sources/changelogs'/(key+'.md')
+        if not notes.is_file():notes=Path('/opt/serviceready/source/addon_sources/changelogs')/(key+'.md')
+        if notes.is_file():text+='<details><summary>Release notes</summary><pre>'+E(notes.read_text()[:8192])+'</pre></details>'
+        if not present:text+='<form method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="module" value="'+E(key)+'"><button name="action" value="install-repository-addon">Download and install</button></form>'
+        else:text+='<p>Manage this installed addon below.</p>'
+        text+='</article>'
     return text+'</div></details>'

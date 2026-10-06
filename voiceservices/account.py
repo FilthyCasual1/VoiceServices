@@ -67,6 +67,9 @@ def change(app,user,data,token):
             if action=='read-notification': db.execute('UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?',(key,user['id']))
             else: db.execute('DELETE FROM notifications WHERE id=? AND user_id=?',(key,user['id']))
         return 'Inbox updated.'
+    if action=='request-service-link':
+        from . import service_links
+        return service_links.request(app,user,data)
     if action=='profile':
         name=data.get('display_name','').strip();email=data.get('email','').strip();phone=data.get('phone','').strip();tz=data.get('timezone','UTC').strip() or 'UTC'
         if len(name)>100 or len(email)>254 or (email and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email)) or len(phone)>40 or (phone and not re.fullmatch(r'[+0-9() .-]+',phone)): raise ValueError('Check display name, email address and contact number.')
@@ -98,7 +101,7 @@ def render(app,user,token,note='',section='profile'):
     from . import twofactor
     from .modules import CATALOG
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';value=profile(app,user)
-    content='<div class="my-account"><div class="account-section-links"><a href="/account">Profile</a><a href="/account/inbox">Inbox</a><a href="/account/security">Security</a></div>'
+    content='<div class="my-account"><div class="account-section-links"><a href="/account">Profile</a><a href="/account/inbox">Inbox</a><a href="/account/security">Security</a><a href="/account/services">Linked services</a></div>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     prefix=content;content=''
     picture='<div class="panel profile-picture"><img class="avatar" src="/account/photo" alt="Profile picture"><form action="/account/photo/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Profile picture (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload picture</button></form><form method="post">'+csrf+'<button name="action" value="remove-photo">Remove picture</button></form></div>'
@@ -125,5 +128,7 @@ def render(app,user,token,note='',section='profile'):
         if app.modules.installed(key):
             provider=app.modules.load(key);hook=getattr(provider,'account_panel',None)
             if hook: panels.append(hook(app,user))
+    from . import service_links
+    content+=service_links.panel(app,user)
     content+=''.join(panels) if panels else '<p>No installed service has linked an identity to your account.</p>'
-    return prefix+({'profile':profile_content+content,'inbox':inbox_content,'security':security_content}[section])+'</div>'
+    return prefix+({'profile':profile_content+'<details><summary>Linked services</summary>'+''.join(panels)+'</details>','inbox':inbox_content,'security':security_content,'services':content}[section])+'</div>'

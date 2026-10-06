@@ -1,7 +1,7 @@
 """Permanent administrator shell with addon-provided subpages."""
-import html
+import html,re
 from .modules import CATALOG
-from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration,addon_updates
+from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration,addon_updates,service_links
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
 HEADINGS={'system-updates':'Portal and host updates','storage':'Upload storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
@@ -12,15 +12,16 @@ def password_form(user,app):
 def render(app,path,user,data,method,services):
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     section=path.removeprefix('/admin').strip('/') or 'overview'
+    if section=='addons':section='overview'
     if section in ('terminal','schedules','system-updates'): section='host'
     if section not in HEADINGS: raise ValueError('Unknown administration submenu.')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';note=''
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
         elif section=='host': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
-        elif section=='addons' and data.get('action')=='install-repository-addon':note=addon_updates.install_from_repository(app,user,data)
-        elif section=='addons' and data.get('action') in ('check-addon-update','install-addon-update','decline-addon-update'):note=addon_updates.change(app,user,data)
-        elif section=='addons':
+        elif section=='overview' and data.get('action')=='install-repository-addon':note=addon_updates.install_from_repository(app,user,data)
+        elif section=='overview' and data.get('action') in ('check-addon-update','install-addon-update','decline-addon-update'):note=addon_updates.change(app,user,data)
+        elif section=='overview':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
         elif section=='recovery': note=recovery.issue(app,user,data)
@@ -28,10 +29,14 @@ def render(app,path,user,data,method,services):
         elif section=='schedules': note=update_schedule.change(app,user,data)
         elif section=='security': note=security.change(app,user,data)
         elif section=='authentication': note=external_auth.change(app,user,data)
+        elif section=='users' and data.get('action') in ('approve-service-link','reject-service-link'):note=service_links.review(app,user,data)
         elif section=='users': note=recovery.issue(app,user,data) if data.get('action')=='authorize-recovery' else user_management.change(app,user,data)
         elif section in ('branding','home'): note=branding.change(app,section,data)
         elif section in OPTIONAL: note=app.modules.load(OPTIONAL[section]).admin_change(app,data,services)
         else: raise ValueError('Unknown administration action.')
+    if section=='voice' and method=='POST' and data.get('action')!='axl-settings':section='users'
+    configuring=section if section in OPTIONAL else None
+    if configuring:section='overview'
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview': content+=overview.render(app)
@@ -42,30 +47,41 @@ def render(app,path,user,data,method,services):
     elif section=='schedules': content+=update_schedule.render(app,user)
     elif section=='security': content+=security.render(app,user)
     elif section=='authentication': content+=external_auth.render(app,user)
-    elif section=='users': content+=user_management.render(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
+    elif section=='users': content+=user_management.render(app,user)+service_links.admin_panel(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
     elif section=='terminal': content+=host_tools.terminal_render(app,user)
     elif section=='host': content+='<h2>Portal and host updates</h2>'+maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))+'<details class="settings-section" id="update-schedules"'+(' open' if data.get('action')=='save-update-schedules' else '')+'><summary>Automatic update schedules</summary>'+update_schedule.render(app,user)+'</details>'+'<details class="settings-section" id="terminal"'+(' open' if path.rstrip('/')=='/admin/terminal' else '')+'><summary>Host terminal</summary><div class="panel">'+host_tools.terminal_render(app,user)+'</div></details>'+host_tools.admin_render(app,user,services)
     elif section in ('storage','network-host'): content+=host_configuration.render(app,user,section)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
-    elif section=='addons':
+    if section=='users' and app.modules.installed('voice'):
+        links=app.modules.load('voice').account_links_render(app,user)
+        links=re.sub(r'<form\b([^>]*)>',lambda match:match[0] if re.search(r'\baction\s*=',match[1]) else '<form action="/admin/voice"'+match[1]+'>',links)
+        content+='<details class="settings-section" id="phone-account-links"'+(' open' if path.rstrip('/')=='/admin/voice' else '')+'><summary>Phone account links</summary>'+links+'</details>'
+    if section=='overview':
         content+=addon_updates.repository_installer(app,user)
         content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<h3>Manual installation</h3><label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'
         for key,(name,description) in CATALOG.items():
             present=(app.modules.root/key).exists()
             if not present: continue
             installed=app.modules.installed(key)
-            content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
+            try:metadata=__import__('json').loads((app.modules.root/key/'manifest.json').read_text())
+            except (OSError,ValueError):metadata={}
+            version=metadata.get('version','Unknown')+(' (build '+str(metadata['build'])+')' if metadata.get('build') else '')
+            content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>Version '+E(version)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
-            if installed:content+=addon_updates.render(app,user,key)
+            if installed:
+                submenu=next((name for name,module in OPTIONAL.items() if module==key),None)
+                if submenu:content+='<p><a class="button" href="/admin/'+submenu+'">Configure addon…</a></p>'
+                content+=addon_updates.render(app,user,key)
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
-    for submenu,module in OPTIONAL.items():
-        if app.modules.installed(module):
-            (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))
+    operator=[('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    if configuring:
+        settings=app.modules.load(OPTIONAL[configuring]).admin_render(app,user,services)
+        settings=re.sub(r'<form\b([^>]*)>',lambda match:match[0] if re.search(r'\baction\s*=',match[1]) else '<form action="/admin/'+configuring+'"'+match[1]+'>',settings)
+        content+='<dialog class="tools-wizard addon-config-wizard" data-addon-active aria-labelledby="addon-config-title"><header><h3 id="addon-config-title">'+E(HEADINGS[configuring])+' setup</h3><button type="button" data-tools-close aria-label="Close wizard">×</button></header><ol class="tools-steps"><li>Introduction</li><li>Configure</li></ol><section data-addon-step="0"'+(' hidden' if method=='POST' else '')+'><h3>Configure '+E(CATALOG[OPTIONAL[configuring]][0])+'</h3><p>'+E(CATALOG[OPTIONAL[configuring]][1])+'</p><p>Review the settings and save each section you change. You can return to this wizard from Overview at any time.</p><footer><button type="button" data-tools-close>Cancel</button><button type="button" data-addon-next="1">Next →</button></footer></section><section data-addon-step="1"'+('' if method=='POST' else ' hidden')+'>'+('<p class="notice">'+E(note)+'</p>' if note else '')+settings+'<footer><button type="button" data-addon-next="0">← Back</button><button type="button" data-tools-close>Finish</button></footer></section></dialog>'
     def navigation_link(url,label):
         return '<a href="'+url+'"'+(' aria-current="page"' if path.rstrip('/')==url else '')+'>'+E(label)+'</a>'
     def tree(label,links):
         return '<details class="admin-tree" open><summary>'+label+'</summary><div>'+''.join(navigation_link(url,label) for url,label in links)+'</div></details>'
-    sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview')+tree('Administrator',administrator)+tree('System',operator)+'</aside>'
+    sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview and addons')+tree('Administrator',administrator)+tree('System',operator)+'</aside>'
     return '<div class="admin-layout">'+sidebar+'<div class="admin-content'+(' admin-overview' if section=='overview' else '')+'">'+content+'</div></div>'

@@ -5,6 +5,9 @@ CONFIG=pathlib.Path('/etc/serviceready/config.json')
 STATE=pathlib.Path('/run/serviceready-accounts/host-job.json')
 MOUNT=pathlib.Path('/srv/serviceready-data')
 FSTAB=pathlib.Path('/etc/fstab')
+MDADM=pathlib.Path('/etc/mdadm.conf')
+ARRAY='/dev/md/serviceready-data'
+SMART_CACHE=pathlib.Path('/run/serviceready-accounts/smart.json')
 def run(args):return subprocess.check_output(args,text=True,stderr=subprocess.STDOUT).strip()
 def disks():
  rows=json.loads(run(['lsblk','--json','--bytes','-o','PATH,TYPE,SIZE,MODEL,SERIAL,RO,FSTYPE,UUID,MOUNTPOINTS,PTTYPE']))['blockdevices']
@@ -20,6 +23,40 @@ def disks():
   result.append(d)
  return result
 
+def smart_health(disk):
+ result={'disk':disk['path'],'identity':disk.get('serial') or disk['path'],'state':'Unavailable','message':'SMART data is not exposed by this disk or hypervisor.'}
+ if not shutil.which('smartctl'):result['message']='SMART tools are not installed. Update INSAP host integration.';return result
+ try:
+  process=subprocess.run(['smartctl','--json','--health','--attributes','--info',disk['path']],capture_output=True,text=True,timeout=3)
+  data=json.loads(process.stdout)
+  result['identity']=data.get('serial_number') or result['identity']
+  health=data.get('smart_status',{}).get('passed')
+  if health is not None:
+   result.update(state='Healthy' if health else 'Failed',message='SMART overall health passed.' if health else 'SMART reports a disk failure. Back up data and replace the disk.')
+  result['temperature']=data.get('temperature',{}).get('current');result['hours']=data.get('power_on_time',{}).get('hours')
+  warnings=[]
+  for attribute in data.get('ata_smart_attributes',{}).get('table',[]):
+   if attribute.get('id') in (5,197,198) and attribute.get('raw',{}).get('value',0)>0:warnings.append(attribute.get('name','Sector errors')+': '+str(attribute['raw']['value']))
+  nvme=data.get('nvme_smart_health_information_log',{})
+  if nvme.get('critical_warning',0):result.update(state='Failed',message='NVMe reports a critical health warning.')
+  if nvme.get('media_errors',0):warnings.append('NVMe media errors: '+str(nvme['media_errors']))
+  if warnings:
+   if result['state']=='Healthy':result['state']='Caution'
+   result['message']+=' '+'; '.join(warnings)
+ except (OSError,ValueError,subprocess.SubprocessError):result['message']='Unable to read SMART data from this device.'
+ return result
+def smart_disks(devices):
+ fingerprint=hashlib.sha256(json.dumps(devices,sort_keys=True).encode()).hexdigest()
+ try:
+  cached=json.loads(SMART_CACHE.read_text())
+  if cached.get('fingerprint')==fingerprint and time.time()-cached.get('at',0)<60:return cached['disks']
+ except (OSError,ValueError):pass
+ results=[smart_health(disk) for disk in devices[:8]]
+ try:
+  temporary=SMART_CACHE.with_suffix('.new');temporary.write_text(json.dumps({'at':time.time(),'fingerprint':fingerprint,'disks':results}));os.chmod(temporary,0o600);temporary.replace(SMART_CACHE)
+ except OSError:pass
+ return results
+
 def snapshot(section='storage'):
  cfg=json.loads(CONFIG.read_text())
  try:state=json.loads(STATE.read_text())
@@ -27,8 +64,13 @@ def snapshot(section='storage'):
  if state.get('state') in ('running','pending') and state.get('pid') and not pathlib.Path('/proc/'+str(state['pid'])).exists():state={'state':'failed','message':'The host operation was interrupted. Inspect the host before retrying.'}
  result={'storage_available':bool(cfg.get('data_mount') and os.path.ismount(cfg['data_mount'])),'job':state,'storage':cfg.get('data_mount','Not configured'),'errors':[],'disks':[]}
  if section=='storage':
+  result['raid']=cfg.get('data_raid','')
+  if cfg.get('data_raid'):
+   try:result['raid_status']=run(['mdadm','--detail',cfg.get('data_array',ARRAY)])
+   except (OSError,subprocess.SubprocessError):result['errors'].append('Upload RAID array is unavailable or degraded. Check the member disks.')
   try:
    result['disks']=disks()
+   result['smart']=smart_disks([disk for disk in result['disks'] if disk['path'] in cfg.get('data_members',[]) or (cfg.get('data_disk_uuid') and disk.get('uuid')==cfg['data_disk_uuid'])])
    for disk in result['disks']:disk['reformat']=bool(cfg.get('data_disk_uuid') and disk.get('uuid')==cfg['data_disk_uuid'] and disk.get('fstype')=='ext4' and not disk.get('children') and disk.get('mountpoints')==[str(MOUNT)] and cfg.get('data_mount')==str(MOUNT) and not disk.get('ro'))
   except (OSError,ValueError,subprocess.SubprocessError) as exc:result['errors'].append('Disk discovery unavailable: '+str(exc)[-400:])
  else:
@@ -41,7 +83,15 @@ def snapshot(section='storage'):
  return result
 def validate(p):
  kind=p.get('kind')
- if kind=='storage':
+ if kind=='storage-raid':
+  if p.get('raid_mode') not in ('mirror','stripe'):raise ValueError('Choose mirrored or combined storage.')
+  members=p.get('members')
+  if not isinstance(members,list) or not 2<=len(members)<=8 or any(not isinstance(d,dict) for d in members) or len({d.get('disk') for d in members})!=len(members):raise ValueError('Select two to eight distinct blank disks for software RAID.')
+  if p.get('confirm')!='CREATE ARRAY' or p.get('erase_confirm')!='yes':raise ValueError('Confirm erasing all selected disks and type CREATE ARRAY.')
+  if pathlib.Path(ARRAY).exists():raise ValueError('An upload RAID array already exists.')
+  if not shutil.which('mdadm'):raise ValueError('Update host integration to install software RAID support first.')
+  for member in members:validate(dict(member,kind='storage',confirm='FORMAT '+member.get('disk','')))
+ elif kind=='storage':
   d=next((d for d in disks() if d['path']==p.get('disk')),None)
   if not d or not d['eligible'] or d['fingerprint']!=p.get('fingerprint'):raise ValueError('Disk is in use, contains data, or has changed. Reload the disk list.')
   if p.get('confirm')!='FORMAT '+d['path']:raise ValueError('Type FORMAT followed by the exact disk path.')
@@ -61,6 +111,11 @@ def validate(p):
   if not d or d['fingerprint']!=p.get('fingerprint') or d.get('ro') or d.get('children') or d.get('fstype')!='ext4' or d.get('uuid')!=cfg.get('data_disk_uuid') or not cfg.get('data_disk_uuid') or cfg.get('data_mount')!=str(MOUNT) or d.get('mountpoints')!=[str(MOUNT)]:raise ValueError('Only the current, unchanged upload data disk can be reformatted. Reload storage.')
   if p.get('confirm')!='ERASE '+d['path'] or p.get('erase_confirm')!='yes':raise ValueError('Confirm permanent data loss and type ERASE followed by the exact disk path.')
   if run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('Upload disk identity changed. Reload storage.')
+ elif kind=='storage-maintenance':
+  cfg=json.loads(CONFIG.read_text())
+  if p.get('operation') not in ('trim','defrag'):raise ValueError('Choose TRIM or fragmentation check.')
+  if cfg.get('data_mount')!=str(MOUNT) or not cfg.get('data_disk_uuid') or not os.path.ismount(MOUNT) or run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('The configured upload disk is unavailable or changed.')
+  if p.get('operation')=='defrag' and run(['findmnt','-n','-o','FSTYPE','--target',str(MOUNT)])!='ext4':raise ValueError('Fragmentation checks currently support ext4 upload volumes only.')
  elif kind=='network':
   import re
   if not re.fullmatch(r'[a-fA-F0-9-]{36}',p.get('connection','')):raise ValueError('Select an active connection UUID.')
@@ -131,10 +186,32 @@ def main(p):
     operation=p['operation'];command='reboot' if operation=='restart' else 'poweroff'
     run(['systemd-run','--unit=serviceready-power','--on-active=10s','/usr/bin/systemctl',command])
     status('complete','Host '+operation+' scheduled in 10 seconds. The portal will disconnect.')
+   elif p['kind']=='storage-maintenance':
+    if p['operation']=='trim':
+     if not shutil.which('fstrim'):raise ValueError('TRIM tools are unavailable. Update host integration.')
+     try:message=run(['fstrim','--verbose',str(MOUNT)])
+     except subprocess.CalledProcessError:raise ValueError('TRIM is unavailable for this upload volume or is not passed through by the disk, RAID layer or hypervisor.') from None
+     status('complete','Upload volume TRIM completed. '+message)
+    else:
+     import re
+     if not shutil.which('e4defrag'):raise ValueError('ext4 defragmentation tools are unavailable on this host.')
+     message=run(['e4defrag','-c',str(MOUNT)]);score=re.search(r'Fragmentation score\s+(\d+)',message)
+     if not score:raise ValueError('The fragmentation score could not be determined; no defragmentation was performed.')
+     if int(score[1])<55:status('complete','Upload fragmentation score '+score[1]+': no defragmentation needed.')
+     else:
+      status('running','Defragmenting the upload volume (score '+score[1]+')');run(['e4defrag',str(MOUNT)]);status('complete','Upload volume defragmentation completed.')
    elif p['kind']=='storage-reset':
     reset_storage(p)
-   elif p['kind']=='storage':
-    disk=p['disk'];run(['mkfs.ext4','-F','-L','ServiceReadyData',disk]);uuid=run(['blkid','-s','UUID','-o','value',disk]);MOUNT.mkdir(parents=True,exist_ok=True)
+   elif p['kind'] in ('storage','storage-raid'):
+    if p['kind']=='storage-raid':
+     status('running','Creating upload disk array')
+     run(['mdadm','--create',ARRAY,'--run','--metadata=1.2','--level='+('1' if p['raid_mode']=='mirror' else '0'),'--raid-devices='+str(len(p['members']))]+[member['disk'] for member in p['members']])
+     disk=ARRAY
+     detail=run(['mdadm','--detail','--scan',ARRAY]);lines=[line for line in detail.splitlines() if line.startswith('ARRAY '+ARRAY+' ')]
+     if len(lines)!=1:raise ValueError('Unable to verify persistent RAID array configuration.')
+     MDADM.write_text((MDADM.read_text() if MDADM.exists() else '')+'\n'+lines[0]+'\n')
+    else:disk=p['disk']
+    run(['mkfs.ext4','-F','-L','ServiceReadyData',disk]);uuid=run(['blkid','-s','UUID','-o','value',disk]);MOUNT.mkdir(parents=True,exist_ok=True)
     run(['mount','-t','ext4',disk,str(MOUNT)])
     cfg=json.loads(CONFIG.read_text());uid=pwd.getpwnam('serviceready').pw_uid;gid=pwd.getpwnam('serviceready').pw_gid
     services=['serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler']
@@ -167,7 +244,10 @@ def main(p):
         f=photos/str(user);f.write_bytes(image);os.chown(f,uid,gid);os.chmod(f,0o600)
      temp=MOUNT/'tmp';temp.mkdir();os.chown(temp,uid,gid);os.chmod(temp,0o700)
      cfg.update(data_mount=str(MOUNT),data_disk_uuid=uuid)
-     with open('/etc/fstab','a') as f:f.write('\n# ServiceReady uploaded data\nUUID='+uuid+' '+str(MOUNT)+' ext4 defaults,nofail,x-systemd.device-timeout=15s 0 2\n')
+     if p['kind']=='storage-raid':cfg.update(data_raid='RAID 1 mirror' if p['raid_mode']=='mirror' else 'RAID 0 combined capacity',data_array=ARRAY,data_members=[member['disk'] for member in p['members']])
+     else:
+      for key in ('data_raid','data_array','data_members'):cfg.pop(key,None)
+     with FSTAB.open('a') as f:f.write('\n# ServiceReady uploaded data\nUUID='+uuid+' '+str(MOUNT)+' ext4 defaults,nofail,x-systemd.device-timeout=15s 0 2\n')
      meta=CONFIG.stat();replacement=CONFIG.with_suffix('.new');replacement.write_text(json.dumps(cfg,indent=2)+'\n');os.chown(replacement,meta.st_uid,meta.st_gid);os.chmod(replacement,meta.st_mode&0o777);replacement.replace(CONFIG)
      with sqlite3.connect(cfg['database']) as db:
       if db.execute("SELECT 1 FROM sqlite_master WHERE name='account_photos'").fetchone():db.execute("UPDATE account_photos SET image=X''")

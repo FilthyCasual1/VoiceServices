@@ -34,7 +34,7 @@ if [[ $use_menu == 1 ]]; then
     rocky_menu || { echo 'Setup cancelled; no portal settings or accounts changed.'; exit 0; }
     progress_ui=1
 fi
-packages=(python3 python3-pip python3-devel gcc make chrony e2fsprogs util-linux NetworkManager krb5-workstation krb5-devel libffi-devel openssl nginx iproute git shadow-utils libxcrypt dnsmasq policycoreutils policycoreutils-python-utils firewalld)
+packages=(python3 python3-pip python3-devel gcc make chrony smartmontools mdadm e2fsprogs util-linux NetworkManager krb5-workstation krb5-devel libffi-devel openssl nginx iproute git shadow-utils libxcrypt dnsmasq policycoreutils policycoreutils-python-utils firewalld)
 run dnf -y --downloadonly install "${packages[@]}"
 step 'Install dependencies'
 run dnf -y install "${packages[@]}"

@@ -1,3 +1,7 @@
+## 1.26.0
+
+- Package for INSAP 1.26.0, build 1.
+
 ## 1.25.1
 
 - Package for INSAP 1.25.1; installed addons refresh automatically with the portal update.

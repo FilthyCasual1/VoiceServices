@@ -4,7 +4,9 @@
   try { refreshEnabled = localStorage.getItem('overview-refresh') !== 'off'; } catch (_) {}
   function refreshControl() {
     const ready = document.querySelector('[data-update-ready], [data-update-running], [data-update-result]');
-    if (ready && !ready.open) ready.showModal();
+    let pending; try { pending = sessionStorage.getItem('insap-update-wizard'); } catch (_) {}
+    if (ready && !ready.open && pending === ready.id) { ready.showModal(); if (ready.hasAttribute('data-update-result')) { try { sessionStorage.removeItem('insap-update-wizard'); } catch (_) {} } }
+    const addon = document.querySelector('[data-addon-active]'); if (addon && !addon.open) addon.showModal();
     const input = document.querySelector('[data-overview-refresh]');
     if (input) { input.checked = refreshEnabled; input.closest('label').hidden = false; }
   }
@@ -84,7 +86,13 @@
     const finish = () => { header.removeEventListener('pointermove',move); header.removeEventListener('pointerup',finish); header.removeEventListener('pointercancel',finish); };
     header.addEventListener('pointermove',move); header.addEventListener('pointerup',finish); header.addEventListener('pointercancel',finish);
   });
+  document.addEventListener('cancel', event => {
+    if (event.target.id?.startsWith('update-')) { try { sessionStorage.removeItem('insap-update-wizard'); } catch (_) {} }
+    if (event.target.hasAttribute?.('data-addon-active')) visit('/admin', {}, 'replace', true);
+  }, true);
   document.addEventListener('click', event => {
+    const addonStep = event.target.closest('[data-addon-next]');
+    if (addonStep) { const dialog=addonStep.closest('dialog'); for (const step of dialog.querySelectorAll('[data-addon-step]')) step.hidden=step.dataset.addonStep!==addonStep.dataset.addonNext; return; }
     const onboard = event.target.closest('[data-onboard-next]');
     if (onboard) {
       const form = onboard.closest('[data-onboarding]'), step = Number(onboard.dataset.onboardNext);
@@ -114,7 +122,7 @@
     const opener = event.target.closest('[data-tools-open]');
     if (opener) { opener.parentElement.querySelector('[aria-labelledby="tools-title"]').showModal(); return; }
     const closer = event.target.closest('[data-tools-close]');
-    if (closer) { closer.closest('dialog').close(); return; }
+    if (closer) { const dialog = closer.closest('dialog'); dialog.close(); if (dialog.hasAttribute('data-addon-active')) { visit('/admin', {}, 'replace', true); } if (dialog.id.startsWith('update-')) { try { sessionStorage.removeItem('insap-update-wizard'); } catch (_) {} } return; }
     const stepButton = event.target.closest('[data-tools-next]');
     if (stepButton) {
       const form = stepButton.closest('[data-tools-wizard]');
@@ -145,6 +153,8 @@
     event.preventDefault();
     if (form.hasAttribute('data-terminal-open')) return;
     if (form.hasAttribute('data-start-update')) {
+      const wizard = form.closest('dialog[id^="update-"]');
+      if (wizard) { try { sessionStorage.setItem('insap-update-wizard', wizard.id); } catch (_) {} }
       const panel = form.closest('[data-update-state]');
       if (panel) { panel.dataset.updateState = 'starting'; panel.dataset.updateIdlePolls = '0'; }
     }

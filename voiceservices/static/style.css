@@ -210,3 +210,6 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 .download-card .button:hover,.download-card .button:focus{background:#31586a}
 .download-delete-confirm{display:flex;align-items:center;gap:6px;margin:10px 0}
 .download-delete-confirm input{width:auto;margin:0}
+.addon-config-wizard{width:min(880px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}
+.addon-config-wizard section{padding:12px}.addon-config-wizard section[hidden]{display:none}
+.addon-config-wizard footer{display:flex;justify-content:space-between;gap:8px;margin-top:12px}

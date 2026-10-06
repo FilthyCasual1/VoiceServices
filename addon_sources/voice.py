@@ -273,11 +273,16 @@ def admin_change(app,data,services):
         except Exception as exc: raise ValueError('Identity could not be linked.') from exc
     return 'CUCM user created and linked. Refresh My Account to retrieve its profile.' if data.get('action')=='create-cucm' else 'Phone identity linked; refresh it from My Account to verify.'
 def admin_render(app,user,services):
+    csrf='<input type="hidden" name="csrf" value="'+E(user["csrf"])+'">'
+    content=''
+    content+='</table><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="action" value="axl-settings"><label>AXL HTTPS endpoint</label><input name="endpoint" type="url" value="'+E(axl_endpoint(app))+'"><label>Trusted CA file on portal server (optional)</label><input name="ca_file" value="'+E(app.config.get("voice_axl_ca_file",""))+'"><br><button>Save AXL settings</button></form><p>AXL service credentials are configured on the server. TLS certificate validation is required.</p></div>'
+    return content
+
+def account_links_render(app,user):
     identity_tables(app);csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     content='<p>Link portal users to their phone-system account. Live lookup uses the configured AXL endpoint and server-side service credentials; passwords and PINs remain separate.</p><table><tr><th>Portal user</th><th>Phone user ID</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT username,userid FROM voice_user_links JOIN users ON users.id=voice_user_links.user_id'): content+='<tr><td>'+E(row['username'])+'</td><td>'+E(row['userid'])+'</td></tr>'
-    content+='</table><div class="panel"><form method="post">'+csrf+'<input type="hidden" name="action" value="axl-settings"><label>AXL HTTPS endpoint</label><input name="endpoint" type="url" value="'+E(axl_endpoint(app))+'"><label>Trusted CA file on portal server (optional)</label><input name="ca_file" value="'+E(app.config.get("voice_axl_ca_file",""))+'"><br><button>Save AXL settings</button></form><p>AXL service credentials are configured on the server. TLS certificate validation is required.</p></div>'
     return content+'<div class="panel"><form method="post">'+csrf+'<label>Portal username</label><input name="username" required><label>Phone-system user ID</label><input name="userid"><br><button name="action" value="link">Link identity</button><button name="action" value="unlink">Unlink identity</button></form></div>'+creation_form(csrf)
 
 def creation_form(csrf):
@@ -287,3 +292,6 @@ def creation_form(csrf):
 
 def account_action(app,user,data):
     if data.get('action')=='voice-refresh': return account_refresh(app,user)
+
+def account_link(app,user,identifier):
+    return admin_change(app,{"username":user["username"],"userid":identifier,"action":"link"},None)

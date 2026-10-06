@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.0 — 2026-10-06
+
+Add displayed build IDs, combine overview and addon management, expand the repository into addon cards, add administrator-approved service linking in My Account, and reopen update wizards only for the active user-initiated workflow. Move addon configuration into Overview wizards while keeping phone account links within Users and Accounts. Add configurable mirrored upload storage using Linux software RAID 1, combined capacity using RAID 0, array health reporting, SMART health with administrator alerts, upload-volume TRIM and conditional ext4 defragmentation.
+
 ## 1.25.1 — 2026-10-06
 
 Automatically replace installed addons alongside INSAP, prevent changelog loops during installation, and finish update checks and installations with clear current/success/declined/failure results.

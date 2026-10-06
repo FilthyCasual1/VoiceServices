@@ -51,3 +51,9 @@ References: [iPXE sanboot](https://ipxe.org/cmd/sanboot),
 Administrators can create, rename and delete download categories. Add a category when creating a download link, or edit an uploaded application after upload to assign its category, display name, description, version and platform. Users can browse by category and search applications. Existing entries appear in Uncategorized. Deleting a category preserves all downloads.
 
 Uploaded files show readable sizes and can be permanently deleted with confirmation. Upload storage also supports reformatting the current data disk: confirm data loss, type the exact ERASE disk phrase and enter the local administrator password. This deletes all uploaded files, branding images and profile pictures, preserves accounts/settings/categories/external links, and briefly disconnects the portal. Boot disks and disks used elsewhere cannot be reformatted through this control.
+
+## Multi-disk upload storage
+
+Upload storage can create Linux software RAID arrays from two to eight blank, non-system disks. Mirror (RAID 1) maintains duplicate copies and tolerates member failures while a copy remains available. Combined capacity (RAID 0) expands capacity without redundancy: losing any member loses the volume. Review the selected disks, confirm data erasure, type CREATE ARRAY and supply the local administrator password. Array configuration persists for startup assembly, and Upload storage reports array health. Reformatting an active RAID array and replacing RAID members are not currently offered by the portal.
+
+Upload storage and Overview display SMART disk health when the host exposes it; caution/failure transitions notify administrators without repeating each refresh. Virtual disks may not expose physical SMART. Readings are cached for 60 seconds. Upload-volume maintenance offers TRIM when discard is supported and checks ext4 fragmentation before defragmenting (score 55 or higher).

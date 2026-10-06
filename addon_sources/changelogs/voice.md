@@ -1,3 +1,7 @@
+## 1.26.0
+
+- Add administrator-approved account linking requests through the core Services page.
+
 ## 1.25.1
 
 - Package for INSAP 1.25.1; installed addons refresh automatically with the portal update.

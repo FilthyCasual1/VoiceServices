@@ -46,7 +46,7 @@ class Modules:
                     manifest=json.loads(archive.read('manifest.json'));code=archive.read('module.py');changelog=archive.read('CHANGELOG.md') if 'CHANGELOG.md' in archive.namelist() else b''
                 key=manifest['id']
                 if key not in self.approved: raise ValueError('Unknown addon package.')
-                if set(manifest)!={'id','version','api','sha256'} or not isinstance(manifest['version'],str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',manifest['version']): raise ValueError('Invalid addon manifest.')
+                if set(manifest) not in ({'id','version','api','sha256'},{'id','version','api','sha256','build'}) or ('build' in manifest and (type(manifest['build']) is not int or manifest['build']<1)) or not isinstance(manifest['version'],str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',manifest['version']): raise ValueError('Invalid addon manifest.')
                 approved=self.approved[key]
                 if type(manifest['api']) is not int or manifest['api']!=approved['api']: raise ValueError('Addon API is incompatible with this portal. Upload a package supporting API '+str(approved['api'])+'.')
                 if manifest['sha256']!=approved['sha256']: raise ValueError('Addon code is not approved by this portal release. Use a current package or update the portal.')

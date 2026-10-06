@@ -18,11 +18,11 @@ def change(app,user,data):
     if kind=='insap':return 'Fetching the available release and changelog. Progress updates automatically. Review it before installing.'
     return 'Update started. Progress updates automatically. The portal briefly disconnects while INSAP restarts.'
 def render(app,user,started=False):
-    from .version import __version__
+    from .version import __version__, __display_version__
     from . import distro,host_branding
     host=distro.detected();name=host.get('NAME',host.get('ID','Linux'));release=host.get('VERSION_ID','')
     identity=E((name+' '+release).strip())
-    content='<div class="panel host-updates"><div class="distro-powered"><span>ServiceReady is powered by:</span>'+host_branding.marks()+'<span class="update-version">'+identity+'</span><span class="update-version">INSAP '+E(__version__)+'</span></div><p>Update host packages, INSAP or VM tools. Settings are retained; INSAP updates briefly restart the portal.</p>'
+    content='<div class="panel host-updates"><div class="distro-powered"><span>ServiceReady is powered by:</span>'+host_branding.marks()+'<span class="update-version">'+identity+'</span><span class="update-version">INSAP '+E(__display_version__)+'</span></div><p>Update host packages, INSAP or VM tools. Settings are retained; INSAP updates briefly restart the portal.</p>'
     if not app.store.accounts: return content+'<p class="muted">No host update provider is connected. One-click updates are unavailable on this deployment.</p><div class="update-actions"><button disabled>Update OS</button><button disabled>Update INSAP</button></div></div>'
     content+='<p class="muted">Connected update provider: host operating system.</p>'
     try: state=app.store.accounts.call('maintenance-status','','')
@@ -33,7 +33,7 @@ def render(app,user,started=False):
     if isinstance(live,dict) and live.get('provider') in ('virtualbox','vmware'):
         platform,tools=('VMware','VMware Tools') if live['provider']=='vmware' else ('VirtualBox','Guest Additions')
         versions=''.join('<span class="update-version">'+label+' '+E(value)+'</span>' for label,value in [(platform,live.get('host_version')),(tools,live.get('version'))] if value)
-        content=content.replace('<span class="update-version">INSAP '+E(__version__)+'</span>', '<span class="update-version">INSAP '+E(__version__)+'</span>'+versions)
+        content=content.replace('<span class="update-version">INSAP '+E(__display_version__)+'</span>', '<span class="update-version">INSAP '+E(__display_version__)+'</span>'+versions)
         content+='<p class="tools-live-status">Guest tools now: <strong>'+platform+' '+E(live.get('version',''))+' — '+E(live.get('state','Unknown'))+'</strong></p>'
         if live.get('provider')=='virtualbox' and live.get('state')=='Running' and not live.get('communication',True):content+='<p class="muted">Guest service and driver are running. Hypervisor version property is unavailable; this does not indicate an installation failure.</p>'
     watch='starting' if started else state.get('state','idle')

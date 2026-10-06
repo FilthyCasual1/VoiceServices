@@ -126,7 +126,7 @@ def main(kind,approved_commit=''):
             review['state']='installing';write_review(review)
             status(kind,'running','Installing approved INSAP release '+review['version'])
             run(['git','-C',str(source),'merge','--ff-only',approved_commit])
-            run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
+            run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','smartmontools','mdadm','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
             status(kind,'running','Restoring service-account runtime access and verifying imports')
             run(['/usr/bin/python3',str(source/'deploy/runtime-access.py')])
             # Stop the portal before repairing old root-private addon files.

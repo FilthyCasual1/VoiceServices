@@ -3,7 +3,7 @@ import html,json,os,shutil,socket,time,platform
 from pathlib import Path
 from .modules import CATALOG
 from . import regional,host_branding
-from .version import __version__
+from .version import __version__, __display_version__
 E=lambda value:html.escape(str(value),quote=True)
 
 def readable_uptime(seconds):
@@ -95,4 +95,12 @@ def render(app):
         if isinstance(live,dict) and live.get('provider') in ('virtualbox','vmware'):
             provider_label,tools=('VMware','VMware Tools') if live['provider']=='vmware' else ('VirtualBox','Guest Additions')
             host_rows.extend((label+' version',value) for label,value in [(provider_label,live.get('host_version')),(tools,live.get('version'))] if value)
-    return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__version__)+'</strong></span><span class="overview-powered">ServiceReady is powered by: '+host_branding.marks()+'</span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'
+    disk_report=''
+    if app.store.accounts:
+        try:
+            from . import disk_health
+            storage=app.store.accounts.call('host-status','','','storage')
+            disk_report=disk_health.render(app,storage)
+            if storage.get('raid'):disk_report='<h3>'+E(storage['raid'])+'</h3><pre>'+E(storage.get('raid_status','Unavailable'))+'</pre>'+disk_report
+        except ValueError:pass
+    return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__display_version__)+'</strong></span><span class="overview-powered">ServiceReady is powered by: '+host_branding.marks()+'</span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section>'+('<section class="overview-addons">'+disk_report+'</section>' if disk_report else '')+'</div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'
