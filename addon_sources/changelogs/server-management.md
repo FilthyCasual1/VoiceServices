@@ -1,5 +1,13 @@
 # Server Management changelog
 
+## 1.20.1
+
+- Package for INSAP 1.20.1. No functional addon changes.
+
+## 1.20.0
+
+- Package for INSAP 1.20.0. No functional addon changes; automatic tools-CD installation is a core feature.
+
 ## 1.19.2
 
 - Package for INSAP 1.19.2. No functional addon changes.

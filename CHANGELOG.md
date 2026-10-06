@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.20.1 — 2026-10-06
+
+Label OS and VM logos ServiceReady is powered by and remove the portal arrow from that group while retaining masthead branding.
+
+## 1.20.0 — 2026-10-06
+
+- Detect inserted VirtualBox and VMware tools CDs from Host maintenance; install automatically through the core scheduler or manually from the portal.
+- Verify Oracle optical media against its published checksum and install from a verified temporary copy.
+- Install compiler, archive utilities, kernel headers and the development package matching the running kernel before building Guest Additions.
+- Track attempted media to prevent repeated failed installations. Automatic installation can be turned off; failed jobs can be retried manually.
+- Use Rocky repository open-vm-tools for VMware. Never reboot automatically.
+
 ## 1.19.2 — 2026-10-06
 
 Use equal-sized, evenly spaced monochrome portal, distro and VM provider logo slots.

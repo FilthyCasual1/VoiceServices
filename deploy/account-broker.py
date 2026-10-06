@@ -144,6 +144,11 @@ def handle(request):
         review_path=Path('/etc/serviceready/update-review.json')
         review=json.loads(review_path.read_text()) if review_path.exists() else {}
         if request['action']=='maintenance-status':
+            helper=Path('/opt/serviceready/vm-tools.py')
+            if helper.is_file() and not helper.is_symlink() and helper.stat().st_uid==0 and not helper.stat().st_mode&0o022:
+                import importlib.util
+                spec=importlib.util.spec_from_file_location('vm_tools',helper);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                state['tools_cd']=module.tools_cd()
             state['review']=review;return {'ok':True,'status':state}
         if request['action']=='maintenance-decline':
             import fcntl
@@ -156,7 +161,7 @@ def handle(request):
                 temporary=review_path.with_suffix('.new');temporary.write_text(json.dumps(review));os.chmod(temporary,0o600);temporary.replace(review_path)
             return {'ok':True}
         kind=request.get('username')
-        if kind not in ('os','insap','insap-install','vmtools','cleanup','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
+        if kind not in ('os','insap','insap-install','vmtools','vmtools-cd','cleanup','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
         if state.get('state')=='running': raise ValueError('An update is already running.')
         approved=''
         if kind=='cleanup':
@@ -168,7 +173,7 @@ def handle(request):
             if not re.fullmatch('[a-f0-9]{40}',approved) or review.get('commit')!=approved or review.get('state')!='ready':raise ValueError('Reload and approve the current release before installing.')
             kind='insap'
         elif kind=='insap':kind='insap-check'
-        if kind=='vmtools':
+        if kind in ('vmtools','vmtools-cd'):
             helper=Path('/opt/serviceready/vm-tools.py')
             if not helper.exists():
                 source=Path('/opt/serviceready/source/deploy/vm-tools.py')

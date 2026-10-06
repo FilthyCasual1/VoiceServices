@@ -19,5 +19,6 @@ class HostBrandingTests(unittest.TestCase):
   with patch.object(host_branding,'provider',return_value=('virtualbox','VirtualBox')):
    for path in ('/admin','/admin/host'):
     body=self.request(path,token=token)['body']
-    for image in ('casualnetworks-arrow.svg','/host/distro-logo','provider-virtualbox.svg'):self.assertIn(image,body)
+    for image in ('/host/distro-logo','provider-virtualbox.svg'):self.assertIn(image,body)
+  self.assertNotIn('casualnetworks-arrow.svg',host_branding.marks())
   with patch.object(host_branding,'provider',return_value=(None,'Host')):self.assertNotIn('provider-',host_branding.marks())

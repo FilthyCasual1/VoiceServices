@@ -312,7 +312,7 @@ class CoreAdminTests(unittest.TestCase):
     def test_overview_has_identity_but_updates_only_on_updates_page(self):
         token,user=self.user('admin')
         body=self.request('/admin',token=token)['body']
-        self.assertIn('Powered by',body);self.assertIn('/host/distro-logo',body);self.assertIn('Installed INSAP version:',body)
+        self.assertIn('ServiceReady is powered by:',body);self.assertIn('/host/distro-logo',body);self.assertIn('Installed INSAP version:',body)
         self.assertNotIn('>Update OS</button>',body);self.assertNotIn('>Grab INSAP update</button>',body);self.assertNotIn('data-update-state',body)
         updates=self.request('/admin/system-updates',token=token)['body']
         self.assertIn('>Update OS</button>',updates);self.assertIn('>Grab INSAP update</button>',updates)

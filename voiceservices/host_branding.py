@@ -17,6 +17,6 @@ def provider():
 
 def marks():
     identifier,label=provider()
-    result='<div class="host-brand-marks"><img src="/static/casualnetworks-arrow.svg" alt="CasualNetworks" title="CasualNetworks"><img src="/host/distro-logo" alt="Host distribution logo" title="Host operating system">'
+    result='<div class="host-brand-marks"><img src="/host/distro-logo" alt="Host distribution logo" title="Host operating system">'
     if identifier:result+='<img class="provider-mark" src="/static/provider-'+identifier+'.svg" alt="'+label+'" title="'+label+'">'
     return result+'</div>'

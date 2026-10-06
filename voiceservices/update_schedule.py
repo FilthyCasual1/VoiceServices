@@ -10,6 +10,9 @@ def initialize(app):
     with app.store.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS update_schedule_runs(kind TEXT PRIMARY KEY,next_run INTEGER NOT NULL,last_run INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT \'Waiting\',message TEXT NOT NULL DEFAULT \'\')')
         db.execute('CREATE TABLE IF NOT EXISTS scheduler_heartbeat(id INTEGER PRIMARY KEY,at INTEGER NOT NULL)')
+def cd_automatic(app):
+    with app.store.connect() as db:row=db.execute("SELECT value FROM portal_settings WHERE key='tools_cd_auto'").fetchone()
+    return row is None or row[0]=='yes'
 def settings(app):
     initialize(app)
     with app.store.connect() as db: row=db.execute("SELECT value FROM portal_settings WHERE key='update_schedules'").fetchone()
@@ -47,6 +50,7 @@ def change(app,user,data):
         new[kind]=s
     with app.store.connect() as db:
         db.execute("INSERT OR REPLACE INTO portal_settings VALUES('update_schedules',?)",(json.dumps(new),))
+        if 'tools_cd_auto' in data:db.execute("INSERT OR REPLACE INTO portal_settings VALUES('tools_cd_auto',?)",('yes' if data['tools_cd_auto']=='yes' else 'no',))
         for kind,s in new.items():
             if s!=current[kind] or not db.execute('SELECT 1 FROM update_schedule_runs WHERE kind=?',(kind,)).fetchone():
                 db.execute('INSERT INTO update_schedule_runs(kind,next_run) VALUES(?,?) ON CONFLICT(kind) DO UPDATE SET next_run=excluded.next_run,status=\'Waiting\',message=\'Schedule changed\'',(kind,next_run(s,now) if s['enabled'] else 0))
@@ -60,6 +64,7 @@ def render(app,user):
         s=schedules[kind];text+='<h3>'+label+'</h3><label>Automatic updates</label><select name="'+kind+'_enabled"><option value="no">Off</option><option value="yes"'+(' selected' if s['enabled'] else '')+'>On</option></select><label>Frequency</label><select name="'+kind+'_frequency"><option value="daily">Daily</option><option value="weekly"'+(' selected' if s['frequency']=='weekly' else '')+'>Weekly</option></select><label>Weekday (weekly schedules)</label><select name="'+kind+'_weekday">'+''.join('<option value="'+str(n)+'"'+(' selected' if n==s['weekday'] else '')+'>'+day+'</option>' for n,day in enumerate(('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')))+'</select><label>Time</label><input type="time" name="'+kind+'_time" value="'+E(s['time'])+'" required><label>Time zone</label>'+regional.timezone_select(kind+'_timezone',s['timezone'],True)
         row=rows.get(kind,{});due=row.get('next_run',0)
         text+='<p>Next run: '+(E(regional.format_timestamp(app,due,s['effective_timezone'])) if s['enabled'] and due else 'Disabled')+'. Last result: '+E(row.get('status','No runs yet'))+' '+E(row.get('message',''))+'</p>'
+    text+='<h3>Inserted tools CD</h3><label>Automatically install verified tools media</label><select name="tools_cd_auto"><option value="yes"'+(' selected' if cd_automatic(app) else '')+'>On</option><option value="no"'+(' selected' if not cd_automatic(app) else '')+'>Off</option></select><p>Detected media is installed once in the background. Failed installations require a manual retry. The VM is never rebooted automatically.</p>'
     return text+'<button>Save update schedules</button></form></div><p>Scheduled portal checks fetch the release and changelog for review. Installation requires Proceed with update; declined versions stay skipped. Portal installation briefly restarts services and preserves settings. OS updates upgrade installed packages without an automatic reboot. If an update is already running, other due jobs wait. Missed occurrences run once after the scheduler returns; failed requests wait for the next occurrence. Session and security policies remain separate.</p>'
 def tick(app,now=None):
     now=int(time.time()) if now is None else int(now);schedules=settings(app)
@@ -71,6 +76,11 @@ def tick(app,now=None):
             db.execute("UPDATE update_schedule_runs SET status=?,message=? WHERE kind=? AND status='Requested' AND last_run<=?",(state['state'].title(),state.get('message',''),state.get('kind',''),state.get('at',0)))
         recent=db.execute('SELECT MAX(last_run) FROM update_schedule_runs').fetchone()[0] or 0
     if state.get('state')=='running' or recent>now-60: return
+    cd=state.get('tools_cd',{})
+    if cd_automatic(app) and isinstance(cd,dict) and cd and not cd.get('attempted'):
+        try:app.store.accounts.call('maintenance-start','vmtools-cd','')
+        except ValueError:pass
+        return
     for kind,s in schedules.items():
         if not s['enabled']: continue
         with app.store.connect() as db:
