@@ -138,3 +138,23 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .account{padding-bottom:5px;min-height:76px;height:auto}
 .account-picture .inline{position:static;margin-top:auto;padding-top:4px}
 @media(max-width:720px){.account{min-height:88px}.account .account-links{gap:3px}.account-details>div{line-height:1.35}}
+
+/* One shared action row beneath the picture and identity, logout at the right edge. */
+.account{display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto;gap:4px 8px;align-items:start}
+.account-picture{grid-column:1;grid-row:1;align-self:start}
+.account-details{grid-column:2;grid-row:1;display:block;min-width:0}
+.account:not(:has(.account-picture)) .account-details{grid-column:1/-1;align-self:stretch;display:flex}
+.account-actions{grid-column:1/-1;display:flex;align-items:center;gap:4px;min-width:0}
+.account-actions a,.account-actions .inline button{display:inline-flex;align-items:center;justify-content:center;height:18px;margin:0;padding:2px 4px;font:bold 9px Arial;line-height:1;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4;color:white;text-decoration:none;white-space:nowrap;border-radius:0}
+.account-actions .inline{margin-left:auto;flex-shrink:0}
+.account-actions .inline button{color:#a71919}
+.account-actions .notification-indicator{height:18px;min-width:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;display:block;line-height:12px}
+@media(max-width:720px){.account{grid-template-columns:28px minmax(0,1fr);gap:4px 5px}.account-actions{gap:3px}.account-actions a,.account-actions .inline button{font-size:8px;padding:2px 3px}.account-actions .notification-indicator{font-size:8px;padding:2px 3px;max-width:55px}}
+/* Keep update status and controls in their own column beside the distro mark. */
+.host-updates{display:grid;grid-template-columns:minmax(0,1fr) 96px;column-gap:14px;align-items:start}
+.host-updates>:not(.distro-powered){grid-column:1;min-width:0;overflow-wrap:anywhere}
+.host-updates .distro-powered{grid-column:2;grid-row:1/span 6;float:none;margin:0;width:96px}
+.host-updates p{max-width:100%}
+@media(max-width:480px){.host-updates{grid-template-columns:minmax(0,1fr)}.host-updates .distro-powered{grid-column:1;grid-row:auto;justify-self:end}}
+
+footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 16px}.footer-copyright{margin-left:auto;text-align:right}

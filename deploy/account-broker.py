@@ -115,9 +115,18 @@ def handle(request):
         import importlib.util,base64
         from pathlib import Path
         worker=Path('/opt/serviceready/host-control.py')
+        if not worker.exists():
+            # Older GUI update workers copied only the broker and updater.
+            # Bootstrap solely from the root-controlled approved checkout.
+            source=Path('/opt/serviceready/source/deploy/host-control.py')
+            chain=[Path('/opt/serviceready'),source.parents[1],source.parent,source]
+            if all(path.exists() and not path.is_symlink() and path.stat().st_uid==0 and not path.stat().st_mode&0o022 for path in chain):
+                import shutil
+                shutil.copyfile(source,worker);os.chmod(worker,0o700)
+
         if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022:raise ValueError('Host controls are not installed safely.')
         spec=importlib.util.spec_from_file_location('host_control',worker);control=importlib.util.module_from_spec(spec);spec.loader.exec_module(control)
-        if request['action']=='host-status':return {'ok':True,'status':control.snapshot()}
+        if request['action']=='host-status':return {'ok':True,'status':control.snapshot(request.get('new_password','storage'))}
         if not authenticate(request.get('username',''),request.get('password','')):raise ValueError('Confirm your local administrator password.')
         if request['action']=='host-confirm':
             if control.snapshot()['job']['state']!='pending':raise ValueError('No network change awaiting confirmation.')

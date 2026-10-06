@@ -51,3 +51,10 @@ class HostConfigurationTests(unittest.TestCase):
    self.assertIn(['nmcli','connection','modify',original,'connection.autoconnect','no'],calls)
    self.assertIn(['nmcli','connection','modify','22222222-2222-2222-2222-222222222222','connection.autoconnect','yes'],calls)
    self.assertIn(['hostnamectl','set-hostname','old-host'],calls)
+ def test_storage_status_does_not_require_network_or_time_tools(self):
+  with tempfile.TemporaryDirectory() as root:
+   cfg=Path(root)/'config.json';cfg.write_text('{}')
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'STATE',Path(root)/'job.json'),patch.object(control,'disks',return_value=[]),patch.object(control.subprocess,'check_output',side_effect=FileNotFoundError):
+    storage=control.snapshot('storage');network=control.snapshot('network-host')
+   self.assertEqual(storage['errors'],[])
+   self.assertEqual(network['connections'],'Unavailable');self.assertEqual(len(network['errors']),3)

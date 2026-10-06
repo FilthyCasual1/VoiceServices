@@ -14,12 +14,21 @@ def disks():
   result.append(d)
  return result
 
-def snapshot():
+def snapshot(section='storage'):
  cfg=json.loads(CONFIG.read_text())
  try:state=json.loads(STATE.read_text())
  except FileNotFoundError:state={'state':'idle','message':'No host configuration task started.'}
  if state.get('state') in ('running','pending') and state.get('pid') and not pathlib.Path('/proc/'+str(state['pid'])).exists():state={'state':'failed','message':'The host operation was interrupted. Inspect the host before retrying.'}
- return {'storage_available':bool(cfg.get('data_mount') and os.path.ismount(cfg['data_mount'])),'disks':disks(),'job':state,'storage':cfg.get('data_mount','Not configured'),'hostname':run(['hostname']),'connections':run(['nmcli','-t','-f','NAME,UUID,DEVICE','connection','show','--active']),'time':run(['timedatectl','status'])}
+ result={'storage_available':bool(cfg.get('data_mount') and os.path.ismount(cfg['data_mount'])),'job':state,'storage':cfg.get('data_mount','Not configured'),'errors':[],'disks':[]}
+ if section=='storage':
+  try:result['disks']=disks()
+  except (OSError,ValueError,subprocess.SubprocessError) as exc:result['errors'].append('Disk discovery unavailable: '+str(exc)[-400:])
+ else:
+  for key,args in [('hostname',['hostname']),('connections',['nmcli','-t','-f','NAME,UUID,DEVICE','connection','show','--active']),('time',['timedatectl','status'])]:
+   try:result[key]=subprocess.check_output(args,text=True,stderr=subprocess.STDOUT,timeout=3).strip()
+   except (OSError,subprocess.SubprocessError) as exc:
+    result[key]='Unavailable';result['errors'].append(key+': '+str(exc)[-400:])
+ return result
 def validate(p):
  kind=p.get('kind')
  if kind=='storage':

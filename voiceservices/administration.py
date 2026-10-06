@@ -4,7 +4,7 @@ from .modules import CATALOG
 from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'storage':'Upload storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
+HEADINGS={'system-updates':'Portal and host updates','storage':'Upload storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
 def password_form(user,app):
     if external_auth.identity(app,user): return '<p>Your password is managed by your identity provider.</p>'
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
@@ -16,7 +16,7 @@ def render(app,path,user,data,method,services):
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';note=''
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
-        elif section=='overview': note=maintenance.change(app,user,data)
+        elif section in ('overview','system-updates'): note=maintenance.change(app,user,data)
         elif section=='addons':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
@@ -32,6 +32,7 @@ def render(app,path,user,data,method,services):
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview': content+=overview.render(app)+maintenance.render(app,user)
+    elif section=='system-updates': content+=maintenance.render(app,user)
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
     elif section=='notifications': content+=notifications.render(app,user)
@@ -53,7 +54,7 @@ def render(app,path,user,data,method,services):
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/host','Host maintenance'),('/admin/terminal','Host terminal'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/schedules','Update schedules'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/terminal','Host terminal'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/schedules','Update schedules'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
             (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))

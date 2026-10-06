@@ -12,8 +12,11 @@ def change(app,user,data):
  return 'Host operation accepted. Refresh this page to see progress.'
 def render(app,user,section):
  if not app.store.accounts:return '<p class="notice">Host controls require a connected Linux account broker.</p>'
- state=app.store.accounts.call('host-status','','');job=state['job']
+ try:state=app.store.accounts.call('host-status','','',section)
+ except ValueError as exc:return '<p class="notice error">'+E(exc)+'</p><p>Use <a href="/admin/system-updates">Portal and host updates</a> to install the current host integration, then retry this page.</p>'
+ job=state['job']
  text='<p class="notice">'+E(job['state'])+': '+E(job['message'])+'</p><p><a href="/admin/'+section+'">Refresh status</a></p>'
+ text+=''.join('<p class="notice error">'+E(error)+'</p>' for error in state.get('errors',[]))
  csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
  def form(kind,body,label):return '<form method="post" class="panel">'+csrf+'<input type="hidden" name="kind" value="'+kind+'">'+body+'<label>Local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><button>'+label+'</button></form>'
  if section=='storage':

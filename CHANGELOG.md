@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.16.10 — 2026-10-06
+
+Keep storage and network/time pages usable when host tooling is unavailable, with independent diagnostics and GUI-upgrade helper recovery.
+
+## 1.16.9 — 2026-10-06
+
+Place footer copyright at the far right while retaining branding and version on the left.
+
+## 1.16.8 — 2026-10-06
+
+Separate update status from the distro logo to prevent overview collisions.
+
+## 1.16.7 — 2026-10-06
+
+Expose the connected INSAP updater on a dedicated System GUI page with installed-version and restart guidance.
+
+## 1.16.6 — 2026-10-06
+
+Align header account actions beneath the profile picture, with logout at the far right.
+
 ## 1.16.5 — 2026-10-06
 
 Graceful missing upload-volume status and portal setup of a blank replacement disk.
