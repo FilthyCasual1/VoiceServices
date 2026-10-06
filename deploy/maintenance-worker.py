@@ -61,7 +61,7 @@ def main(kind):
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
             status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
             run(['git','-C',str(source),'merge','--ff-only','origin/main'])
-            run(['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
+            run(['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
             # Refresh installed official addons only; absent addons remain absent.
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
             run([str(ROOT/'venv/bin/python'),'-c',script])
@@ -72,8 +72,10 @@ def main(kind):
             run(['/sbin/rc-update','add','serviceready-snmp','default'])
             shutil.copy2(source/'deploy/serviceready-scheduler.initd','/etc/init.d/serviceready-scheduler');os.chmod('/etc/init.d/serviceready-scheduler',0o755)
             run(['/sbin/rc-update','add','serviceready-scheduler','default'])
+            shutil.copy2(source/'deploy/serviceready-addresses.initd','/etc/init.d/serviceready-addresses');os.chmod('/etc/init.d/serviceready-addresses',0o755)
+            run(['/sbin/rc-update','add','serviceready-addresses','default'])
             status(kind,'running','Restarting portal services')
-            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler'): run(['/sbin/rc-service',service,'restart'])
+            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/sbin/rc-service',service,'restart'])
             status(kind,'complete','INSAP updated. Database/configuration backup saved in '+str(backup)+'.')
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)

@@ -25,6 +25,8 @@ class App:
     def __init__(self, config):
         self.config = config
         self.started_at = time.time()
+        from .network_address import Addresses
+        self.addresses = Addresses()
         hostname=socket.gethostname().rstrip('.')
         try: fqdn=socket.getfqdn().rstrip('.')
         except OSError: fqdn=hostname
@@ -70,6 +72,10 @@ class App:
             return [body]
         with self.store.connect() as db:
             for row in db.execute('SELECT key,value FROM portal_settings'): self.config[row['key']]=json.loads(row['value'])
+        if self.config.get('automatic_public_url'):
+            from .network_address import origin
+            _,address=self.addresses.current()
+            if address:self.base=origin(self.config,address);self.config['public_url']=self.base
         path = env.get('PATH_INFO','/')
         method = env.get('REQUEST_METHOD','GET')
         missing=self.modules.unavailable_for(path)

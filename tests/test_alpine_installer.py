@@ -11,7 +11,7 @@ class AlpineInstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             output=Path(temporary)/'config.json'
             script=script.replace('/etc/serviceready/config.json',str(output))
-            with patch.object(sys,'argv',['installer',str(root/'config.bare.json'),url]),patch.dict(os.environ,{'SERVICEREADY_LOCAL_TLS':str(tls)}):
+            with patch('voiceservices.network_address.Addresses.current',return_value=(['192.168.56.20'],'192.168.56.20')),patch.object(sys,'argv',['installer',str(root/'config.bare.json'),url]),patch.dict(os.environ,{'SERVICEREADY_LOCAL_TLS':str(tls)}):
                 exec(compile(script,'installer-config','exec'),{})
             return json.loads(output.read_text())
     def test_tls_bare_loopback_and_alpine_accounts(self):
@@ -37,3 +37,10 @@ class AlpineInstallerTests(unittest.TestCase):
             exec(compile(script,'installer-tls','exec'),{})
             self.assertEqual(caddy.read_text(),'https://192.168.56.20 {\n    tls internal\n    reverse_proxy 127.0.0.1:8080\n}\n')
             self.assertEqual(json.loads(config.read_text())['listen_host'],'127.0.0.1')
+    def test_blank_url_follows_address_by_default(self):
+        for tls,expected in [(0,'http://192.168.56.20:8080'),(1,'https://192.168.56.20')]:
+            with self.subTest(tls=tls):
+                config=self.generate('',tls)
+                self.assertEqual(config['public_url'],expected)
+                self.assertTrue(config['automatic_public_url'])
+                self.assertEqual(config['automatic_local_tls'],bool(tls))

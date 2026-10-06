@@ -21,7 +21,7 @@ if [ "$local_tls" = 1 ]; then
 fi
 export SERVICEREADY_LOCAL_TLS="$local_tls"
 umask 027
-apk add --no-cache python3 py3-pip git ca-certificates dnsmasq tzdata krb5 krb5-dev build-base python3-dev
+apk add --no-cache python3 py3-pip git ca-certificates dnsmasq tzdata krb5 krb5-dev build-base python3-dev iproute2
 grep -q '^serviceready:' /etc/group || addgroup -S serviceready
 id serviceready >/dev/null 2>&1 || adduser -S -D -H -G serviceready -h /var/lib/serviceready -s /sbin/nologin serviceready
 mkdir -p /opt/serviceready /etc/serviceready /var/lib/serviceready /var/log/serviceready /var/lib/serviceready/tmp
@@ -46,12 +46,19 @@ chmod 0750 /opt/serviceready
 chgrp -R serviceready /opt/serviceready/venv
 chmod -R g+rX /opt/serviceready/venv
 if [ ! -f /etc/serviceready/config.json ]; then
-    printf 'Portal URL (example: http://192.168.10.50:8080): '
+    printf 'Portal URL (Enter = automatically follow this machine’s address): '
     read -r portal_url
     /opt/serviceready/venv/bin/python - "$config_template" "$portal_url" <<'PY'
 import json,sys,os
 from urllib.parse import urlsplit
-url = sys.argv[2].rstrip('/')
+from voiceservices.network_address import Addresses,origin
+local_tls = os.environ.get('SERVICEREADY_LOCAL_TLS') == '1'
+automatic = not sys.argv[2].strip()
+url = sys.argv[2].strip().rstrip('/')
+if automatic:
+    _,address=Addresses().current()
+    if not address:raise SystemExit('No active network address found. Configure networking and rerun.')
+    url=origin({'public_url':'https://localhost' if local_tls else 'http://localhost:8080'},address)
 p = urlsplit(url)
 if p.scheme not in ('http','https') or not p.hostname or p.username or p.password or p.query or p.fragment or p.path:
     raise SystemExit('Enter an HTTP(S) origin with no path, username or password.')
@@ -59,7 +66,7 @@ local_tls = os.environ.get('SERVICEREADY_LOCAL_TLS') == '1'
 if local_tls and (p.scheme != 'https' or p.port not in (None,443)):
     raise SystemExit('--tls requires an https:// hostname or IP on port 443.')
 with open(sys.argv[1]) as f: config = json.load(f)
-config.update(database='/var/lib/serviceready/serviceready.sqlite3',public_url=url,
+config.update(automatic_public_url=automatic,automatic_local_tls=automatic and local_tls,database='/var/lib/serviceready/serviceready.sqlite3',public_url=url,
               secure_cookies=p.scheme=='https',listen_host='127.0.0.1' if local_tls else '0.0.0.0',listen_port=8080,
               auth_backend='alpine',account_socket='/run/serviceready-accounts/socket',
               update_directory='/var/lib/serviceready/updates',addon_directory='/var/lib/serviceready/addons')
@@ -85,6 +92,11 @@ address='['+host+']' if ':' in host else host
 config.update(listen_host='127.0.0.1',secure_cookies=True)
 Path('/etc/serviceready/config.json').write_text(json.dumps(config,indent=2))
 Path('/etc/caddy/Caddyfile').write_text('https://'+address+' {\n    tls internal\n    reverse_proxy 127.0.0.1:'+str(config.get('listen_port',8080))+'\n}\n')
+if config.get('automatic_public_url'):
+    from voiceservices.network_address import Addresses,caddy_config
+    values,primary=Addresses().current()
+    if not primary:raise SystemExit('No active network address found.')
+    Path('/etc/caddy/Caddyfile').write_text(caddy_config(values,primary,config.get('listen_port',8080)))
 PYTLS
     chmod 0644 /etc/caddy/Caddyfile
     caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
@@ -145,3 +157,7 @@ PY
 install -m 0755 "$source_dir/deploy/serviceready-snmp.initd" /etc/init.d/serviceready-snmp
 rc-update add serviceready-snmp default
 rc-service serviceready-snmp restart
+
+install -m 0755 "$source_dir/deploy/serviceready-addresses.initd" /etc/init.d/serviceready-addresses
+rc-update add serviceready-addresses default
+rc-service serviceready-addresses restart

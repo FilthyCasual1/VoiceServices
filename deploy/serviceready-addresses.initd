@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+name="ServiceReady Addresses"
+description="Keep managed local HTTPS sites aligned with host addresses"
+supervisor="supervise-daemon"
+command="/opt/serviceready/venv/bin/python"
+command_args="-m voiceservices.address_service"
+command_user="root:root"
+pidfile="/run/serviceready-addresses/supervisor.pid"
+output_log="/var/log/serviceready/addresses.log"
+error_log="/var/log/serviceready/addresses-error.log"
+respawn_delay=5
+depend() {
+    need net
+    after caddy serviceready
+}
+start_pre() {
+    checkpath --directory --owner root:root --mode 0750 /run/serviceready-addresses
+}

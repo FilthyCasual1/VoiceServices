@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.2 — 2026-10-06
+
+Default blank installer URL to current host addresses; follow DHCP/static changes in portal URLs and managed local HTTPS without restarting the portal.
+
 ## 1.14.1 — 2026-10-06
 
 Prepare Alpine VM deployment: main-branch installation instructions, bare defaults and optional local HTTPS proxy for host tools.
