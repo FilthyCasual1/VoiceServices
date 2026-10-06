@@ -223,3 +223,5 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 /* Let account content claim masthead space instead of wrapping inside a fixed strip. */
 @media(min-width:721px){header{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:340px;width:max-content;max-width:60vw}.account-details>div{grid-template-columns:68px max-content;white-space:nowrap;overflow-wrap:normal}.account-actions{flex-wrap:nowrap}.account-actions .notification-indicator{max-width:none}header.masthead-compact{grid-template-columns:minmax(180px,1fr) minmax(0,600px) max-content}.masthead-compact .masthead-image{display:block;width:100%;min-width:0}.account:has(.account-picture){grid-template-columns:64px max-content}}
 header.masthead-compact{border-bottom:0}
+
+@media(min-width:721px){header.masthead-wide{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:0;max-width:none;padding-right:12px}.account-actions .inline{margin-left:12px}.account:has(.account-picture){grid-template-columns:64px max-content}.masthead-wide .brand{min-width:0}}

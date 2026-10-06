@@ -26,6 +26,9 @@ def render(app,user,section):
  if section=='storage':
   if state['storage']!='Not configured' and not state['storage_available']:text+='<p class="notice error">Storage disk missing. Core services remain available; uploaded content is blocked. Reattach the original volume or configure a blank replacement below. A replacement does not recover files from the missing disk.</p>'
   text+='<p>Storage volume: '+E(state['storage'])+'</p><p>A separate disk stores downloads, update packages and PXE images. Unused, unpartitioned disks can be erased and configured, and the current upload disk can be reformatted even when it contains files. Formatting is permanent. Accounts and application settings remain on the boot disk.</p>'
+  if state['storage']!='Not configured':
+   operation='unmount' if state['storage_available'] else 'mount'
+   text+=form('storage-mount','<h3>Manage upload volume</h3><input type="hidden" name="operation" value="'+operation+'"><p>Unmounting keeps files intact and temporarily disables uploaded content. A busy disk will not be forcibly detached. The configured volume mounts again at boot.</p><label><input type="checkbox" name="confirm" value="yes" required> Confirm '+operation+' upload storage</label>',('Unmount' if operation=='unmount' else 'Mount')+' upload volume')
   if state.get('raid'):text+='<h3>'+E(state['raid'])+'</h3><pre>'+E(state.get('raid_status','Unavailable'))+'</pre>'
   from . import disk_health
   text+=disk_health.render(app,state)

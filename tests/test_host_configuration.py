@@ -240,3 +240,18 @@ class HostConfigurationTests(unittest.TestCase):
    self.assertIn('Format and use disk',page);self.assertIn('Erase all data on this disk',page)
    state['storage_available']=True;state['storage']='/srv/serviceready-data';state['disks'][0]['reformat']=True
    page=render(app,{'csrf':'token'},'storage');self.assertIn('Erase and reformat data disk',page)
+
+ def test_data_partition_is_manageable_and_boot_disk_hidden(self):
+  rows={'blockdevices':[{'path':'/dev/sda','type':'disk','children':[{'path':'/dev/sda1','type':'part','mountpoints':['/']}]},{'path':'/dev/sdb','type':'disk','children':[{'path':'/dev/sdb1','type':'part','mountpoints':[str(control.MOUNT)],'fstype':'ext4','uuid':'data'}]}]}
+  with patch.object(control,'run',return_value=json.dumps(rows)):
+   disks=control.disks();self.assertEqual([d['path'] for d in disks],['/dev/sdb','/dev/sdb1'])
+   self.assertFalse(disks[1]['eligible']);self.assertFalse(disks[1]['raid_eligible'])
+ def test_unmount_requires_configured_volume_confirmation_and_identity(self):
+  with tempfile.TemporaryDirectory() as root:
+   cfg=Path(root)/'config';cfg.write_text(json.dumps({'data_mount':str(control.MOUNT),'data_disk_uuid':'data'}))
+   payload={'kind':'storage-mount','operation':'unmount','confirm':'yes'}
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'run',return_value='data'):
+    control.validate(payload)
+    with self.assertRaises(ValueError):control.validate(dict(payload,confirm=''))
+    with patch.object(control,'run',return_value='boot'):
+     with self.assertRaises(ValueError):control.validate(payload)

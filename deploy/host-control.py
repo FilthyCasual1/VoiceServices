@@ -22,6 +22,13 @@ def disks():
   d['raid_eligible']=not d.get('ro') and not d.get('children') and not any(d.get('mountpoints') or [])
   d['fingerprint']=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
   result.append(d)
+  def data_partitions(node):
+   for child in node.get('children') or []:
+    if child.get('type')=='part' and child.get('mountpoints')==[str(MOUNT)] and not child.get('children'):
+     child['eligible']=False;child['raid_eligible']=False
+     child['fingerprint']=hashlib.sha256(json.dumps(child,sort_keys=True).encode()).hexdigest();result.append(child)
+    data_partitions(child)
+  data_partitions(d)
  return result
 
 def virtual_machine():
@@ -120,6 +127,12 @@ def validate(p,raid_member=False):
     if not source.resolve().is_relative_to(pathlib.Path('/var/lib/serviceready')) or source.is_symlink() or any(f.is_symlink() for f in source.rglob('*')):raise ValueError('Repository requires manual migration: unexpected path or symlink.')
     needed+=sum(f.stat().st_size for f in source.rglob('*') if f.is_file())
   if needed+1024**3>int(d['size'])*.9:raise ValueError('This disk is too small for existing uploads and migration headroom.')
+ elif kind=='storage-mount':
+  cfg=json.loads(CONFIG.read_text())
+  if cfg.get('data_mount')!=str(MOUNT) or not cfg.get('data_disk_uuid'):raise ValueError('No configured upload volume.')
+  if p.get('operation') not in ('mount','unmount'):raise ValueError('Choose mount or unmount.')
+  if p.get('confirm')!='yes':raise ValueError('Confirm changing upload volume availability.')
+  if p['operation']=='unmount' and run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('Upload volume identity changed.')
  elif kind=='storage-reset':
   cfg=json.loads(CONFIG.read_text());d=next((d for d in disks() if d['path']==p.get('disk')),None)
   if not d or d['fingerprint']!=p.get('fingerprint') or d.get('ro') or d.get('children') or d.get('fstype')!='ext4' or d.get('uuid')!=cfg.get('data_disk_uuid') or not cfg.get('data_disk_uuid') or cfg.get('data_mount')!=str(MOUNT) or d.get('mountpoints')!=[str(MOUNT)]:raise ValueError('Only the current, unchanged upload data disk can be reformatted. Reload storage.')
@@ -215,6 +228,13 @@ def main(p):
      if int(score[1])<55:status('complete','Upload fragmentation score '+score[1]+': no defragmentation needed.')
      else:
       status('running','Defragmenting the upload volume (score '+score[1]+')');run(['e4defrag',str(MOUNT)]);status('complete','Upload volume defragmentation completed.')
+   elif p['kind']=='storage-mount':
+    cfg=json.loads(CONFIG.read_text())
+    if p['operation']=='unmount':run(['umount',str(MOUNT)])
+    else:
+     MOUNT.mkdir(parents=True,exist_ok=True)
+     run(['mount','-t','ext4','UUID='+cfg['data_disk_uuid'],str(MOUNT)])
+    status('complete','Upload volume '+('unmounted. Uploaded content is unavailable until remounted; the volume mounts again at boot.' if p['operation']=='unmount' else 'mounted. Uploaded content is available.'))
    elif p['kind']=='storage-reset':
     reset_storage(p)
    elif p['kind'] in ('storage','storage-raid'):

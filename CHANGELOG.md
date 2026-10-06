@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.7 — 2026-10-06
+
+Add non-forced upload volume unmount/remount controls and tighten account width; restore the full-width masthead to two columns.
+
 ## 1.27.6 — 2026-10-06
 
 Remove the compact masthead bottom white border while retaining its vertical separators.
