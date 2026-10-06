@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.6 — 2026-10-06
+
+Remove the compact masthead bottom white border while retaining its vertical separators.
+
 ## 1.27.5 — 2026-10-06
 
 Allow the account panel to expand into desktop masthead space so account details and actions fit without wrapping.
