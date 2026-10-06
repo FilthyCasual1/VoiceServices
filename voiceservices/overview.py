@@ -35,7 +35,7 @@ def oem_info():
         if text: rows.append((label,text))
     return rows or [('OEM identity','Not reported or unavailable to the portal account')]
 
-def render(app):
+def render(app,user=None):
     now=time.time()
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
     usage=shutil.disk_usage(Path(app.store.path).parent)
@@ -70,7 +70,9 @@ def render(app):
         rows=[]
         for key,(title,_) in CATALOG.items():
             if not app.modules.installed(key): continue
-            status='Installed '+app.modules.approved[key]['version']
+            try:manifest=json.loads((app.modules.root/key/'manifest.json').read_text())
+            except (OSError,ValueError):manifest={}
+            status='Installed '+manifest.get('version',app.modules.approved[key]['version'])+(' '+manifest['github_commit'][:12] if manifest.get('github_commit') else '')
             if key in ('smtp-notifications','snmp'): status+='; '+statuses.get(key,'Worker unavailable')
             elif key=='downloads': status+='; '+str(count('downloads_files'))+' hosted files; '+str(count('downloads_catalog'))+' catalog links'
             elif key=='pxe':
@@ -95,6 +97,10 @@ def render(app):
         if isinstance(live,dict) and live.get('provider') in ('virtualbox','vmware'):
             provider_label,tools=('VMware','VMware Tools') if live['provider']=='vmware' else ('VirtualBox','Guest Additions')
             host_rows.extend((label+' version',value) for label,value in [(provider_label,live.get('host_version')),(tools,live.get('version'))] if value)
+    installed_table=table(rows) if rows else '<p>No addons installed.</p>'
+    if rows and user:
+        from . import addon_updates
+        installed_table=addon_updates.installed_table(app,user,rows)
     disk_report=''
     if app.store.accounts:
         try:
@@ -103,4 +109,4 @@ def render(app):
             disk_report=disk_health.render(app,storage)
             if storage.get('raid'):disk_report='<h3>'+E(storage['raid'])+'</h3><pre>'+E(storage.get('raid_status','Unavailable'))+'</pre>'+disk_report
         except ValueError:pass
-    return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__display_version__)+'</strong></span><span class="overview-powered">ServiceReady is powered by: '+host_branding.marks()+'</span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section>'+('<section class="overview-addons">'+disk_report+'</section>' if disk_report else '')+'</div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'
+    return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__display_version__)+'</strong></span><span class="overview-powered">ServiceReady is powered by: '+host_branding.marks()+'</span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+installed_table+'</section>'+('<section class="overview-addons">'+disk_report+'</section>' if disk_report else '')+'</div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'

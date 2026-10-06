@@ -3,7 +3,7 @@
 import fcntl,json,re,os,pathlib,shutil,sqlite3,subprocess,sys,tempfile,time
 ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-accounts/maintenance.json')
 def status(kind,state,message):
-    temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':int(time.time())}));os.chmod(temporary,0o600);temporary.replace(STATE)
+    temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':time.time()}));os.chmod(temporary,0o600);temporary.replace(STATE)
 def run(args): subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1800)
 TOOLS_LOG=pathlib.Path('/run/serviceready-accounts/vm-tools.log')
 def tools_run(args):

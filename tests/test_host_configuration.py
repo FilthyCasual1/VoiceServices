@@ -208,3 +208,11 @@ class HostConfigurationTests(unittest.TestCase):
     self.assertIn('--level='+level,next(c for c in calls if c[:2]==['mdadm','--create']))
     self.assertIn('ARRAY '+array,mdconf.read_text());self.assertIn('UUID=volume-uuid',fstab.read_text())
     self.assertEqual(json.loads(cfg.read_text())['data_members'],['/dev/sdb','/dev/sdc']);self.assertTrue((mount/'downloads').is_dir())
+ def test_virtual_machine_blocks_trim_and_defrag_at_worker(self):
+  with patch.object(control,'virtual_machine',return_value='virtualbox'),patch.object(control,'run') as command:
+   for operation in ('trim','defrag'):
+    with self.assertRaisesRegex(ValueError,'disabled on virtual machines'):control.validate({'kind':'storage-maintenance','operation':operation})
+   command.assert_not_called()
+ def test_vm_detection_recognizes_virtual_machine_and_physical_host(self):
+  with patch.object(control.subprocess,'check_output',return_value='vmware\n'):self.assertEqual(control.virtual_machine(),'vmware')
+  with patch.object(control.subprocess,'check_output',side_effect=FileNotFoundError),patch.object(Path,'read_text',return_value='Physical workstation'):self.assertEqual(control.virtual_machine(),'')

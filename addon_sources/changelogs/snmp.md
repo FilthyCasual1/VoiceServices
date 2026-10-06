@@ -1,3 +1,7 @@
+## 1.26.2
+
+- Package for INSAP 1.26.2; improves core update and installation wizards.
+
 ## 1.26.1
 
 - Package for INSAP 1.26.1 build 2; fixes core administration release-note access.

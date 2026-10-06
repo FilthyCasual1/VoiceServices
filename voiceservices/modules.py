@@ -59,6 +59,8 @@ class Modules:
             temporary=Path(tempfile.mkdtemp(prefix='.install-',dir=self.root))
             try:
                 (temporary/'module.py').write_bytes(code)
+                from .version import __github_revision__
+                if __github_revision__:manifest['github_commit']=__github_revision__
                 (temporary/'manifest.json').write_text(json.dumps(manifest))
                 if changelog:(temporary/'CHANGELOG.md').write_bytes(changelog)
                 backup=None

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Keep the root-owned runtime readable by its service group, never writable."""
-import grp,json,os,pathlib,pwd,stat,subprocess
+import grp,json,os,pathlib,pwd,re,stat,subprocess
 
 def normalise_runtime(root=pathlib.Path('/opt/serviceready/venv'),gid=None,owner_uid=0):
     gid=grp.getgrnam('serviceready').gr_gid if gid is None else gid
@@ -15,6 +15,14 @@ def normalise_runtime(root=pathlib.Path('/opt/serviceready/venv'),gid=None,owner
             mode|=0o040
             if path.is_dir() or mode&0o111:mode|=0o010
             os.chmod(path,mode)
+
+def record_build(root=pathlib.Path('/opt/serviceready/venv'),source=pathlib.Path('/opt/serviceready/source')):
+    if not (source/'.git').exists():return
+    commit=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
+    if not re.fullmatch('[a-f0-9]{40}',commit):raise ValueError('Invalid GitHub checkout revision.')
+    package=pathlib.Path(subprocess.check_output([str(root/'bin/python'),'-I','-c',"import importlib.util,pathlib; print(pathlib.Path(importlib.util.find_spec('voiceservices').origin).parent)"],text=True).strip())
+    if not package.resolve().is_relative_to(root.resolve()):raise ValueError('Build metadata must be inside the installed runtime.')
+    metadata=package/'build_info.json';metadata.write_text(json.dumps({'github_commit':commit})+'\n');os.chmod(metadata,0o640)
 
 def verify_runtime(root=pathlib.Path('/opt/serviceready/venv')):
     account=pwd.getpwnam('serviceready')
@@ -33,4 +41,4 @@ def normalise_addons(config,uid=None,gid=None):
 
 if __name__=='__main__':
     if os.geteuid()!=0:raise SystemExit('Run this helper as root.')
-    normalise_runtime();verify_runtime()
+    record_build();normalise_runtime();verify_runtime()

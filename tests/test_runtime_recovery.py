@@ -7,6 +7,13 @@ def load(name,file):
  spec=importlib.util.spec_from_file_location(name,ROOT/'deploy'/file);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 runtime=load('runtime_access','runtime-access.py');recovery=load('admin_reset','admin-reset.py')
 class RuntimeRecoveryTests(unittest.TestCase):
+ def test_records_exact_checkout_commit_in_installed_runtime(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary)/'venv';package=root/'lib/voiceservices';package.mkdir(parents=True)
+   source=Path(temporary)/'source';(source/'.git').mkdir(parents=True)
+   commit='abcdef0123456789abcdef0123456789abcdef01'
+   with patch.object(runtime.subprocess,'check_output',side_effect=[commit+'\n',str(package)+'\n']):runtime.record_build(root,source)
+   self.assertEqual(json.loads((package/'build_info.json').read_text())['github_commit'],commit)
  def test_private_pip_files_become_group_readable_without_writable_code(self):
   with tempfile.TemporaryDirectory() as temporary:
    root=Path(temporary)/'venv';package=root/'lib/voiceservices';package.mkdir(parents=True)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.2 — 2026-10-06
+
+Simplify update checks, handle OS results and failed checks explicitly, retain polling through reconnect failures, combine installed-addon status and controls into one table, and add a guided repository/manual installation wizard with multi-select and per-addon installation results. Rename Upload storage to Storage and disable TRIM/defragmentation on detected virtual machines. Record and display the installed GitHub commit ID after the version, with no build number displayed. Publish versioned GitHub Releases with changelogs and downloadable addon packages after CI succeeds.
+
 ## 1.26.1 — 2026-10-06
 
 Bundle addon repository release notes inside the installed portal package and handle unreadable notes gracefully, fixing administration access errors on protected deployment checkouts.

@@ -4,7 +4,7 @@ from .modules import CATALOG
 from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth,host_tools,host_configuration,addon_updates,service_links
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'system-updates':'Portal and host updates','storage':'Upload storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
+HEADINGS={'system-updates':'Portal and host updates','storage':'Storage','network-host':'Network and time','host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
 def password_form(user,app):
     if external_auth.identity(app,user): return '<p>Your password is managed by your identity provider.</p>'
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
@@ -19,6 +19,9 @@ def render(app,path,user,data,method,services):
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
         elif section=='host': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
+        elif section=='overview' and data.get('action')=='install-repository-addons':
+            try:note=addon_updates.install_batch(app,user,data)
+            except ValueError as exc:note=str(exc)
         elif section=='overview' and data.get('action')=='install-repository-addon':note=addon_updates.install_from_repository(app,user,data)
         elif section=='overview' and data.get('action') in ('check-addon-update','install-addon-update','decline-addon-update'):note=addon_updates.change(app,user,data)
         elif section=='overview':
@@ -39,7 +42,7 @@ def render(app,path,user,data,method,services):
     if configuring:section='overview'
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
-    if section=='overview': content+=overview.render(app)
+    if section=='overview': content+=overview.render(app,user)
 
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
@@ -57,24 +60,9 @@ def render(app,path,user,data,method,services):
         links=re.sub(r'<form\b([^>]*)>',lambda match:match[0] if re.search(r'\baction\s*=',match[1]) else '<form action="/admin/voice"'+match[1]+'>',links)
         content+='<details class="settings-section" id="phone-account-links"'+(' open' if path.rstrip('/')=='/admin/voice' else '')+'><summary>Phone account links</summary>'+links+'</details>'
     if section=='overview':
-        content+=addon_updates.repository_installer(app,user)
-        content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<h3>Manual installation</h3><label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'
-        for key,(name,description) in CATALOG.items():
-            present=(app.modules.root/key).exists()
-            if not present: continue
-            installed=app.modules.installed(key)
-            try:metadata=__import__('json').loads((app.modules.root/key/'manifest.json').read_text())
-            except (OSError,ValueError):metadata={}
-            version=metadata.get('version','Unknown')+(' (build '+str(metadata['build'])+')' if metadata.get('build') else '')
-            content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>Version '+E(version)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
-            if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
-            if installed:
-                submenu=next((name for name,module in OPTIONAL.items() if module==key),None)
-                if submenu:content+='<p><a class="button" href="/admin/'+submenu+'">Configure addon…</a></p>'
-                content+=addon_updates.render(app,user,key)
-            content+='</div>'
+        content+=addon_updates.repository_installer(app,user,note if data.get('action')=='install-repository-addons' else '')
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/host','Host maintenance'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    operator=[('/admin/host','Host maintenance'),('/admin/storage','Storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     if configuring:
         settings=app.modules.load(OPTIONAL[configuring]).admin_render(app,user,services)
         settings=re.sub(r'<form\b([^>]*)>',lambda match:match[0] if re.search(r'\baction\s*=',match[1]) else '<form action="/admin/'+configuring+'"'+match[1]+'>',settings)

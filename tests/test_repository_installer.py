@@ -54,3 +54,17 @@ class RepositoryInstallerTests(unittest.TestCase):
  def test_release_notes_are_bundled_with_portal(self):
   token,user=self.user('admin');body=addon_updates.repository_installer(self.app,user)
   self.assertIn('Release notes</summary>',body)
+ def test_batch_installs_multiple_addons_from_one_pinned_revision(self):
+  token,user=self.user('admin');commit='a'*40
+  def fetch(url,limit=0):
+   if '/commits/main' in url:return json.dumps({'sha':commit}).encode()
+   return self.package('snmp' if '/snmp-' in url else 'esxi')
+  with patch.object(addon_updates,'fetch',side_effect=fetch) as download:
+   result=self.request('/admin','POST',{'csrf':user['csrf'],'action':'install-repository-addons','install_module_snmp':'yes','install_module_esxi':'yes'},token)
+  self.assertEqual(result['status'],'200 OK');self.assertTrue(self.app.modules.installed('snmp'));self.assertTrue(self.app.modules.installed('esxi'))
+  self.assertIn('Installation results',result['body']);self.assertEqual(sum('/commits/main' in call.args[0] for call in download.call_args_list),1)
+ def test_batch_retains_successes_and_reports_individual_failure(self):
+  token,user=self.user('admin')
+  with patch.object(addon_updates,'fetch',side_effect=[json.dumps({'sha':'a'*40}).encode(),self.package('snmp'),OSError('offline')]):
+   result=addon_updates.install_batch(self.app,user,{'install_module_snmp':'yes','install_module_esxi':'yes'})
+  self.assertTrue(self.app.modules.installed('snmp'));self.assertFalse(self.app.modules.installed('esxi'));self.assertIn('SNMP Monitoring: installed',result);self.assertIn('ESXi Management: failed',result)

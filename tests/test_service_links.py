@@ -32,7 +32,7 @@ class ServiceLinksTests(unittest.TestCase):
   token,user=self.user('admin');body=self.request('/admin',token=token)['body']
   self.assertIn(__display_version__,body);self.assertIn('Overview and addons',body);self.assertIn('Addon repository',body);self.assertIn('Manual installation',body);self.assertIn('Available to install',body)
   self.assertIn('Addon repository',self.request('/admin/addons',token=token)['body'])
-  self.assertIn('build '+str(__build__),self.request()['body'])
+  self.assertNotIn('(build ',self.request()['body'])
  def test_addon_settings_wizard_and_separate_phone_links(self):
   token,user=self.user('admin');body=self.request('/admin',token=token)['body']
   sidebar=body.split('<aside class="admin-nav"')[1].split('</aside>')[0]
@@ -57,5 +57,5 @@ class ServiceLinksTests(unittest.TestCase):
   from voiceservices import disk_health
   state={'smart':[{'disk':'/dev/sdb','identity':'disk-serial','state':'Failed','message':'Health check failed'}]}
   disk_health.render(self.app,state);disk_health.render(self.app,state)
-  with self.app.store.connect() as db:count=db.execute("SELECT COUNT(*) FROM notifications WHERE priority='urgent' AND title='Upload disk failed'").fetchone()[0]
+  with self.app.store.connect() as db:count=db.execute("SELECT COUNT(*) FROM notifications WHERE priority='urgent' AND title='Storage disk failed'").fetchone()[0]
   self.assertEqual(count,1)

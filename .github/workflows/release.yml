@@ -1,0 +1,33 @@
+name: Publish release
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+permissions:
+  contents: write
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Read release version and changelog
+        run: |
+          python - <<'PY'
+          import ast, pathlib
+          tree=ast.parse(pathlib.Path('voiceservices/version.py').read_text())
+          version=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='__version__' for t in n.targets))
+          notes=pathlib.Path('CHANGELOG.md').read_text().split('## '+version+' ',1)[1].split('\n',1)[1].split('\n## ',1)[0].strip()
+          pathlib.Path('release-notes.md').write_text(notes+'\n')
+          with open('release-version.txt','w') as f: f.write(version)
+          PY
+      - name: Publish versioned release and addon packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(cat release-version.txt)
+          if gh release view "v$version" >/dev/null 2>&1; then exit 0; fi
+          gh release create "v$version" --target "$RELEASE_COMMIT" --title "INSAP $version" --notes-file release-notes.md packages/addons/"$version"/*.sraddon

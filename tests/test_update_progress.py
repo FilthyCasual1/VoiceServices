@@ -113,3 +113,16 @@ class UpdateProgressTests(unittest.TestCase):
   self.assertIn('data-update-ready',body);self.assertIn('Changes &lt;script&gt;',body)
   self.assertIn('Proceed with update',body);self.assertIn('Decline this version',body)
   self.assertIn('data-update-step="1"',body)
+ def test_os_result_and_check_failure_take_precedence_over_old_review(self):
+  from voiceservices import maintenance
+  token,user=self.user('admin')
+  complete=maintenance.update_wizard(user,{'kind':'os','state':'complete','message':'Host packages updated.'},'os')
+  self.assertIn('Update succeeded',complete);self.assertIn('Finish',complete);self.assertIn('data-update-result',complete)
+  failed=maintenance.update_wizard(user,{'kind':'insap','state':'failed','message':'Repository offline','review':{'state':'ready','version':'2.0.0'}},'insap')
+  self.assertIn('Repository offline',failed);self.assertNotIn('Proceed with update',failed);self.assertIn('Update did not complete',failed)
+ def test_installed_addon_actions_share_status_table_and_installer_is_a_wizard(self):
+  token,user=self.user('admin');body=self.request('/admin',token=token)['body']
+  self.assertIn('installed-addon-table',body);self.assertIn('<th>Actions</th>',body)
+  self.assertIn('data-dialog-open="manage-downloads"',body)
+  self.assertIn('id="install-addon"',body);self.assertIn('data-install-step="2"',body)
+  self.assertIn('data-repository-addon=',body);self.assertNotIn('<div class="panel"><h3>Downloads</h3>',body)

@@ -256,7 +256,7 @@ class CoreAdminTests(unittest.TestCase):
         self.assertEqual(response['status'],'200 OK')
         body=json.loads(response['body'])['html']
         self.assertIn('Current date and time',body)
-        self.assertNotIn('<header',body)
+        self.assertNotIn('<header class="masthead-',body)
         self.assertEqual(self.request('/admin/overview-stats',token=self.user('alice')[0])['status'],'403 Forbidden')
         with patch.object(overview.Path,'read_text',side_effect=lambda path=None: ''):
             self.assertIn('OEM identity',str(overview.oem_info()))

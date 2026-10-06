@@ -23,6 +23,18 @@ def disks():
   result.append(d)
  return result
 
+def virtual_machine():
+ try:
+  provider=subprocess.check_output(['systemd-detect-virt','--vm'],text=True,stderr=subprocess.DEVNULL,timeout=2).strip()
+  if provider and provider!='none':return provider
+ except (OSError,subprocess.SubprocessError):pass
+ try:
+  description=' '.join(pathlib.Path('/sys/class/dmi/id/'+name).read_text().lower() for name in ('product_name','sys_vendor'))
+  for provider,words in [('virtualbox',('virtualbox','innotek')),('vmware',('vmware',)),('kvm',('kvm','qemu')),('hyper-v',('virtual machine',)),('xen',('xen',))]:
+   if any(word in description for word in words):return provider
+ except OSError:pass
+ return ''
+
 def smart_health(disk):
  result={'disk':disk['path'],'identity':disk.get('serial') or disk['path'],'state':'Unavailable','message':'SMART data is not exposed by this disk or hypervisor.'}
  if not shutil.which('smartctl'):result['message']='SMART tools are not installed. Update INSAP host integration.';return result
@@ -64,6 +76,7 @@ def snapshot(section='storage'):
  if state.get('state') in ('running','pending') and state.get('pid') and not pathlib.Path('/proc/'+str(state['pid'])).exists():state={'state':'failed','message':'The host operation was interrupted. Inspect the host before retrying.'}
  result={'storage_available':bool(cfg.get('data_mount') and os.path.ismount(cfg['data_mount'])),'job':state,'storage':cfg.get('data_mount','Not configured'),'errors':[],'disks':[]}
  if section=='storage':
+  result['vm_provider']=virtual_machine()
   result['raid']=cfg.get('data_raid','')
   if cfg.get('data_raid'):
    try:result['raid_status']=run(['mdadm','--detail',cfg.get('data_array',ARRAY)])
@@ -112,6 +125,7 @@ def validate(p):
   if p.get('confirm')!='ERASE '+d['path'] or p.get('erase_confirm')!='yes':raise ValueError('Confirm permanent data loss and type ERASE followed by the exact disk path.')
   if run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('Upload disk identity changed. Reload storage.')
  elif kind=='storage-maintenance':
+  if virtual_machine():raise ValueError('TRIM and defragmentation are disabled on virtual machines.')
   cfg=json.loads(CONFIG.read_text())
   if p.get('operation') not in ('trim','defrag'):raise ValueError('Choose TRIM or fragmentation check.')
   if cfg.get('data_mount')!=str(MOUNT) or not cfg.get('data_disk_uuid') or not os.path.ismount(MOUNT) or run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('The configured upload disk is unavailable or changed.')
