@@ -1,6 +1,6 @@
 # Host maintenance and browser terminal
 
-Install `packages/addons/1.14.0/host-tools-1.14.0.sraddon` under Addons. System then includes Host maintenance and Host terminal. Uninstall removes these executable addon files and menus. This addon requires the Alpine account broker; deployments using local portal-only authentication display an unavailable message.
+Install `packages/addons/1.14.1/host-tools-1.14.1.sraddon` under Addons. System then includes Host maintenance and Host terminal. Uninstall removes these executable addon files and menus. This addon requires the Alpine account broker; deployments using local portal-only authentication display an unavailable message.
 
 Host maintenance shares the existing update worker and lock. Each task requires administrator access, CSRF validation, password confirmation and an explicit checkbox:
 

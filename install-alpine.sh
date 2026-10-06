@@ -6,13 +6,20 @@ set -eu
 command -v rc-service >/dev/null || { echo "OpenRC is required; use a normal Alpine VM installation." >&2; exit 1; }
 source_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 [ -f "$source_dir/pyproject.toml" ] || { echo "Incomplete ServiceReady checkout." >&2; exit 1; }
-config_template="$source_dir/config.example.json"
-case "${1:-}" in
-    --bare) config_template="$source_dir/config.bare.json"
-        [ ! -f /etc/serviceready/config.json ] || { echo "Bare installation requires a fresh VM; existing settings are preserved." >&2; exit 1; } ;;
-    "") ;;
-    *) echo "Usage: $0 [--bare]" >&2; exit 1 ;;
-esac
+config_template="$source_dir/config.bare.json"
+local_tls=0
+for option in "$@"; do
+    case "$option" in
+        --bare) [ ! -f /etc/serviceready/config.json ] || { echo "Bare installation requires a fresh VM; existing settings are preserved." >&2; exit 1; } ;;
+        --tls) local_tls=1 ;;
+        *) echo "Usage: $0 [--bare] [--tls]" >&2; exit 1 ;;
+    esac
+done
+# An existing reverse proxy belongs to its administrator; never overwrite it.
+if [ "$local_tls" = 1 ]; then
+    [ ! -f /etc/caddy/Caddyfile ] || { echo "Caddy is already configured. Keep your reverse proxy and rerun without --tls." >&2; exit 1; }
+fi
+export SERVICEREADY_LOCAL_TLS="$local_tls"
 umask 027
 apk add --no-cache python3 py3-pip git ca-certificates dnsmasq tzdata krb5 krb5-dev build-base python3-dev
 grep -q '^serviceready:' /etc/group || addgroup -S serviceready
@@ -23,8 +30,8 @@ chmod 0750 /etc/serviceready /var/lib/serviceready /var/log/serviceready
 chown root:serviceready /etc/serviceready
 grep -q '^serviceready-users:' /etc/group || addgroup -S serviceready-users
 install -m 0700 "$source_dir/deploy/maintenance-worker.py" /opt/serviceready/maintenance-worker.py
-if [ -d "$source_dir/.git" ] && [ ! -d /opt/serviceready/source ]; then
-    git clone --no-hardlinks "$source_dir" /opt/serviceready/source
+if [ ! -d /opt/serviceready/source ]; then
+    git clone --branch main https://github.com/FilthyCasual1/VoiceServices.git /opt/serviceready/source
     git -C /opt/serviceready/source remote set-url origin https://github.com/FilthyCasual1/VoiceServices.git
     chmod -R go-w /opt/serviceready/source
 fi
@@ -42,19 +49,47 @@ if [ ! -f /etc/serviceready/config.json ]; then
     printf 'Portal URL (example: http://192.168.10.50:8080): '
     read -r portal_url
     /opt/serviceready/venv/bin/python - "$config_template" "$portal_url" <<'PY'
-import json,sys
+import json,sys,os
 from urllib.parse import urlsplit
 url = sys.argv[2].rstrip('/')
 p = urlsplit(url)
 if p.scheme not in ('http','https') or not p.hostname or p.username or p.password or p.query or p.fragment or p.path:
     raise SystemExit('Enter an HTTP(S) origin with no path, username or password.')
+local_tls = os.environ.get('SERVICEREADY_LOCAL_TLS') == '1'
+if local_tls and (p.scheme != 'https' or p.port not in (None,443)):
+    raise SystemExit('--tls requires an https:// hostname or IP on port 443.')
 with open(sys.argv[1]) as f: config = json.load(f)
 config.update(database='/var/lib/serviceready/serviceready.sqlite3',public_url=url,
-              secure_cookies=p.scheme=='https',listen_host='0.0.0.0',listen_port=8080,
+              secure_cookies=p.scheme=='https',listen_host='127.0.0.1' if local_tls else '0.0.0.0',listen_port=8080,
               auth_backend='alpine',account_socket='/run/serviceready-accounts/socket',
               update_directory='/var/lib/serviceready/updates',addon_directory='/var/lib/serviceready/addons')
 with open('/etc/serviceready/config.json','x') as f: json.dump(config,f,indent=2)
 PY
+fi
+if [ "$local_tls" = 1 ]; then
+    apk add --no-cache caddy caddy-openrc
+    /opt/serviceready/venv/bin/python - <<'PYTLS'
+import json,ipaddress
+from pathlib import Path
+from urllib.parse import urlsplit
+config=json.loads(Path('/etc/serviceready/config.json').read_text())
+p=urlsplit(config['public_url'])
+if p.scheme!='https' or p.port not in (None,443):raise SystemExit('--tls requires HTTPS on port 443.')
+# Restrict generated Caddy syntax to a hostname or literal IP.
+host=p.hostname
+try:ipaddress.ip_address(host)
+except ValueError:
+    import re
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',host):raise SystemExit('Invalid TLS hostname.')
+address='['+host+']' if ':' in host else host
+config.update(listen_host='127.0.0.1',secure_cookies=True)
+Path('/etc/serviceready/config.json').write_text(json.dumps(config,indent=2))
+Path('/etc/caddy/Caddyfile').write_text('https://'+address+' {\n    tls internal\n    reverse_proxy 127.0.0.1:'+str(config.get('listen_port',8080))+'\n}\n')
+PYTLS
+    chmod 0644 /etc/caddy/Caddyfile
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+    rc-update add caddy default
+    rc-service caddy restart
 fi
 chown root:serviceready /etc/serviceready/config.json
 chmod 0640 /etc/serviceready/config.json
@@ -103,6 +138,8 @@ for attempt in range(20):
         time.sleep(.5)
 print('ServiceReady is running: '+config['public_url'])
 print('Config: /etc/serviceready/config.json | Logs: /var/log/serviceready/')
+if config['public_url'].startswith('https:'):
+    print('HTTPS: trust your proxy certificate on client machines before signing in.')
 PY
 
 install -m 0755 "$source_dir/deploy/serviceready-snmp.initd" /etc/init.d/serviceready-snmp

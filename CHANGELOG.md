@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.1 — 2026-10-06
+
+Prepare Alpine VM deployment: main-branch installation instructions, bare defaults and optional local HTTPS proxy for host tools.
+
 ## 1.14.0 — 2026-10-06
 
 Add installable host cleanup tools and a session-bound browser PTY terminal running as the local Alpine administrator OS account.
