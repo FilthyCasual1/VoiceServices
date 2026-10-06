@@ -58,6 +58,8 @@ def validate(p):
   if p['mode']=='manual':ipaddress.IPv4Interface(p['address']);ipaddress.IPv4Address(p['gateway'])
   for value in p.get('dns','').split():ipaddress.ip_address(value)
   if p.get('hostname') and not re.fullmatch(r'(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?',p['hostname']):raise ValueError('Invalid hostname.')
+ elif kind=='power':
+  if p.get('operation') not in ('restart','shutdown') or p.get('confirm')!=p.get('operation'):raise ValueError('Choose and confirm restart or shutdown.')
  elif kind=='ntp':
   import re
   servers=p.get('servers','').split()
@@ -68,10 +70,14 @@ def status(state,message):
 def main(p):
  if os.geteuid()!=0:raise ValueError('Root host worker required.')
  with open(STATE.parent/'maintenance.lock','w') as lock:
-  fcntl.flock(lock,fcntl.LOCK_EX)
+  fcntl.flock(lock,fcntl.LOCK_EX | (fcntl.LOCK_NB if p.get('kind')=='power' else 0))
   try:
    validate(p);status('running','Preparing '+p['kind'])
-   if p['kind']=='storage':
+   if p['kind']=='power':
+    operation=p['operation'];command='reboot' if operation=='restart' else 'poweroff'
+    run(['systemd-run','--unit=serviceready-power','--on-active=10s','/usr/bin/systemctl',command])
+    status('complete','Host '+operation+' scheduled in 10 seconds. The portal will disconnect.')
+   elif p['kind']=='storage':
     disk=p['disk'];run(['mkfs.ext4','-F','-L','ServiceReadyData',disk]);uuid=run(['blkid','-s','UUID','-o','value',disk]);MOUNT.mkdir(parents=True,exist_ok=True)
     run(['mount','-t','ext4',disk,str(MOUNT)])
     cfg=json.loads(CONFIG.read_text());uid=pwd.getpwnam('serviceready').pw_uid;gid=pwd.getpwnam('serviceready').pw_gid

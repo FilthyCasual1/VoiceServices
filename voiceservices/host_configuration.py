@@ -2,11 +2,12 @@
 import html,json,time
 E=lambda v:html.escape(str(v),quote=True)
 def change(app,user,data):
+ if user['role']!='admin':raise PermissionError('Administrator access required.')
  if not app.store.accounts:raise ValueError('Connect a supported Linux host provider first.')
  if not app.base.startswith('https://') or not app.secure:raise ValueError('HTTPS and secure cookies are required.')
  from . import external_auth
  if external_auth.identity(app,user):raise ValueError('Use a local administrator account for host changes.')
- payload={key:data.get(key,'') for key in ('kind','disk','fingerprint','confirm','connection','mode','address','gateway','dns','hostname','servers')}
+ payload={key:data.get(key,'') for key in ('kind','operation','disk','fingerprint','confirm','connection','mode','address','gateway','dns','hostname','servers')}
  app.store.accounts.call('host-confirm' if data.get('kind')=='confirm-network' else 'host-start',user['username'],data.get('current_password',''),json.dumps(payload))
  with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],'Host configuration: '+data.get('kind','')))
  return 'Host operation accepted. Refresh this page to see progress.'

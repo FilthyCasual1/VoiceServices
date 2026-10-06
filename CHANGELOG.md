@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.0 — 2026-10-06
+
+Add confirmed local-administrator VM shutdown and restart controls to Host maintenance, using delayed host power operations.
+
 ## 1.16.17 — 2026-10-06
 
 Exclude boot and system disks, including their partition and logical-volume trees, from upload storage discovery and selection.

@@ -16,6 +16,10 @@ def admin_render(app,user,services):
         text+='<p class="notice">'+E(state.get('state','idle'))+': '+E(state.get('message',''))+'</p>'
     except ValueError as exc:text+='<p class="notice error">'+E(exc)+'</p>'
     for key,(title,detail) in TASKS.items():text+='<div class="panel"><h3>'+title+'</h3><p>'+detail+'</p><form method="post">'+csrf+'<input type="hidden" name="task" value="'+key+'"><label>Your local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><label><input type="checkbox" name="confirm" value="yes" required> Confirm this cleanup task</label><button>Run task</button></form></div>'
+    text+='<div class="panel"><h3>Host power</h3><p>Restart or shut down this VM. All hosted services will disconnect. After shutdown, start the VM from your hypervisor.</p>'
+    for operation,label in [('restart','Restart VM'),('shutdown','Shut down VM')]:
+        text+='<form method="post">'+csrf+'<input type="hidden" name="task" value="power"><input type="hidden" name="operation" value="'+operation+'"><label>Local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><label>Type '+operation+' to confirm</label><input name="confirm" required autocomplete="off"><button>'+label+'</button></form>'
+    text+='</div>'
     return text+'<p><a href="/admin/terminal">Open host terminal</a></p>'
 def terminal_render(app,user):
     if not app.store.accounts:return '<p class="notice">The browser terminal requires the Linux host account broker. It is unavailable on this development deployment.</p>'
@@ -28,6 +32,10 @@ def page(app,path,method,data,user,env,send):
         from voiceservices.twofactor import password
         try:
             task=data.get('task')
+            if task=='power':
+                from . import host_configuration
+                note=host_configuration.change(app,user,dict(data,kind='power'))
+                return send('200 OK',app.page('Host power', '<div class="panel"><h2>Host power request accepted</h2><p>The VM will '+E(data.get('operation',''))+' shortly. The portal will disconnect. After a restart, return to the home page once the VM is available.</p><a href="/">Home</a></div>',user))
             if task not in TASKS or data.get('confirm')!='yes':raise ValueError('Choose and confirm a maintenance task.')
             password(app,user,data.get('current_password',''))
             app.store.accounts.call('maintenance-start',task,'');audit(app,user,'Started host maintenance '+task)

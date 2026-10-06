@@ -68,3 +68,21 @@ class HostConfigurationTests(unittest.TestCase):
   with patch.object(control,'run',return_value=json.dumps({'blockdevices':rows})):
    found=control.disks()
   self.assertEqual([d['path'] for d in found],['/dev/sdb']);self.assertTrue(found[0]['eligible'])
+
+ def test_power_requires_exact_confirmation_and_uses_fixed_delayed_commands(self):
+  for operation in ('restart','shutdown'):
+   with self.assertRaises(ValueError):control.validate({'kind':'power','operation':operation,'confirm':'yes'})
+  with self.assertRaises(ValueError):control.validate({'kind':'power','operation':'shutdown;reboot','confirm':'shutdown;reboot'})
+  with tempfile.TemporaryDirectory() as root:
+   for operation,command in [('restart','reboot'),('shutdown','poweroff')]:
+    with patch.object(control,'STATE',Path(root)/'job.json'),patch.object(control.os,'geteuid',return_value=0),patch.object(control,'run') as run:
+     control.main({'kind':'power','operation':operation,'confirm':operation})
+    run.assert_called_once_with(['systemd-run','--unit=serviceready-power','--on-active=10s','/usr/bin/systemctl',command])
+    self.assertEqual(json.loads((Path(root)/'job.json').read_text())['state'],'complete')
+ def test_power_rejects_nonadmins_and_external_accounts(self):
+  from types import SimpleNamespace
+  from voiceservices import host_configuration
+  app=SimpleNamespace(store=SimpleNamespace(accounts=object()),base='https://portal.example',secure=True)
+  with self.assertRaises(PermissionError):host_configuration.change(app,{'role':'user'}, {'kind':'power'})
+  with patch('voiceservices.external_auth.identity',return_value=True):
+   with self.assertRaises(ValueError):host_configuration.change(app,{'role':'admin'},{'kind':'power'})
