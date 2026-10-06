@@ -1,5 +1,10 @@
 # Server Management changelog
 
+## 1.20.5
+
+- Package for INSAP 1.20.5. No functional addon changes; minimal Rocky tools-CD compatibility is a core fix.
+
+
 ## 1.20.4
 
 - Package for INSAP 1.20.4. No functional addon changes; current guest-tools status and failure diagnostics are core features.

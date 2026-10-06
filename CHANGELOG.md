@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.5 — 2026-10-06
+
+Read tools CD size with the existing lsblk utility instead of requiring a missing blockdev binary on minimal Rocky installations.
+
 ## 1.20.4 — 2026-10-06
 
 Report guest-tools setup errors instead of a generic update failure. Show current guest-tools runtime separately from the last host operation; recognize Oracle VBoxService processes when systemd unit naming differs and verify loaded driver and host communication.

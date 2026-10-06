@@ -93,7 +93,7 @@ def install_cd(run,report):
         return update(run,report)
     if hypervisor()!='virtualbox':raise ValueError('VirtualBox Guest Additions media requires a VirtualBox VM.')
     version=cd['version'];name='VBoxGuestAdditions_'+version+'.iso'
-    size=int(output(['/usr/bin/blockdev','--getsize64',cd['device']]))
+    size=int(output(['/usr/bin/lsblk','--bytes','--nodeps','--noheadings','--output','SIZE',cd['device']]))
     if size<=0 or size>200*1024*1024:raise ValueError('Unexpected tools CD size.')
     report('Verifying inserted Oracle Guest Additions CD '+version)
     with tempfile.TemporaryDirectory(prefix='serviceready-tools-cd-') as folder:

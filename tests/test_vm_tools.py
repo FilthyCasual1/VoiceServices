@@ -73,8 +73,9 @@ class VMToolsTests(unittest.TestCase):
   def source(path,*args,**kwargs):
    return io.BytesIO(data) if str(path)=='/dev/sr0' else original_open(path,*args,**kwargs)
   def download(url,path,limit):path.write_text(digest+' VBoxGuestAdditions_7.2.0.iso');return digest
-  with tempfile.TemporaryDirectory() as root,patch.object(tools,'CD_STATE',Path(root)/'cd.json'),patch.object(tools,'tools_cd',return_value={'device':'/dev/sr0','version':'7.2.0','provider':'virtualbox','fingerprint':'fixture'}),patch.object(tools,'hypervisor',return_value='virtualbox'),patch.object(tools,'output',return_value=str(len(data))),patch.object(tools,'download',side_effect=download),patch('builtins.open',side_effect=source):
+  with tempfile.TemporaryDirectory() as root,patch.object(tools,'CD_STATE',Path(root)/'cd.json'),patch.object(tools,'tools_cd',return_value={'device':'/dev/sr0','version':'7.2.0','provider':'virtualbox','fingerprint':'fixture'}),patch.object(tools,'hypervisor',return_value='virtualbox'),patch.object(tools,'output',return_value=str(len(data))) as probe,patch.object(tools,'download',side_effect=download),patch('builtins.open',side_effect=source):
    self.assertIn('installed from CD',tools.install_cd(run,Mock()))
+  probe.assert_called_once_with(['/usr/bin/lsblk','--bytes','--nodeps','--noheadings','--output','SIZE','/dev/sr0'])
   commands=[call.args[0] for call in run.call_args_list]
   dependencies=next(command for command in commands if command[0]=='/usr/bin/dnf')
   for package in ('gcc','make','perl','bzip2','tar','xz','kernel-headers'):self.assertIn(package,dependencies)
