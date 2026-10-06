@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.1 — 2026-10-06
+
+Compact the host update panel with tighter spacing, smaller distro branding, aligned actions and expandable update details.
+
 ## 1.18.0 — 2026-10-06
 
 Add scheduled and one-click VM guest-tool updates: repository-managed VMware/VirtualBox tools and checksum-verified Oracle Guest Additions matching the VirtualBox host.
