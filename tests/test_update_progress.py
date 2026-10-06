@@ -32,3 +32,15 @@ class UpdateProgressTests(unittest.TestCase):
   self.assertEqual(body.count('<h2>Portal and host updates</h2>'),1)
   self.assertLess(body.index('alt="Host distribution logo"'),body.index('Rocky Linux 10.2'))
   self.assertIn('class="update-version">INSAP ',body);self.assertIn('class="update-actions"',body)
+
+ def test_schedules_share_update_page_without_triggering_update(self):
+  from voiceservices import update_schedule
+  token,user=self.user('admin')
+  body=self.request('/admin/system-updates',token=token)['body']
+  self.assertIn('Automatic update schedules',body);self.assertIn('name="os_timezone"',body)
+  self.assertNotIn('href="/admin/schedules"',body)
+  with patch('voiceservices.maintenance.change') as manual:
+   response=self.request('/admin/system-updates','POST',{'csrf':user['csrf'],'action':'save-update-schedules','os_enabled':'yes','os_frequency':'daily','os_time':'04:30'},token)
+  self.assertEqual(response['status'],'200 OK');manual.assert_not_called()
+  self.assertTrue(update_schedule.settings(self.app)['os']['enabled'])
+  self.assertIn('id="update-schedules" open',response['body'])

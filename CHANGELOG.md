@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.4 — 2026-10-06
+
+Combine automatic update schedules with Portal and host updates, keeping separate save and update actions and removing the standalone navigation entry.
+
 ## 1.17.3 — 2026-10-06
 
 Place distro and INSAP versions beneath the update page logo, remove duplicate heading/version line, and align update buttons in one row.

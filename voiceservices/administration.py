@@ -12,11 +12,12 @@ def password_form(user,app):
 def render(app,path,user,data,method,services):
     if user['role']!='admin': raise PermissionError('Administrator access required.')
     section=path.removeprefix('/admin').strip('/') or 'overview'
+    if section=='schedules': section='system-updates'
     if section not in HEADINGS: raise ValueError('Unknown administration submenu.')
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';note=''
     if method=='POST':
         if section in ('storage','network-host'): note=host_configuration.change(app,user,data)
-        elif section=='system-updates': note=maintenance.change(app,user,data)
+        elif section=='system-updates': note=update_schedule.change(app,user,data) if data.get('action')=='save-update-schedules' or path.rstrip('/')=='/admin/schedules' else maintenance.change(app,user,data)
         elif section=='addons':
             if data.get('action')!='remove': raise ValueError('Upload a package file to install an addon.')
             app.modules.change(data.get('module',''),False);note='Addon uninstalled. Files removed; saved data retained.'
@@ -32,7 +33,7 @@ def render(app,path,user,data,method,services):
     content='' if section=='overview' else '<h2>'+HEADINGS[section]+'</h2>'
     if note: content+='<p class="notice">'+E(note)+'</p>'
     if section=='overview': content+=overview.render(app)
-    elif section=='system-updates': content+=maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))
+    elif section=='system-updates': content+=maintenance.render(app,user,started=method=='POST' and bool(data.get('update')))+'<details class="settings-section" id="update-schedules"'+(' open' if data.get('action')=='save-update-schedules' else '')+'><summary>Automatic update schedules</summary>'+update_schedule.render(app,user)+'</details>'
     elif section in ('branding','home'): content+=branding.render(app,section,user)
     elif section=='recovery': content+=recovery.render(app,user)
     elif section=='notifications': content+=notifications.render(app,user)
@@ -54,7 +55,7 @@ def render(app,path,user,data,method,services):
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
     administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
-    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/terminal','Host terminal'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/schedules','Update schedules'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
+    operator=[('/admin/system-updates','Portal and host updates'),('/admin/host','Host maintenance'),('/admin/terminal','Host terminal'),('/admin/storage','Upload storage'),('/admin/network-host','Network and time'),('/admin/security','Security'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
             (administrator if submenu=='voice' else operator).append(('/admin/'+submenu,HEADINGS[submenu]))
