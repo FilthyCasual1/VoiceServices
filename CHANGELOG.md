@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.3 — 2026-10-06
+
+Place distro and INSAP versions beneath the update page logo, remove duplicate heading/version line, and align update buttons in one row.
+
 ## 1.17.2 — 2026-10-06
 
 Align Overview section headings and tables; move distro branding, version and compact refresh control into a single toolbar.

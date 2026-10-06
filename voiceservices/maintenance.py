@@ -10,13 +10,17 @@ def change(app,user,data):
     return 'Update started. Progress updates automatically. The portal briefly disconnects while INSAP restarts.'
 def render(app,user,started=False):
     from .version import __version__
-    content='<p>Installed INSAP version: <strong>'+E(__version__)+'</strong></p><h2>Portal and host updates</h2><div class="panel host-updates"><div class="distro-powered"><span>Powered by</span><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"></div><p>OS updates use the installed host update provider to upgrade system packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
-    if not app.store.accounts: return content+'<p class="muted">No host update provider is connected. One-click updates are unavailable on this deployment.</p><button disabled>Update OS</button><button disabled>Update INSAP</button></div>'
+    from . import distro
+    host=distro.detected();name=host.get('NAME',host.get('ID','Linux'));release=host.get('VERSION_ID','')
+    identity=E((name+' '+release).strip())
+    content='<div class="panel host-updates"><div class="distro-powered"><span>Powered by</span><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"><span class="update-version">'+identity+'</span><span class="update-version">INSAP '+E(__version__)+'</span></div><p>OS updates use the installed host update provider to upgrade system packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
+    if not app.store.accounts: return content+'<p class="muted">No host update provider is connected. One-click updates are unavailable on this deployment.</p><div class="update-actions"><button disabled>Update OS</button><button disabled>Update INSAP</button></div></div>'
     content+='<p class="muted">Connected update provider: host operating system.</p>'
     try: state=app.store.accounts.call('maintenance-status','','')
     except ValueError as exc: return content+'<p class="notice error">'+E(exc)+'</p></div>'
     watch='starting' if started else state.get('state','idle')
     content=content.replace('class="panel host-updates"','class="panel host-updates" data-update-state="'+E(watch)+'" data-update-version="'+E(__version__)+'"')
     content+='<p class="notice" data-update-status role="status" aria-live="polite">'+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'
+    content+='<div class="update-actions">'
     for kind,label in [('os','Update OS'),('insap','Update INSAP')]: content+='<form class="inline" method="post" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="'+kind+'"'+(' disabled' if state.get('state')=='running' else '')+'>'+label+'</button></form>'
-    return content+'</div>'
+    return content+'</div></div>'
