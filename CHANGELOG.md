@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.6 — 2026-10-06
+
+Treat verified running VirtualBox service and driver as healthy without requiring optional host version properties; clarify headless installation warnings and show only detected CD versions on the install button.
+
 ## 1.20.5 — 2026-10-06
 
 Read tools CD size with the existing lsblk utility instead of requiring a missing blockdev binary on minimal Rocky installations.

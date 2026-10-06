@@ -57,3 +57,10 @@ class UpdateProgressTests(unittest.TestCase):
   body=self.request('/admin/host',token=token)['body']
   self.assertIn('Guest tools now:',body);self.assertIn('VirtualBox 7.2.18',body)
   self.assertIn('Last host operation',body);self.assertIn('Previous failure',body)
+
+ def test_cd_button_version_only_comes_from_detected_virtualbox_cd(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  for cd,label in [({'provider':'virtualbox','version':'7.2.18'},'Install tools CD 7.2.18'),({'provider':'vmware','version':'VMware Tools'},'Install tools CD'),({'provider':'virtualbox','version':'not detected'},'Install tools CD')]:
+   self.app.store.accounts.call.return_value={'state':'idle','tools_cd':cd}
+   body=self.request('/admin/host',token=token)['body']
+   self.assertIn('value="vmtools-cd">'+label+'</button>',body)

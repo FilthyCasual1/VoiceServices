@@ -19,7 +19,7 @@ The [Alpine installer](docs/alpine-install.md) remains available for existing de
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.20.5](packages/addons/1.20.5/) and
+Download `.sraddon` files from [packages/addons/1.20.6](packages/addons/1.20.6/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.

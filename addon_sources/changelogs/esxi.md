@@ -1,5 +1,10 @@
 # ESXi Management changelog
 
+## 1.20.6
+
+- Package for INSAP 1.20.6. No functional addon changes; headless guest-tools status improvements are core fixes.
+
+
 ## 1.20.5
 
 - Package for INSAP 1.20.5. No functional addon changes; minimal Rocky tools-CD compatibility is a core fix.

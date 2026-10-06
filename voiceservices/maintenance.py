@@ -26,6 +26,7 @@ def render(app,user,started=False):
     live=state.get('tools_live',{})
     if isinstance(live,dict) and live.get('provider')=='virtualbox':
         content+='<p class="tools-live-status">Guest tools now: <strong>VirtualBox '+E(live.get('version',''))+' — '+E(live.get('state','Unknown'))+'</strong></p>'
+        if live.get('state')=='Running' and not live.get('communication',True):content+='<p class="muted">Guest service and driver are running. Hypervisor version property is unavailable; this does not indicate an installation failure.</p>'
     watch='starting' if started else state.get('state','idle')
     content=content.replace('class="panel host-updates"','class="panel host-updates" data-update-state="'+E(watch)+'" data-update-version="'+E(__version__)+'" data-review="'+E(review.get('commit','')+':'+review.get('state',''))+'"')
     content+='<p class="notice" data-update-status role="status" aria-live="polite">'+'Last host operation — '+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'
@@ -33,7 +34,10 @@ def render(app,user,started=False):
     for kind,label in [('os','Update OS'),('insap','Grab INSAP update'),('vmtools','Update VM tools')]: content+='<form class="inline" method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="'+kind+'"'+(' disabled' if state.get('state')=='running' else '')+'>'+label+'</button></form>'
     cd=state.get('tools_cd',{})
     if isinstance(cd,dict) and cd:
-        content+='<form class="inline" method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="vmtools-cd">Install tools CD '+E(cd.get('version',''))+'</button></form>'
+        import re
+        detected=cd.get('version','') if cd.get('provider')=='virtualbox' else ''
+        suffix=' '+detected if isinstance(detected,str) and re.fullmatch(r'\d+\.\d+\.\d+',detected) else ''
+        content+='<form class="inline" method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button name="update" value="vmtools-cd">Install tools CD'+E(suffix)+'</button></form>'
     content+='</div>'
     if review.get('state')=='ready':
         content+='<div class="release-review"><h3>INSAP '+E(review.get('version',''))+' — release review</h3><details open><summary>Changelog</summary><pre>'+E(review.get('changelog',''))+'</pre></details><form method="post" action="/admin/host" data-start-update><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><input type="hidden" name="release" value="'+E(review.get('commit',''))+'"><div class="update-actions"><button name="update" value="insap-install">Proceed with update</button><button name="update" value="insap-decline">Decline this version</button></div></form></div>'

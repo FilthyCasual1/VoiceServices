@@ -71,7 +71,7 @@ def live_status():
     try:communication=bool(re.match(r'Value:\s*\d+\.\d+\.\d+(?:\s|$)',output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer'])))
     except (OSError,subprocess.SubprocessError):communication=False
     driver=pathlib.Path('/sys/module/vboxguest').is_dir()
-    return {'provider':'virtualbox','version':version,'state':'Running' if service and communication and driver else 'Installed; runtime checks incomplete','service':service,'communication':communication,'driver':driver}
+    return {'provider':'virtualbox','version':version,'state':'Running' if service and driver else 'Installed; guest service or driver not verified','service':service,'communication':communication,'driver':driver}
 
 def virtualbox_running(version):
     live=live_status()
@@ -79,10 +79,10 @@ def virtualbox_running(version):
 def run_installer(run,installer,version,report):
     try:run(['/bin/sh',str(installer),'--nox11'])
     except subprocess.CalledProcessError as exc:
-        report('Installer returned an error; checking installed version, guest service and host communication')
+        report('Installer returned an error; checking installed version, guest service and loaded driver')
         if not virtualbox_running(version):raise
-        return ' Installer returned exit '+str(exc.returncode)+', but the requested version, guest service and host communication are verified. See Installer output for warnings.'
-    return ''
+        return ' Installer returned exit '+str(exc.returncode)+', but the requested version, guest service and loaded driver are verified. Optional desktop components are not required on this server. See Installer output for warnings.'
+    return ' Desktop/X.Org integration is optional and is not required on this server.'
 
 def install_cd(run,report):
     cd=tools_cd()

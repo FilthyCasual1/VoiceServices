@@ -111,3 +111,8 @@ class VMToolsTests(unittest.TestCase):
   import subprocess
   with patch.object(tools,'output',side_effect=subprocess.CalledProcessError(3,'systemctl')),patch.object(tools.pathlib.Path,'iterdir',return_value=iter([Path('/proc/123')])),patch.object(tools.os,'readlink',return_value='/opt/VBoxGuestAdditions-7.2.18/sbin/VBoxService'):
    self.assertTrue(tools.virtualbox_service('7.2.18'))
+
+ def test_missing_host_property_does_not_fail_running_headless_tools(self):
+  import subprocess
+  with patch.object(tools.shutil,'which',return_value='/usr/bin/VBoxControl'),patch.object(tools,'output',side_effect=['7.2.18r175117',subprocess.CalledProcessError(1,'guestproperty')]),patch.object(tools,'virtualbox_service',return_value=True),patch.object(tools.pathlib.Path,'is_dir',return_value=True):
+   status=tools.live_status();self.assertEqual(status['state'],'Running');self.assertFalse(status['communication'])
