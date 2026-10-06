@@ -218,3 +218,25 @@ class HostConfigurationTests(unittest.TestCase):
  def test_vm_detection_recognizes_virtual_machine_and_physical_host(self):
   with patch.object(control.subprocess,'check_output',return_value='vmware\n'):self.assertEqual(control.virtual_machine(),'vmware')
   with patch.object(control.subprocess,'check_output',side_effect=FileNotFoundError),patch.object(Path,'read_text',return_value='Physical workstation'):self.assertEqual(control.virtual_machine(),'')
+
+ def test_single_format_of_used_filesystem_requires_explicit_erasure(self):
+  with tempfile.TemporaryDirectory() as root:
+   root=Path(root);cfg=root/'config';mount=root/'data';mount.mkdir();cfg.write_text(json.dumps({'database':str(root/'db')}))
+   disk={'path':'/dev/sdb','eligible':False,'raid_eligible':True,'fingerprint':'same','size':10*1024**3}
+   payload={'kind':'storage','disk':'/dev/sdb','fingerprint':'same','confirm':'FORMAT /dev/sdb','erase_confirm':'yes'}
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'MOUNT',mount),patch.object(control,'disks',return_value=[disk]):
+    control.validate(payload)
+    with self.assertRaises(ValueError):control.validate(dict(payload,erase_confirm=''))
+    with self.assertRaises(ValueError):control.validate(dict(payload,fingerprint='changed'))
+    with patch.object(control,'disks',return_value=[dict(disk,raid_eligible=False)]):
+     with self.assertRaises(ValueError):control.validate(payload)
+ def test_storage_format_buttons_remain_visible(self):
+  from voiceservices.host_configuration import render
+  from types import SimpleNamespace
+  state={'job':{'state':'idle','message':''},'storage':'Not configured','storage_available':False,'disks':[{'path':'/dev/sdb','size':10*1024**3,'eligible':False,'raid_eligible':True,'fingerprint':'same'}]}
+  app=SimpleNamespace(store=SimpleNamespace(accounts=SimpleNamespace(call=lambda *args:state)))
+  with patch('voiceservices.disk_health.render',return_value=''):
+   page=render(app,{'csrf':'token'},'storage')
+   self.assertIn('Format and use disk',page);self.assertIn('Erase all data on this disk',page)
+   state['storage_available']=True;state['storage']='/srv/serviceready-data';state['disks'][0]['reformat']=True
+   page=render(app,{'csrf':'token'},'storage');self.assertIn('Erase and reformat data disk',page)

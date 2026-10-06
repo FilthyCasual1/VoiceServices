@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.3 — 2026-10-06
+
+Restore single-disk formatting for unused disks with existing filesystems using explicit erase confirmation; show current upload disk reformat controls directly.
+
 ## 1.27.2 — 2026-10-06
 
 Match addon action buttons and expose software RAID creation in Storage, with explicit disk erasure, protected boot/mounted disks, and clear availability guidance.

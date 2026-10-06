@@ -107,9 +107,9 @@ def validate(p,raid_member=False):
   for member in members:validate(dict(member,kind='storage',confirm='FORMAT '+member.get('disk','')),raid_member=True)
  elif kind=='storage':
   d=next((d for d in disks() if d['path']==p.get('disk')),None)
-  if not d or not (d.get('raid_eligible',d['eligible']) if raid_member else d['eligible']) or d['fingerprint']!=p.get('fingerprint'):raise ValueError('Disk is in use, contains data, or has changed. Reload the disk list.')
+  if not d or not (d.get('raid_eligible',d['eligible']) if raid_member or p.get('erase_confirm')=='yes' else d['eligible']) or d['fingerprint']!=p.get('fingerprint'):raise ValueError('Disk is in use, contains data, or has changed. Reload the disk list.')
   if p.get('confirm')!='FORMAT '+d['path']:raise ValueError('Type FORMAT followed by the exact disk path.')
-  if not raid_member and json.loads(run(['wipefs','--no-act','--json',d['path']])).get('signatures'):raise ValueError('Disk has existing signatures. Only blank disks are accepted.')
+  if not raid_member and p.get('erase_confirm')!='yes' and json.loads(run(['wipefs','--no-act','--json',d['path']])).get('signatures'):raise ValueError('Disk has existing signatures. Only blank disks are accepted.')
   cfg=json.loads(CONFIG.read_text())
   if cfg.get('data_mount') and os.path.ismount(cfg['data_mount']):raise ValueError('An upload disk is already mounted. Detach it before configuring a replacement.')
   if MOUNT.exists() and any(MOUNT.iterdir()):raise ValueError('The upload mount directory is not empty.')
@@ -226,7 +226,9 @@ def main(p):
      detail=run(['mdadm','--detail','--scan',ARRAY]);lines=[line for line in detail.splitlines() if line.startswith('ARRAY '+ARRAY+' ')]
      if len(lines)!=1:raise ValueError('Unable to verify persistent RAID array configuration.')
      MDADM.write_text((MDADM.read_text() if MDADM.exists() else '')+'\n'+lines[0]+'\n')
-    else:disk=p['disk']
+    else:
+     disk=p['disk']
+     if p.get('erase_confirm')=='yes':run(['wipefs','--all',disk])
     run(['mkfs.ext4','-F','-L','ServiceReadyData',disk]);uuid=run(['blkid','-s','UUID','-o','value',disk]);MOUNT.mkdir(parents=True,exist_ok=True)
     run(['mount','-t','ext4',disk,str(MOUNT)])
     cfg=json.loads(CONFIG.read_text());uid=pwd.getpwnam('serviceready').pw_uid;gid=pwd.getpwnam('serviceready').pw_gid
