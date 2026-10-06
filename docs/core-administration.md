@@ -1,4 +1,4 @@
-# Core administration (1.12.2)
+# Core administration (1.13.3)
 
 These controls are part of the permanent core and work without any addons.
 
@@ -42,3 +42,5 @@ Appearance → Date, time and time zone sets the portal-wide IANA timezone and d
 Overview refreshes local measurements every five seconds while visible. Portal navigation preserves the masthead and unchanged images; ordinary full-page navigation remains available without JavaScript. Host OEM identity comes from readable Linux DMI information: manufacturer, model, serial number, system board and BIOS. Missing or restricted fields are omitted. Virtual machines report the identity exposed by the hypervisor, rather than the physical ESXi server.
 
 Home page blocks are grouped into Guest home and Signed-in home. Each block belongs to one audience; the portal chooses the home automatically from the session. Existing blocks migrate to Guest home, and service blocks are copied once to Signed-in home with a My Account link. Edits and removal are independent thereafter.
+
+Overview has an Auto refresh switch for its five-second statistics refresh. The browser remembers the setting; manual navigation remains available while refresh is off. Account authentication settings are documented in account-authentication.md.

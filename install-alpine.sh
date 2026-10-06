@@ -14,7 +14,7 @@ case "${1:-}" in
     *) echo "Usage: $0 [--bare]" >&2; exit 1 ;;
 esac
 umask 027
-apk add --no-cache python3 py3-pip git ca-certificates dnsmasq tzdata
+apk add --no-cache python3 py3-pip git ca-certificates dnsmasq tzdata krb5 krb5-dev build-base python3-dev
 grep -q '^serviceready:' /etc/group || addgroup -S serviceready
 id serviceready >/dev/null 2>&1 || adduser -S -D -H -G serviceready -h /var/lib/serviceready -s /sbin/nologin serviceready
 mkdir -p /opt/serviceready /etc/serviceready /var/lib/serviceready /var/log/serviceready /var/lib/serviceready/tmp
@@ -33,7 +33,7 @@ install -m 0755 "$source_dir/deploy/serviceready-accounts.initd" /etc/init.d/ser
 rc-update add serviceready-accounts default
 rc-service serviceready-accounts restart
 python3 -m venv /opt/serviceready/venv
-/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir" 'waitress==3.0.2' 'pyftpdlib==2.1.0' 'aiosmtpd==1.4.6'
+/opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir[identity]" 'waitress==3.0.2' 'pyftpdlib==2.1.0' 'aiosmtpd==1.4.6'
 chown root:serviceready /opt/serviceready
 chmod 0750 /opt/serviceready
 chgrp -R serviceready /opt/serviceready/venv

@@ -13,6 +13,7 @@ def issue(app,actor,data):
     with app.store.connect() as db:
         user=db.execute('SELECT * FROM users WHERE username=?',(data.get('username','').strip(),)).fetchone()
         if not user: raise ValueError('Account unavailable.')
+        if user['password']=='external': raise ValueError('Recover external credentials through the identity provider.')
         token=secrets.token_urlsafe(32)
         db.execute('DELETE FROM recovery_tokens WHERE user_id=?',(user['id'],))
         db.execute('INSERT INTO recovery_tokens VALUES(?,?,?,?)',(twofactor.H(token),user['id'],int(time.time())+1800,int(data.get('reset_factor')=='yes')))

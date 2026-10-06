@@ -1,11 +1,12 @@
 """Permanent administrator shell with addon-provided subpages."""
 import html
 from .modules import CATALOG
-from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule
+from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth
 E=lambda value:html.escape(str(value),quote=True)
 OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
-def password_form(user):
+HEADINGS={'authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
+def password_form(user,app):
+    if external_auth.identity(app,user): return '<p>Your password is managed by your identity provider.</p>'
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
     return '<div class="panel login"><form method="post">'+csrf+'<input type="hidden" name="action" value="password"><label>Current password</label><input name="current_password" type="password" autocomplete="current-password" required><label>New password</label><input name="new_password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm new password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><br><button>Change password</button></form></div>'
 def render(app,path,user,data,method,services):
@@ -22,6 +23,7 @@ def render(app,path,user,data,method,services):
         elif section=='notifications': note=notifications.change(app,user,data)
         elif section=='schedules': note=update_schedule.change(app,user,data)
         elif section=='security': note=security.change(app,user,data)
+        elif section=='authentication': note=external_auth.change(app,user,data)
         elif section=='users': note=recovery.issue(app,user,data) if data.get('action')=='authorize-recovery' else user_management.change(app,user,data)
         elif section in ('branding','home'): note=branding.change(app,section,data)
         elif section in OPTIONAL: note=app.modules.load(OPTIONAL[section]).admin_change(app,data,services)
@@ -34,6 +36,7 @@ def render(app,path,user,data,method,services):
     elif section=='notifications': content+=notifications.render(app,user)
     elif section=='schedules': content+=update_schedule.render(app,user)
     elif section=='security': content+=security.render(app,user)
+    elif section=='authentication': content+=external_auth.render(app,user)
     elif section=='users': content+=user_management.render(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
     elif section=='addons':
@@ -45,7 +48,7 @@ def render(app,path,user,data,method,services):
             content+='<div class="panel"><h3>'+E(name)+'</h3><p>'+E(description)+'</p><p>'+('Installed' if installed else 'Incompatible package; uninstall before replacement')+'</p>'
             if present: content+='<form method="post">'+csrf+'<input type="hidden" name="module" value="'+key+'"><button name="action" value="remove">Uninstall package</button></form>'
             content+='</div>'
-    administrator=[('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
+    administrator=[('/admin/authentication','Account authentication'),('/admin/users','Users and Accounts'),('/admin/notifications','Notifications')]
     operator=[('/admin/security','Security'),('/admin/schedules','Update schedules'),('/admin/addons','Addons'),('/admin/branding','Appearance'),('/admin/home','Home page blocks')]
     for submenu,module in OPTIONAL.items():
         if app.modules.installed(module):
@@ -54,5 +57,5 @@ def render(app,path,user,data,method,services):
         return '<a href="'+url+'"'+(' aria-current="page"' if path.rstrip('/')==url else '')+'>'+E(label)+'</a>'
     def tree(label,links):
         return '<details class="admin-tree" open><summary>'+label+'</summary><div>'+''.join(navigation_link(url,label) for url,label in links)+'</div></details>'
-    sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview')+tree('Administrator',administrator)+tree('System Operator',operator)+'</aside>'
+    sidebar='<aside class="admin-nav" aria-label="Administration"><h3>Administration</h3>'+navigation_link('/admin','Overview')+tree('Administrator',administrator)+tree('System',operator)+'</aside>'
     return '<div class="admin-layout">'+sidebar+'<div class="admin-content'+(' admin-overview' if section=='overview' else '')+'">'+content+'</div></div>'

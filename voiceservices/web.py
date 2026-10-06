@@ -16,7 +16,7 @@ from .accounts import LinuxAccounts
 from .updates import Updates
 from .modules import Modules
 from .library import Library
-from . import administration,branding,account,login_protection,security
+from . import administration,branding,account,login_protection,security,external_auth
 
 E = lambda value: html.escape(str(value), quote=True)
 
@@ -25,6 +25,11 @@ class App:
     def __init__(self, config):
         self.config = config
         self.started_at = time.time()
+        hostname=socket.gethostname().rstrip('.')
+        try: fqdn=socket.getfqdn().rstrip('.')
+        except OSError: fqdn=hostname
+        short,separator,domain=fqdn.partition('.')
+        self.host_label=domain+'/'+hostname.split('.')[0] if separator else hostname
         accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend')=='alpine' else None
         self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
         self.updates = Updates(self.store,config)
@@ -38,6 +43,7 @@ class App:
         self.attempts = {}
         login_protection.initialize(self)
         branding.initialize(self)
+        external_auth.initialize(self)
         account.initialize(self)
         account.initialize_extras(self)
         from . import twofactor
@@ -210,6 +216,8 @@ class App:
                 return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={result}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_factor=; HttpOnly; SameSite=Lax; Path=/login; Max-Age=0')])
             if method=='POST': login_protection.failed(env,'mfa',self)
             return send('200 OK',self.page('Verify your sign-in',twofactor.login_page(self,pending,'Code incorrect or already used.' if method=='POST' else ''),None))
+        if path == '/login/kerberos':
+            return external_auth.sso(self,env,cookie,send)
         if path == '/login':
             box_title,box_subtitle=branding.box_text(self,'login')
             error = '<p class="notice error">Your sign-in form expired. Please enter your credentials again.</p>' if env.get('voiceservices.login_expired') else ''
@@ -220,7 +228,7 @@ class App:
                     def retry_start(status, headers): start_response('403 Forbidden', headers)
                     response = self(retry_env, retry_start)
                     return response
-                result = self.store.login(data.get('username',''),data.get('password',''))
+                result = external_auth.login(self,data.get('provider','local'),data.get('username',''),data.get('password',''))
                 if result:
                     from . import twofactor
                     person=self.store.session(result)
@@ -237,6 +245,11 @@ class App:
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
             form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" required><label>Password</label><input name="password" type="password" autocomplete="current-password" required><label class="remember-login"><input type="checkbox" name="remember" value="yes"> Stay signed in for 30 days</label><br><button>Sign in</button></form><p class="signin-help"><a href="/recover">Recover your account</a></p></div><p class="signin-help">New here? <a href="/create-account">Create an account</a>.</p></div>'
+            providers=[(key,label) for key,label in external_auth.KINDS.items() if external_auth.settings(self,key)['enabled']]
+            if providers:
+                picker='<label>Sign in with</label><select name="provider"><option value="local">Local account</option>'+''.join('<option value="'+key+'">'+label+'</option>' for key,label in providers)+'</select>'
+                form=form.replace('<label>Username</label>',picker+'<label>Username</label>')
+            if external_auth.settings(self,'kerberos')['enabled']: form+='<p class="signin-help"><a href="/login/kerberos" data-full-navigation="yes">Sign in with Kerberos browser SSO</a></p>'
             policy=security.settings(self)
             if policy['remember_enabled']: form=form.replace('Stay signed in for 30 days','Stay signed in for '+str(policy['remember_days'])+' days')
             else: form=re.sub(r'<label class="remember-login">.*?</label>','',form)
@@ -347,4 +360,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>([^<]*)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(socket.gethostname())+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(self.host_label)+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

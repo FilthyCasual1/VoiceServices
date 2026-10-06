@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.13.3 — 2026-10-06
+
+Show host domain/hostname in the account header when the host has a configured domain.
+
+## 1.13.2 — 2026-10-06
+
+Rename the System Operator administration tree to System.
+
+## 1.13.1 — 2026-10-06
+
+Add a remembered overview auto-refresh switch.
+
+## 1.13.0 — 2026-10-06
+
+Add explicit LDAP, Kerberos password/browser SSO and RADIUS authentication with local Alpine administrator access preserved.
+
 ## 1.12.2 — 2026-10-06
 
 Add timezone dropdowns, rename Appearance and restore friendly usable default home and account guidance while preserving custom copy.

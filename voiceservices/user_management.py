@@ -22,6 +22,14 @@ def change(app,actor,data):
         if not target: raise ValueError('User not found.')
         if identifier==actor['id']: raise ValueError('Use My Account for your own account; you cannot delete or change your own role here.')
         if target['role']=='admin' and db.execute("SELECT COUNT(*) FROM users WHERE role='admin'").fetchone()[0]<=1: raise ValueError('The last administrator cannot be removed or demoted.')
+        if target['password']=='external':
+            if action=='role': raise ValueError('External identities cannot become local administrators.')
+            if data.get('confirm')!='yes': raise ValueError('Confirm removal of portal access.')
+            db.execute('UPDATE external_identities SET active=0 WHERE user_id=?',(identifier,))
+            db.execute('DELETE FROM sessions WHERE user_id=?',(identifier,))
+            db.execute('DELETE FROM phones WHERE user_id=?',(identifier,))
+            db.execute("INSERT INTO audit(at,user_id,action) VALUES(strftime('%s','now'),?,?)",(actor['id'],'Disabled external access '+target['username']))
+            return 'External portal access disabled; the remote account is unchanged.'
         if action=='role':
             role=data.get('role','')
             if role not in ('user','admin'): raise ValueError('Choose a valid portal role.')
@@ -42,7 +50,8 @@ def render(app,actor):
     content='<p>Authentication: <strong>'+backend+'</strong>. <a href="/account">Change your password</a>.</p><table><tr><th>Username</th><th>Portal access</th><th>Actions</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT id,username,role FROM users ORDER BY username'):
-            content+='<tr><td>'+E(row['username'])+'</td><td>'+E(row['role'])+'</td><td>'
+            external=db.execute('SELECT provider,active FROM external_identities WHERE user_id=?',(row['id'],)).fetchone()
+            content+='<tr><td>'+E(row['username'])+'</td><td>'+E(row['role'])+(' · '+E(external['provider'])+(' (disabled)' if not external['active'] else '') if external else '')+'</td><td>'
             if row['id']==actor['id']: content+='Signed-in account'
             else:
                 hidden=csrf+'<input type="hidden" name="user" value="'+str(row['id'])+'">'

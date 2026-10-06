@@ -1,6 +1,6 @@
 # Automatic updates
 
-Administration → System Operator → Update schedules configures independent daily or weekly portal and operating-system updates, local time, weekday and IANA timezone. Both schedules are off by default. The page shows next occurrence, last result, provider availability and scheduler heartbeat.
+Administration → System → Update schedules configures independent daily or weekly portal and operating-system updates, local time, weekday and IANA timezone. Both schedules are off by default. The page shows next occurrence, last result, provider availability and scheduler heartbeat.
 
 The Alpine installer registers the unprivileged `serviceready-scheduler` OpenRC service. Existing installations receive it through INSAP update. On other hosts, supervise `python -m voiceservices.schedule_service --config config.json`; execution also requires a supported host update provider. The current execution provider is Alpine's existing approved privileged broker. Saving a schedule in a preview without that provider does not perform any upgrade.
 

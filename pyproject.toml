@@ -24,3 +24,5 @@ namespaces = false
 
 [project.optional-dependencies]
 smtp = ["aiosmtpd==1.4.6"]
+
+identity = ["ldap3>=2.9,<3", "pyrad>=2.5.4,<3", "gssapi>=1.8,<2"]

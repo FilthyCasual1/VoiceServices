@@ -299,3 +299,10 @@ class CoreAdminTests(unittest.TestCase):
         with self.app.store.connect() as db: db.execute("UPDATE home_blocks SET body='Custom welcome' WHERE title='1. Get an account'")
         branding.initialize(self.app)
         self.assertIn('Custom welcome',self.request()['body'])
+
+    def test_domain_and_hostname_in_account_header(self):
+        from voiceservices.web import App
+        with patch('voiceservices.web.socket.gethostname',return_value='portal'),patch('voiceservices.web.socket.getfqdn',return_value='portal.example.org'):
+            app=App({'database':self.tmp.name+'/domain.sqlite','secure_cookies':False})
+        self.assertEqual(app.host_label,'example.org/portal')
+        self.assertIn('example.org/portal',app.page('Home','',None))

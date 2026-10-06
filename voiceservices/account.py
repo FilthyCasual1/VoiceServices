@@ -76,6 +76,8 @@ def change(app,user,data,token):
     raise ValueError('Unknown account action.')
 def render(app,user,token,note='',section='profile'):
     from .administration import password_form
+    from . import external_auth
+    external=external_auth.identity(app,user)
     from . import twofactor
     from .modules import CATALOG
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">';value=profile(app,user)
@@ -84,7 +86,7 @@ def render(app,user,token,note='',section='profile'):
     prefix=content;content=''
     picture='<div class="panel profile-picture"><img class="avatar" src="/account/photo" alt="Profile picture"><form action="/account/photo/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Profile picture (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload picture</button></form><form method="post">'+csrf+'<button name="action" value="remove-photo">Remove picture</button></form></div>'
     content+='<section><h2 id="profile">Your profile</h2><div class="panel account-profile-grid">'+picture
-    content+='<div class="profile-details"><p>Username: <strong>'+E(user['username'])+'</strong><br>Access: '+E(user['role'])+'<br>Authentication: '+('Alpine system account' if app.store.accounts else 'Local portal account')+'</p><form method="post">'+csrf+'<input name="action" type="hidden" value="profile">'
+    content+='<div class="profile-details"><p>Username: <strong>'+E(user['username'])+'</strong><br>Access: '+E(user['role'])+'<br>Authentication: '+(E(external_auth.KINDS[external['provider']])+' account' if external else 'Alpine system account' if app.store.accounts else 'Local portal account')+'</p><form method="post">'+csrf+'<input name="action" type="hidden" value="profile">'
     for key,label,entry in [('display_name','Display name',user['display_name']),('email','Email address',value['email']),('phone','Contact number',value['phone']),('timezone','Time zone',value['timezone'])]: content+='<label>'+label+'</label>'+(regional.timezone_select(key,entry or 'UTC') if key=='timezone' else '<input name="'+key+'" value="'+E(entry or '')+'">')
     content+='<br><button>Save profile</button></form></div></div></section>'
     profile_content=content;content=''
@@ -95,7 +97,7 @@ def render(app,user,token,note='',section='profile'):
     for message in messages:
         content+='<div class="panel notification-'+E(message['priority'])+'"><span class="priority priority-'+E(message['priority'])+'">'+E(message['priority'].title())+'</span> <strong>'+E(message['title'])+'</strong> '+('' if message['is_read'] else '<span class="muted">Unread</span>')+'<p class="muted">From: '+E(message['sender'])+'</p><p>'+E(message['body']).replace('\n','<br>')+'</p><small>'+E(regional.format_timestamp(app,message['created']))+'</small><form method="post">'+csrf+'<input type="hidden" name="notification" value="'+str(message['id'])+'"><button name="action" value="read-notification">Mark read</button><button name="action" value="delete-notification">Delete</button></form></div>'
     inbox_content=content;content=''
-    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires</th></tr>'
+    content+='<div class="account-security-grid"><section><h2 id="security">Password and security</h2>'+password_form(user,app)+twofactor.panel(app,user,token)+'</section><section><h2 id="sessions">Active sessions</h2><div class="panel"><table><tr><th>Session</th><th>Expires</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT token,expires FROM sessions WHERE user_id=? AND expires>? ORDER BY expires DESC',(user['id'],int(time.time()))):
             content+='<tr><td>'+('This session' if row['token']==token else 'Other session')+'</td><td>'+E(regional.format_timestamp(app,row['expires']))+'</td></tr>'

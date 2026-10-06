@@ -1,5 +1,17 @@
 /* Progressive navigation: preserve the appliance masthead and refresh stats only. */
 (() => {
+  let refreshEnabled = true;
+  try { refreshEnabled = localStorage.getItem('overview-refresh') !== 'off'; } catch (_) {}
+  function refreshControl() {
+    const input = document.querySelector('[data-overview-refresh]');
+    if (input) { input.checked = refreshEnabled; input.closest('label').hidden = false; }
+  }
+  refreshControl();
+  document.addEventListener('change', event => {
+    if (!event.target.matches('[data-overview-refresh]')) return;
+    refreshEnabled = event.target.checked;
+    try { localStorage.setItem('overview-refresh', refreshEnabled ? 'on' : 'off'); } catch (_) {}
+  });
   let navigating = false, generation = 0, polling = false, redirectTimer;
   function morph(current, incoming) {
     if (current.nodeType !== incoming.nodeType || current.nodeName !== incoming.nodeName) {
@@ -34,6 +46,7 @@
         for (const el of main.querySelectorAll('details')) if (opened.includes(el.querySelector('summary')?.textContent)) el.open = true;
       }
       document.querySelector('main').replaceWith(main);
+      refreshControl();
       morph(document.querySelector('header'), parsed.querySelector('header'));
       morph(document.querySelector('nav'), parsed.querySelector('nav'));
       morph(document.querySelector('footer'), parsed.querySelector('footer'));
@@ -53,7 +66,7 @@
   }
   document.addEventListener('click', event => {
     const link = event.target.closest('a');
-    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
+    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download') || link.hasAttribute('data-full-navigation')) return;
     const url = new URL(link.href, location.href);
     if (url.origin !== location.origin || /^(\/files\/|\/pxe\/|\/phone\/|\/branding\/|\/static\/)/.test(url.pathname)) return;
     if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
@@ -71,14 +84,14 @@
   });
   window.addEventListener('popstate', () => visit(location.href, {}, 'replace'));
   setInterval(async () => {
-    if (document.hidden || navigating || polling || location.pathname.replace(/\/$/, '') !== '/admin' || !document.querySelector('.overview-grid')) return;
+    if (!refreshEnabled || document.hidden || navigating || polling || location.pathname.replace(/\/$/, '') !== '/admin' || !document.querySelector('.overview-grid')) return;
     polling = true; const revision = generation;
     try {
       const response = await fetch('/admin/overview-stats', {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
       if ((response.redirected && new URL(response.url).pathname === '/login') || response.status === 401 || response.status === 403) { visit('/login', {}, 'replace'); return; }
       if (!response.ok || !response.headers.get('Content-Type')?.includes('application/json')) return;
       const result = await response.json();
-      if (revision !== generation || navigating || !document.querySelector('.overview-grid')) return;
+      if (!refreshEnabled || revision !== generation || navigating || !document.querySelector('.overview-grid')) return;
       const fragment = new DOMParser().parseFromString(result.html, 'text/html');
       morph(document.querySelector('.overview-grid'), fragment.querySelector('.overview-grid'));
       const note = document.querySelector('.overview-note'); if (note) morph(note, fragment.querySelector('.overview-note'));

@@ -59,6 +59,11 @@ class Store:
     def login(self, username, password):
         with self.connect() as db:
             user = db.execute('SELECT * FROM users WHERE username=?', (username,)).fetchone()
+            if user and user['password']=='external':
+                if user['role']!='user' or not getattr(self,'external_check',lambda *_:False)(user,password): return None
+                token,csrf=secrets.token_urlsafe(32),secrets.token_urlsafe(24)
+                db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(token,user['id'],csrf,int(time.time())+28800))
+                return token
             if self.accounts:
                 try: self.accounts.call('authenticate',username,password)
                 except ValueError: return None
@@ -74,6 +79,8 @@ class Store:
             return token
 
     def change_password(self, user, current, new):
+        with self.connect() as db: external=db.execute("SELECT 1 FROM users WHERE id=? AND password='external'",(user['id'],)).fetchone()
+        if external: raise ValueError('Change your password through your identity provider.')
         if len(new)<12 or len(new)>1024: raise ValueError('Use a password of 12–1024 characters.')
         if self.accounts:
             self.accounts.call('change',user['username'],current,new)
@@ -90,9 +97,10 @@ class Store:
 
     def session(self, token):
         with self.connect() as db:
-            return db.execute('SELECT users.id,username,display_name,role,preferences,csrf FROM sessions JOIN users '
+            user=db.execute('SELECT users.id,username,display_name,role,preferences,csrf FROM sessions JOIN users '
                               'ON users.id=sessions.user_id WHERE token=? AND expires>?',
                               (token, int(time.time()))).fetchone()
+        return user if not user or getattr(self,'external_session_check',lambda _:True)(user) else None
 
     def logout(self, token):
         with self.connect() as db:
