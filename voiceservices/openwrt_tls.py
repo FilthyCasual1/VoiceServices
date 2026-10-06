@@ -61,5 +61,5 @@ http {{
     if changed and root==Path('/'):
         command(['nginx','-t','-c',str(proxy)])
         if changed and reload:command(['/etc/init.d/serviceready-proxy','reload'])
-    state.write_text(signature)
+    if changed:state.write_text(signature)
     return origin(config,primary)

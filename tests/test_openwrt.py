@@ -59,6 +59,9 @@ class TLSAndMenuTests(unittest.TestCase):
    self.assertEqual(url,'https://192.0.2.5');self.assertEqual(ca.read_bytes(),original)
    cert=root/'etc/serviceready/tls/server.crt';text=check_output(['openssl','x509','-in',str(cert),'-noout','-text'],text=True)
    self.assertIn('192.0.2.5',text);self.assertIn('2001:DB8',text)
+   state=root/'etc/serviceready/tls/addresses.json';before=state.stat().st_mtime_ns
+   openwrt_tls.refresh(config,addresses,root=root,reload=False)
+   self.assertEqual(state.stat().st_mtime_ns,before)
    conf=(root/'etc/serviceready/nginx.conf').read_text();self.assertIn('worker_processes 1',conf);self.assertIn('user serviceready serviceready',conf)
  def test_menu_rejects_bad_interface_before_uci(self):
   menu=load('ow_menu','deploy/openwrt/menu-apply.py')

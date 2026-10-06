@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.1 — 2026-10-06
+
+Retain the OpenWrt appliance preparation, OVA/console/browser setup paths and guest-tool profiles while avoiding repeated writes to persistent TLS state when DHCP addresses and certificates are unchanged.
+
 ## 1.27.0 — 2026-10-06
 
 Prepare a lean OpenWrt 25.12 x86-64 runtime and prebuilt DHCP appliance image path, procd services, persistent state, browser first-boot ownership/setup and native HTTPS address tracking. Add explicit VMware/VirtualBox image profiles and kernel/tool packaging contracts; block incompatible Rocky host operations pending native OpenWrt adapters. Add OVA packaging and a menuconfig-style console setup path. Guest-agent cross-build and real VM validation remain required.

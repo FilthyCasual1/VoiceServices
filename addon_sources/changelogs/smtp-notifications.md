@@ -1,3 +1,7 @@
+## 1.27.1
+
+- Package for INSAP 1.27.1; preserves the OpenWrt preparation path and avoids idle persistent-state writes.
+
 ## 1.27.0
 
 - Package for INSAP 1.27.0; prepares OpenWrt deployment while preserving existing addon settings.
