@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.24.1 — 2026-10-06
+
+Stage uploaded artifacts in the configured data disk private tmp folder instead of its root-owned mount directory, preserving partial-file isolation and graceful staging errors.
+
 ## 1.24.0 — 2026-10-06
 
 Add official repository addon installation using core-compatible packages pinned to a repository commit, while retaining manual uploads and installed-only addon listings.

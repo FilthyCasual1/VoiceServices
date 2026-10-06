@@ -1,5 +1,10 @@
 # Downloads changelog
 
+## 1.24.1
+
+- Package for INSAP 1.24.1. No functional addon changes; upload disk staging is a shared core fix.
+
+
 ## 1.24.0
 
 - Package for INSAP 1.24.0. No functional addon changes; repository installation is a core feature.

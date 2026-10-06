@@ -97,8 +97,11 @@ class Updates:
         if shutil.disk_usage(self.root).free<remaining+1024**2: raise ValueError('Insufficient repository disk space.')
         target=self.root/name
         digest=hashlib.sha256();length=remaining
-        # Temporary files live outside the FTP root so clients cannot retrieve partial uploads.
-        fd,temp=tempfile.mkstemp(prefix='.upload-',dir=self.root.parent)
+        # The volume root stays root-owned; its private tmp folder is service-owned.
+        # Keep partial files outside exported repositories and on the same filesystem.
+        staging=Path(self.volume_config['data_mount'])/'tmp' if self.volume_config.get('data_mount') else self.root.parent
+        try:fd,temp=tempfile.mkstemp(prefix='.upload-',dir=staging)
+        except OSError as exc:raise ValueError('Upload staging is unavailable: '+str(exc)+'. Check the configured upload disk and its private temporary folder.') from None
         try:
             with os.fdopen(fd,'wb') as output:
                 while remaining:
