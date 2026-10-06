@@ -30,13 +30,20 @@ def trim_logs(folder):
     return trimmed
 def main(kind):
     rocky=pathlib.Path('/etc/rocky-release').is_file()
-    if kind not in ('os','insap','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
+    if kind not in ('os','insap','vmtools','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not (rocky or pathlib.Path('/etc/alpine-release').is_file()): raise ValueError('Supported Linux root update worker required.')
     with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             status(kind,'failed','Another host operation is running. Wait for it to finish before starting an update.');return
         try:
             status(kind,'running','Preparing update')
+            if kind=='vmtools':
+                import importlib.util
+                file=ROOT/'vm-tools.py'
+                if file.is_symlink() or file.stat().st_uid!=0 or file.stat().st_mode&0o022:raise ValueError('Guest-tools worker must be root-owned and not writable by other users.')
+                spec=importlib.util.spec_from_file_location('vm_tools',file);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                message=module.update(run,lambda message:status(kind,'running',message))
+                status(kind,'complete',message);return
             if kind=='os':
                 status(kind,'running','Refreshing host package indexes');run(['/usr/bin/dnf','makecache'] if rocky else ['/sbin/apk','update'])
                 status(kind,'running','Upgrading installed host packages');run(['/usr/bin/dnf','-y','upgrade'] if rocky else ['/sbin/apk','upgrade'])
@@ -77,7 +84,7 @@ def main(kind):
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
             actor=pwd.getpwnam('serviceready')
             subprocess.run([str(ROOT/'venv/bin/python'),'-I','-c',script],check=True,timeout=1800,cwd='/var/lib/serviceready',user=actor.pw_uid,group=actor.pw_gid,extra_groups=[actor.pw_gid])
-            for name in ('account-broker.py','maintenance-worker.py','host-control.py','runtime-access.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
+            for name in ('account-broker.py','maintenance-worker.py','host-control.py','runtime-access.py','vm-tools.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
             shutil.copy2(source/'deploy/admin-reset.py','/usr/local/sbin/serviceready-admin-reset');os.chmod('/usr/local/sbin/serviceready-admin-reset',0o700)
             if rocky:
                 for unit in (source/'deploy/systemd').glob('*.service'):

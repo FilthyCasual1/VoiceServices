@@ -143,8 +143,16 @@ def handle(request):
         state=json.loads(state_path.read_text()) if state_path.exists() else {'state':'idle','message':'No updates started.'}
         if request['action']=='maintenance-status': return {'ok':True,'status':state}
         kind=request.get('username')
-        if kind not in ('os','insap','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
+        if kind not in ('os','insap','vmtools','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
         if state.get('state')=='running': raise ValueError('An update is already running.')
+        if kind=='vmtools':
+            helper=Path('/opt/serviceready/vm-tools.py')
+            if not helper.exists():
+                source=Path('/opt/serviceready/source/deploy/vm-tools.py')
+                chain=[Path('/opt/serviceready'),source.parents[1],source.parent,source]
+                if not all(path.exists() and not path.is_symlink() and path.stat().st_uid==0 and not path.stat().st_mode&0o022 for path in chain):raise ValueError('Update the trusted host integration before managing guest tools.')
+                import shutil
+                shutil.copyfile(source,helper);os.chmod(helper,0o700)
         worker=Path('/opt/serviceready/maintenance-worker.py')
         if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022: raise ValueError('Update worker not installed safely.')
         starting={'kind':kind,'state':'running','message':'Starting host update worker','at':int(time.time())}

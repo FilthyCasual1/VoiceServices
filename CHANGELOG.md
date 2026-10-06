@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.0 — 2026-10-06
+
+Add scheduled and one-click VM guest-tool updates: repository-managed VMware/VirtualBox tools and checksum-verified Oracle Guest Additions matching the VirtualBox host.
+
 ## 1.17.6 — 2026-10-06
 
 Combine updates and schedules into Host maintenance; remove repeated password entry for confirmed log, temporary-file and package-cache cleanup.

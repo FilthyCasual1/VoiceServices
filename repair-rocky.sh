@@ -21,7 +21,7 @@ access.normalise_addons(json.load(open('/etc/serviceready/config.json')))
 PYFIX
 echo 'Installing corrected host workers…'
 install -m 0700 "$source_dir/deploy/admin-reset.py" /usr/local/sbin/serviceready-admin-reset
-for file in account-broker.py maintenance-worker.py host-control.py runtime-access.py; do
+for file in account-broker.py maintenance-worker.py host-control.py runtime-access.py vm-tools.py; do
     install -m 0700 "$source_dir/deploy/$file" "/opt/serviceready/$file"
 done
 # The missing module was caused by inaccessible runtime files. No reinstall or data reset is needed.
