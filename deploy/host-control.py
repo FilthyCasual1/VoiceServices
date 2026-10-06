@@ -4,6 +4,7 @@ import sqlite3,base64,hashlib,ipaddress,json,os,pathlib,pwd,subprocess,sys,time,
 CONFIG=pathlib.Path('/etc/serviceready/config.json')
 STATE=pathlib.Path('/run/serviceready-accounts/host-job.json')
 MOUNT=pathlib.Path('/srv/serviceready-data')
+FSTAB=pathlib.Path('/etc/fstab')
 def run(args):return subprocess.check_output(args,text=True,stderr=subprocess.STDOUT).strip()
 def disks():
  rows=json.loads(run(['lsblk','--json','--bytes','-o','PATH,TYPE,SIZE,MODEL,SERIAL,RO,FSTYPE,UUID,MOUNTPOINTS,PTTYPE']))['blockdevices']
@@ -26,7 +27,9 @@ def snapshot(section='storage'):
  if state.get('state') in ('running','pending') and state.get('pid') and not pathlib.Path('/proc/'+str(state['pid'])).exists():state={'state':'failed','message':'The host operation was interrupted. Inspect the host before retrying.'}
  result={'storage_available':bool(cfg.get('data_mount') and os.path.ismount(cfg['data_mount'])),'job':state,'storage':cfg.get('data_mount','Not configured'),'errors':[],'disks':[]}
  if section=='storage':
-  try:result['disks']=disks()
+  try:
+   result['disks']=disks()
+   for disk in result['disks']:disk['reformat']=bool(cfg.get('data_disk_uuid') and disk.get('uuid')==cfg['data_disk_uuid'] and disk.get('fstype')=='ext4' and not disk.get('children') and disk.get('mountpoints')==[str(MOUNT)] and cfg.get('data_mount')==str(MOUNT) and not disk.get('ro'))
   except (OSError,ValueError,subprocess.SubprocessError) as exc:result['errors'].append('Disk discovery unavailable: '+str(exc)[-400:])
  else:
   for key,args in [('timezone',['timedatectl','show','--property=Timezone','--value']),('hostname',['hostname']),('connections',['nmcli','-t','-f','NAME,UUID,DEVICE','connection','show','--active']),('time',['timedatectl','status'])]:
@@ -53,6 +56,11 @@ def validate(p):
     if not source.resolve().is_relative_to(pathlib.Path('/var/lib/serviceready')) or source.is_symlink() or any(f.is_symlink() for f in source.rglob('*')):raise ValueError('Repository requires manual migration: unexpected path or symlink.')
     needed+=sum(f.stat().st_size for f in source.rglob('*') if f.is_file())
   if needed+1024**3>int(d['size'])*.9:raise ValueError('This disk is too small for existing uploads and migration headroom.')
+ elif kind=='storage-reset':
+  cfg=json.loads(CONFIG.read_text());d=next((d for d in disks() if d['path']==p.get('disk')),None)
+  if not d or d['fingerprint']!=p.get('fingerprint') or d.get('ro') or d.get('children') or d.get('fstype')!='ext4' or d.get('uuid')!=cfg.get('data_disk_uuid') or not cfg.get('data_disk_uuid') or cfg.get('data_mount')!=str(MOUNT) or d.get('mountpoints')!=[str(MOUNT)]:raise ValueError('Only the current, unchanged upload data disk can be reformatted. Reload storage.')
+  if p.get('confirm')!='ERASE '+d['path'] or p.get('erase_confirm')!='yes':raise ValueError('Confirm permanent data loss and type ERASE followed by the exact disk path.')
+  if run(['findmnt','-n','-o','UUID','--target',str(MOUNT)])!=cfg['data_disk_uuid']:raise ValueError('Upload disk identity changed. Reload storage.')
  elif kind=='network':
   import re
   if not re.fullmatch(r'[a-fA-F0-9-]{36}',p.get('connection','')):raise ValueError('Select an active connection UUID.')
@@ -82,6 +90,37 @@ def validate(p):
  else:raise ValueError('Unknown host operation.')
 def status(state,message):
  temporary=STATE.with_suffix('.new');temporary.write_text(json.dumps({'state':state,'message':message,'at':int(time.time()),'pid':os.getpid()}));os.chmod(temporary,0o600);temporary.replace(STATE)
+def reset_storage(p):
+ cfg=json.loads(CONFIG.read_text());old_uuid=cfg['data_disk_uuid']
+ services=['serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler']
+ stopped=[]
+ try:
+  status('running','Stopping upload services before reformatting the data disk')
+  for service in services:
+   run(['systemctl','stop',service]);stopped.append(service)
+  validate(p)
+  run(['umount',str(MOUNT)])
+  # Never use force/lazy unmount: a busy volume must remain intact.
+  run(['mkfs.ext4','-F','-L','ServiceReadyData',p['disk']])
+  uuid=run(['blkid','-s','UUID','-o','value',p['disk']])
+  run(['mount','-t','ext4',p['disk'],str(MOUNT)])
+  account=pwd.getpwnam('serviceready')
+  for name in ('downloads','updates','pxe','branding','photos','tmp'):
+   folder=MOUNT/name;folder.mkdir();os.chown(folder,account.pw_uid,account.pw_gid);os.chmod(folder,0o700 if name=='tmp' else 0o755)
+  for name in ('downloads','updates','pxe'):cfg[name+'_directory']=str(MOUNT/name)
+  cfg['data_disk_uuid']=uuid
+  # Replace the old mount entry rather than accumulating stale UUID entries.
+  lines=[line for line in FSTAB.read_text().splitlines() if not (len(line.split())>1 and (line.split()[0]=='UUID='+old_uuid or line.split()[1]==str(MOUNT)))]
+  FSTAB.write_text('\n'.join(lines)+'\nUUID='+uuid+' '+str(MOUNT)+' ext4 defaults,nofail,x-systemd.device-timeout=15s 0 2\n')
+  meta=CONFIG.stat();replacement=CONFIG.with_suffix('.new');replacement.write_text(json.dumps(cfg,indent=2)+'\n');os.chown(replacement,meta.st_uid,meta.st_gid);os.chmod(replacement,meta.st_mode&0o777);replacement.replace(CONFIG)
+  with sqlite3.connect(cfg['database']) as db:
+   for table in ('downloads_files','updates_files','pxe_files','account_photos'):
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone():db.execute('DELETE FROM '+table)
+   if db.execute("SELECT 1 FROM sqlite_master WHERE name='downloads_details'").fetchone():db.execute("DELETE FROM downloads_details WHERE kind='file'")
+  status('complete','Upload disk reformatted. Uploaded files, images and profile photos were erased; accounts, settings, download links and categories were retained.')
+ finally:
+  for service in stopped:run(['systemctl','start',service])
+
 def main(p):
  if os.geteuid()!=0:raise ValueError('Root host worker required.')
  with open(STATE.parent/'maintenance.lock','w') as lock:
@@ -92,6 +131,8 @@ def main(p):
     operation=p['operation'];command='reboot' if operation=='restart' else 'poweroff'
     run(['systemd-run','--unit=serviceready-power','--on-active=10s','/usr/bin/systemctl',command])
     status('complete','Host '+operation+' scheduled in 10 seconds. The portal will disconnect.')
+   elif p['kind']=='storage-reset':
+    reset_storage(p)
    elif p['kind']=='storage':
     disk=p['disk'];run(['mkfs.ext4','-F','-L','ServiceReadyData',disk]);uuid=run(['blkid','-s','UUID','-o','value',disk]);MOUNT.mkdir(parents=True,exist_ok=True)
     run(['mount','-t','ext4',disk,str(MOUNT)])

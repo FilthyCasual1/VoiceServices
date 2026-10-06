@@ -121,3 +121,45 @@ class HostConfigurationTests(unittest.TestCase):
    update=next(c for c in calls if 'ipv6.method' in c)
    self.assertNotIn('ipv4.method',update);self.assertIn('2001:db8::20/64',update)
    self.assertEqual(json.loads(state.read_text())['state'],'rolled-back')
+ def test_reformat_requires_current_disk_identity_and_exact_confirmation(self):
+  with tempfile.TemporaryDirectory() as root:
+   cfg=Path(root)/'config';cfg.write_text(json.dumps({'data_mount':str(control.MOUNT),'data_disk_uuid':'expected'}))
+   disk={'path':'/dev/sdb','fingerprint':'same','ro':False,'fstype':'ext4','uuid':'expected','mountpoints':[str(control.MOUNT)]}
+   payload={'kind':'storage-reset','disk':'/dev/sdb','fingerprint':'same','confirm':'ERASE /dev/sdb','erase_confirm':'yes'}
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'disks',return_value=[disk]),patch.object(control,'run',return_value='expected'):
+    control.validate(payload)
+    for change in ({'confirm':'FORMAT /dev/sdb'},{'erase_confirm':''},{'disk':'/dev/sda'},{'fingerprint':'changed'}):
+     with self.assertRaises(ValueError):control.validate(dict(payload,**change))
+    for change in ({'uuid':'other'},{'ro':True},{'mountpoints':['/']},{'children':[{'path':'/dev/sdb1'}]}):
+     with patch.object(control,'disks',return_value=[dict(disk,**change)]):
+      with self.assertRaises(ValueError):control.validate(payload)
+ def test_reformat_busy_disk_never_formats_and_restarts_services(self):
+  import subprocess
+  with tempfile.TemporaryDirectory() as root:
+   cfg=Path(root)/'config';cfg.write_text(json.dumps({'data_disk_uuid':'old'}));calls=[]
+   def command(args):
+    calls.append(args)
+    if args[0]=='umount':raise subprocess.CalledProcessError(1,args)
+    return ''
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'validate'),patch.object(control,'status'),patch.object(control,'run',side_effect=command):
+    with self.assertRaises(subprocess.CalledProcessError):control.reset_storage({'disk':'/dev/sdb'})
+   self.assertFalse(any(c[0]=='mkfs.ext4' for c in calls))
+   self.assertEqual(len([c for c in calls if c[:2]==['systemctl','stop']]),len([c for c in calls if c[:2]==['systemctl','start']]))
+ def test_reformat_rebuilds_disk_and_preserves_core_and_links(self):
+  import sqlite3
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as root:
+   root=Path(root);mount=root/'data';mount.mkdir();cfg=root/'config';database=root/'db';fstab=root/'fstab'
+   cfg.write_text(json.dumps({'data_disk_uuid':'old','data_mount':str(mount),'database':str(database)}));fstab.write_text('UUID=boot / ext4 defaults 0 1\nUUID=old '+str(mount)+' ext4 defaults 0 2\n')
+   with sqlite3.connect(database) as db:
+    for table in ('downloads_files','updates_files','pxe_files','account_photos','users','downloads_categories','downloads_catalog'):db.execute('CREATE TABLE '+table+'(name TEXT)');db.execute('INSERT INTO '+table+" VALUES('keep-or-delete')")
+    db.execute('CREATE TABLE downloads_details(kind TEXT)');db.executemany('INSERT INTO downloads_details VALUES(?)',[('file',),('link',)])
+   calls=[]
+   def command(args):calls.append(args);return 'new' if args[0]=='blkid' else ''
+   with patch.object(control,'CONFIG',cfg),patch.object(control,'MOUNT',mount),patch.object(control,'FSTAB',fstab),patch.object(control,'validate'),patch.object(control,'status'),patch.object(control,'run',side_effect=command),patch.object(control.os,'chown'),patch.object(control.pwd,'getpwnam',return_value=SimpleNamespace(pw_uid=1000,pw_gid=1000)):
+    control.reset_storage({'disk':'/dev/sdb'})
+   self.assertEqual(json.loads(cfg.read_text())['data_disk_uuid'],'new');self.assertIn('UUID=boot /',fstab.read_text());self.assertNotIn('UUID=old',fstab.read_text());self.assertEqual((mount/'tmp').stat().st_mode&0o777,0o700)
+   with sqlite3.connect(database) as db:
+    for table in ('downloads_files','updates_files','pxe_files','account_photos'):self.assertEqual(db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],0)
+    for table in ('users','downloads_categories','downloads_catalog'):self.assertEqual(db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],1)
+    self.assertEqual(db.execute('SELECT kind FROM downloads_details').fetchall(),[('link',)])

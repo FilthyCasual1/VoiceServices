@@ -192,3 +192,21 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 .tools-wizard-ready [data-onboarding]:not([data-onboard-active]) [data-onboard-step="1"],.tools-wizard-ready [data-onboarding]:not([data-onboard-active]) [data-onboard-step="2"],[data-onboarding] [hidden]{display:none!important}[data-onboarding] fieldset{border:0;padding:0;margin:10px 0}[data-onboarding] legend{font-weight:bold;font-size:14px}[data-onboarding] .tools-steps{font-size:11px}[data-onboarding] button{margin:8px 6px 0 0}.users-table .user-action{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin:3px 12px 3px 0}.users-table .user-action select{width:auto;min-width:105px;max-width:160px;margin:0}.users-table .user-action label{display:inline-flex;align-items:center;gap:4px;margin:0;white-space:nowrap}.users-table .user-action input[type=checkbox]{width:auto;margin:0}.users-table .user-action button{margin:0}.invitation-create{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.invitation-create label{display:flex;align-items:center;gap:6px}.invitation-create select{width:auto}.users-table td{vertical-align:middle}
 
 .tools-wizard{margin:auto}.tools-wizard > header{min-height:0;border:0;border-bottom:1px solid #7f9cab}
+
+/* Internal application catalog */
+.download-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 14px}
+.download-filter input,.download-filter select{width:auto;max-width:100%;margin:0}
+.download-filter label{display:inline;margin:0}
+.download-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:12px}
+.download-card{border:1px solid #a7bbc5;background:#f4f6f7;padding:14px;display:flex;flex-direction:column;align-items:flex-start}
+.download-card h2{background:none;border:0;color:#264e60;margin:8px 0;padding:0;font-size:18px}
+.download-card p{margin:6px 0 12px;overflow-wrap:anywhere}
+.download-card .button{margin-top:auto}
+.download-category{font-size:11px;font-weight:bold;color:#31586a;text-transform:uppercase;letter-spacing:.04em}
+.download-meta{color:#445a66;font-size:12px}
+.download-editor{margin:6px 0;border:1px solid #b6c5cd}
+.download-editor summary{padding:8px;cursor:pointer;background:#e3ebef}
+.download-card .button{display:inline-block;padding:6px 12px;background:#718e9d;border:1px solid #a7bbc5;color:white;font-weight:bold;text-decoration:none}
+.download-card .button:hover,.download-card .button:focus{background:#31586a}
+.download-delete-confirm{display:flex;align-items:center;gap:6px;margin:10px 0}
+.download-delete-confirm input{width:auto;margin:0}

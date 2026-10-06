@@ -45,3 +45,9 @@ References: [iPXE sanboot](https://ipxe.org/cmd/sanboot),
 [iPXE wimboot](https://ipxe.org/wimboot),
 [Clonezilla customized PXE](https://clonezilla.org/show-live-doc-content.php?topic=clonezilla-live%2Fdoc%2F07_Customized_script_with_PXE),
 [dnsmasq proxy PXE options](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
+
+## Internal application catalog
+
+Administrators can create, rename and delete download categories. Add a category when creating a download link, or edit an uploaded application after upload to assign its category, display name, description, version and platform. Users can browse by category and search applications. Existing entries appear in Uncategorized. Deleting a category preserves all downloads.
+
+Uploaded files show readable sizes and can be permanently deleted with confirmation. Upload storage also supports reformatting the current data disk: confirm data loss, type the exact ERASE disk phrase and enter the local administrator password. This deletes all uploaded files, branding images and profile pictures, preserves accounts/settings/categories/external links, and briefly disconnects the portal. Boot disks and disks used elsewhere cannot be reformatted through this control.

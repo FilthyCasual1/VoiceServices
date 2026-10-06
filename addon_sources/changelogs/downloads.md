@@ -1,3 +1,7 @@
+## 1.25.0
+
+- Add categories, searchable application cards, and editable titles, descriptions, platforms and versions for uploaded files and download links. Show readable file sizes and allow confirmed deletion of uploaded files.
+
 # Downloads changelog
 
 ## 1.24.1

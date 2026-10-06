@@ -1,3 +1,7 @@
+## 1.25.0
+
+- Package for INSAP 1.25.0; no functional addon changes.
+
 # Voice Services changelog
 
 ## 1.24.1

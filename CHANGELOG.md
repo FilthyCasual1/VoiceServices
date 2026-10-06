@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.0 — 2026-10-06
+
+Add administrator-managed download categories, editable application metadata, and a searchable internal application catalog. Existing downloads remain available as Uncategorized. Include confirmed uploaded file deletion and readable file sizes. Add password-confirmed reformatting of the current populated upload data disk, preserving core settings and external links.
+
 ## 1.24.1 — 2026-10-06
 
 Stage uploaded artifacts in the configured data disk private tmp folder instead of its root-owned mount directory, preserving partial-file isolation and graceful staging errors.

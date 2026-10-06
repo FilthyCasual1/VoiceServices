@@ -7,7 +7,7 @@ def change(app,user,data):
  if not app.base.startswith('https://') or not app.secure:raise ValueError('HTTPS and secure cookies are required.')
  from . import external_auth
  if external_auth.identity(app,user):raise ValueError('Use a local administrator account for host changes.')
- payload={key:data.get(key,'') for key in ('kind','operation','disk','fingerprint','confirm','connection','mode','address','gateway','dns','hostname','servers','timezone','ipv6_mode','ipv6_address','ipv6_gateway','ipv6_dns')}
+ payload={key:data.get(key,'') for key in ('kind','operation','disk','fingerprint','confirm','erase_confirm','connection','mode','address','gateway','dns','hostname','servers','timezone','ipv6_mode','ipv6_address','ipv6_gateway','ipv6_dns')}
  app.store.accounts.call('host-confirm' if data.get('kind')=='confirm-network' else 'host-start',user['username'],data.get('current_password',''),json.dumps(payload))
  with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],'Host configuration: '+data.get('kind','')))
  return 'Host operation accepted. Refresh this page to see progress.'
@@ -22,10 +22,11 @@ def render(app,user,section):
  def form(kind,body,label):return '<form method="post" class="panel">'+csrf+'<input type="hidden" name="kind" value="'+kind+'">'+body+'<label>Local administrator password</label><input type="password" name="current_password" autocomplete="current-password" required><button>'+label+'</button></form>'
  if section=='storage':
   if state['storage']!='Not configured' and not state['storage_available']:text+='<p class="notice error">Upload disk missing. Core services remain available; uploaded content is blocked. Reattach the original volume or configure a blank replacement below. A replacement does not recover files from the missing disk.</p>'
-  text+='<p>Upload volume: '+E(state['storage'])+'</p><p>A separate disk stores downloads, update packages and PXE images. Only blank, unused disks can be formatted. Formatting is permanent. Existing repositories are moved; account and application metadata remain on the boot disk.</p>'
+  text+='<p>Upload volume: '+E(state['storage'])+'</p><p>A separate disk stores downloads, update packages and PXE images. Blank, unused disks can be configured, and the current upload disk can be reformatted even when it contains files. Formatting is permanent. Accounts and application settings remain on the boot disk.</p>'
   for d in state['disks']:
    text+='<div class="panel"><strong>'+E(d['path'])+'</strong> — '+E(d.get('model') or 'Disk')+' — '+str(round(d['size']/1024**3,1))+' GiB '+(' (available)' if d['eligible'] else ' (in use or contains data)')+'</div>'
    if d['eligible'] and not state['storage_available']:text+=form('storage','<input type="hidden" name="disk" value="'+E(d['path'])+'"><input type="hidden" name="fingerprint" value="'+E(d['fingerprint'])+'"><label>Type FORMAT '+E(d['path'])+' to erase this disk</label><input name="confirm" required>','Format and use disk')
+   if d.get('reformat'):text+='<details><summary>Reformat current upload disk</summary>'+form('storage-reset','<input type="hidden" name="disk" value="'+E(d['path'])+'"><input type="hidden" name="fingerprint" value="'+E(d['fingerprint'])+'"><p class="notice error">All uploaded downloads, update packages, PXE images, custom branding images and profile pictures on this disk will be permanently erased. Accounts, settings, categories and external download links are retained. The portal will briefly disconnect.</p><label><input type="checkbox" name="erase_confirm" value="yes" required> I understand that all uploaded data will be erased</label><label>Type ERASE '+E(d['path'])+'</label><input name="confirm" required>','Erase and reformat data disk')+'</details>'
  else:
   text+='<p>Current hostname: '+E(state['hostname'])+'</p><pre>'+E(state['connections'])+'</pre><pre>'+E(state['time'])+'</pre>'
   options=''.join('<option value="'+E(line.split(':')[1])+'">'+E(line)+'</option>' for line in state['connections'].splitlines() if len(line.split(':'))>=3 and line.rsplit(':',1)[-1]!='lo')
