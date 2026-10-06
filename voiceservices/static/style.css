@@ -225,3 +225,5 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 header.masthead-compact{border-bottom:0}
 
 @media(min-width:721px){header.masthead-wide{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:0;max-width:none;padding-right:12px}.account-actions .inline{margin-left:12px}.account:has(.account-picture){grid-template-columns:64px max-content}.masthead-wide .brand{min-width:0}}
+
+.masthead-full .brand{background-image:none}.masthead-full .wide-photo{width:100%;height:100%;top:0;transform:none;object-fit:cover;object-position:center 43%;border-right:0}

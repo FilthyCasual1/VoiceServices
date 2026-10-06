@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.8 — 2026-10-06
+
+Offer distinct full-width, wide with small secondary masthead, and right-justified masthead layouts while retaining existing branding images.
+
 ## 1.27.7 — 2026-10-06
 
 Add non-forced upload volume unmount/remount controls and tighten account width; restore the full-width masthead to two columns.

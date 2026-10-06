@@ -65,7 +65,7 @@ def change(app,section,data):
         if not 1<=len(title)<=80 or len(subtitle)>160: raise ValueError('Enter a title of 1–80 characters and a subtitle of at most 160 characters.')
         value=defaults(app);previous_zone=value['global_timezone'];value.update(title=title,subtitle=subtitle)
         layout=data.get('masthead_layout',value.get('masthead_layout','wide'))
-        if layout not in ('wide','compact'): raise ValueError('Choose a valid masthead layout.')
+        if layout not in ('full','wide','compact'): raise ValueError('Choose a valid masthead layout.')
         value['masthead_layout']=layout
         for key in ('login_title','create_title','login_subtitle','create_subtitle',*SESSION_TEXT):
             entry=data.get(key,value[key]).strip()
@@ -159,7 +159,7 @@ def render(app,section,user):
         def text_field(key,label,limit=160): return field(label,'<input name="'+key+'" maxlength="'+str(limit)+'" value="'+E(value[key])+'">')
         def group(label,body,opened=False): return '<details class="settings-section"'+(' open' if opened else '')+'><summary>'+label+'</summary><div class="settings-grid">'+body+'</div></details>'
         identity=text_field('title','Brand title',80)+text_field('subtitle','Subtitle')
-        identity+=field('Masthead layout','<select name="masthead_layout"><option value="wide">Full width, always visible</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Compact right image, hide on narrow screens</option></select>')
+        identity+=field('Masthead layout','<select name="masthead_layout"><option value="full"'+(' selected' if value.get('masthead_layout')=='full' else '')+'>Full width</option><option value="wide"'+(' selected' if value.get('masthead_layout','wide')=='wide' else '')+'>Wide with small secondary masthead</option><option value="compact"'+(' selected' if value.get('masthead_layout')=='compact' else '')+'>Right-justified masthead</option></select>')
         for key,label,reset in [('reset_logo','Logo','Use default arrow'),('reset_masthead','Masthead image','Use default image'),('reset_header_fill','Secondary masthead','Clear secondary masthead')]:
             identity+=field(label,'<select name="'+key+'"><option value="no">Keep current image</option><option value="yes">'+reset+'</option></select>')
         groups=group('Brand and masthead',identity,True)
