@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.2 — 2026-10-06
+
+Align Overview section headings and tables; move distro branding, version and compact refresh control into a single toolbar.
+
 ## 1.17.1 — 2026-10-06
 
 Keep distro branding and installed INSAP version on Overview; restrict all update controls and submissions to Portal and host updates.

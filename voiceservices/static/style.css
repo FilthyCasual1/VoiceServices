@@ -159,4 +159,4 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 
 footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 16px}.footer-copyright{margin-left:auto;text-align:right}
 
-.overview-host-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 8px}.overview-host-heading .distro-powered{float:none;margin:0;width:80px}.overview-host-heading .distro-logo{width:48px;height:48px}
+.overview-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;margin:0 0 10px;padding:7px 10px;border:1px solid #aebbc2;background:#eef2f4}.overview-identity{display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px}.overview-powered{display:inline-flex;align-items:center;gap:7px;font-size:11px}.overview-powered img{display:block;width:32px;height:32px;object-fit:contain}.overview-refresh{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}.overview-refresh[hidden]{display:none}.overview-refresh input{width:auto;margin:0;padding:0;flex:none}

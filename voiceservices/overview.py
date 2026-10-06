@@ -39,7 +39,7 @@ def render(app):
     now=time.time()
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
     usage=shutil.disk_usage(Path(app.store.path).parent)
-    resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',readable_uptime(now-app.started_at)),('Boot disk',readable_size(usage.free)+' available of '+readable_size(usage.total)),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
+    resources=[('Portal','Running'),('Host',socket.gethostname()),('Portal uptime',readable_uptime(now-app.started_at)),('Boot disk',readable_size(usage.free)+' available of '+readable_size(usage.total)),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
     if app.config.get('data_mount'):
         from .data_volume import require
         try:
@@ -89,4 +89,4 @@ def render(app):
             rows.append((title,status))
     portal_rows=resources[:5]+[('Current date and time',regional.format_timestamp(app,now)+' ('+regional.settings(app)['timezone']+')')]+resources[-3:]
     host_rows=resources[5:-3]
-    return '<label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label><div class="overview-grid"><section><h2>Portal</h2><p>Installed INSAP version: <strong>'+E(__version__)+'</strong></p>'+table(portal_rows)+'</section><section><div class="overview-host-heading"><h2>Host</h2><div class="distro-powered"><span>Powered by</span><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"></div></div>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'
+    return '<div class="overview-toolbar"><div class="overview-identity"><span>Installed INSAP version: <strong>'+E(__version__)+'</strong></span><span class="overview-powered">Powered by <img src="/host/distro-logo" alt="Host distribution logo"></span></div><label class="overview-refresh" hidden><input type="checkbox" data-overview-refresh checked> Auto refresh every 5 seconds</label></div><div class="overview-grid"><section><h2>Portal</h2>'+table(portal_rows)+'</section><section><h2>Host</h2>'+table(host_rows)+'</section><section class="overview-addons"><h2>Installed addons</h2>'+(table(rows) if rows else '<p>No addons installed.</p>')+'</section></div><p class="muted overview-note">Host measurements are local. External service availability is unverified unless reported by an addon.</p>'
