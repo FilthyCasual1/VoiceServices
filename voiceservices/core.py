@@ -25,6 +25,7 @@ class Store:
               name TEXT NOT NULL, number TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS phones(device TEXT PRIMARY KEY, user_id INTEGER REFERENCES users(id),
               token TEXT UNIQUE NOT NULL, expires INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS invitations(digest TEXT PRIMARY KEY, created INTEGER NOT NULL, expires INTEGER NOT NULL, issuer INTEGER, used_by INTEGER, revoked INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, at INTEGER, user_id INTEGER, action TEXT);
             ''')
             if 'display_name' not in {row[1] for row in db.execute('PRAGMA table_info(users)')}:
@@ -41,20 +42,24 @@ class Store:
         finally:
             db.close()
 
-    def create_user(self, username, password, role='user'):
+    def create_user(self, username, password, role='user', invitation=None, profile=None):
         if not username or len(username) > 64 or len(password) < 12 or role not in ('user', 'admin'):
             raise ValueError('Username required; password must contain at least 12 characters.')
-        if self.accounts:
-            with self.connect() as db:
-                if db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone(): raise sqlite3.IntegrityError('Username already exists')
-            self.accounts.call('create',username,password)
-            with self.connect() as db: db.execute("INSERT INTO users(username,password,role) VALUES(?,'system',?)",(username,role))
-            return
-        salt = secrets.token_hex(16)
-        digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 310000).hex()
+        salt=secrets.token_hex(16)
+        encoded='system' if self.accounts else salt+':'+hashlib.pbkdf2_hmac('sha256',password.encode(),salt.encode(),310000).hex()
         with self.connect() as db:
-            db.execute('INSERT INTO users(username,password,role) VALUES(?,?,?)',
-                       (username, salt + ':' + digest, role))
+            db.execute('BEGIN IMMEDIATE')
+            digest=hashlib.sha256(invitation.strip().encode()).hexdigest() if invitation is not None else None
+            if digest:
+                row=db.execute('SELECT * FROM invitations WHERE digest=?',(digest,)).fetchone()
+                if not row or row['revoked'] or row['used_by'] is not None or row['expires']<=time.time():raise ValueError('Invitation code is invalid, expired or already used. Ask your administrator for a new code.')
+            if db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone():raise sqlite3.IntegrityError('Username already exists')
+            if self.accounts:self.accounts.call('create',username,password)
+            cursor=db.execute('INSERT INTO users(username,password,role) VALUES(?,?,?)',(username,encoded,role))
+            if profile:
+                db.execute('UPDATE users SET display_name=? WHERE id=?',(profile['display_name'],cursor.lastrowid))
+                db.execute('INSERT INTO account_profiles(user_id,email,timezone) VALUES(?,?,?)',(cursor.lastrowid,profile['email'],profile['timezone']))
+            if digest:db.execute('UPDATE invitations SET used_by=? WHERE digest=?',(cursor.lastrowid,digest))
 
     def login(self, username, password):
         with self.connect() as db:

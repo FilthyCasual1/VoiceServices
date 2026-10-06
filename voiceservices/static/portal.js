@@ -3,6 +3,8 @@
   let refreshEnabled = true;
   try { refreshEnabled = localStorage.getItem('overview-refresh') !== 'off'; } catch (_) {}
   function refreshControl() {
+    const ready = document.querySelector('[data-update-ready], [data-update-running]');
+    if (ready && !ready.open) ready.showModal();
     const input = document.querySelector('[data-overview-refresh]');
     if (input) { input.checked = refreshEnabled; input.closest('label').hidden = false; }
   }
@@ -67,9 +69,50 @@
       notice('The page could not be loaded. Check your connection and reload before trying again.');
     } finally { navigating = false; }
   }
+  document.addEventListener('pointerdown', event => {
+    const header = event.target.closest('.tools-wizard > header');
+    if (!header || event.target.closest('button') || event.button !== 0) return;
+    const dialog = header.closest('dialog'), rect = dialog.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left, offsetY = event.clientY - rect.top;
+    dialog.style.margin = '0'; dialog.style.position = 'fixed';
+    dialog.style.left = rect.left + 'px'; dialog.style.top = rect.top + 'px';
+    header.setPointerCapture(event.pointerId); event.preventDefault();
+    const move = next => {
+      dialog.style.left = Math.max(0, Math.min(innerWidth - dialog.offsetWidth, next.clientX - offsetX)) + 'px';
+      dialog.style.top = Math.max(0, Math.min(innerHeight - dialog.offsetHeight, next.clientY - offsetY)) + 'px';
+    };
+    const finish = () => { header.removeEventListener('pointermove',move); header.removeEventListener('pointerup',finish); header.removeEventListener('pointercancel',finish); };
+    header.addEventListener('pointermove',move); header.addEventListener('pointerup',finish); header.addEventListener('pointercancel',finish);
+  });
   document.addEventListener('click', event => {
+    const onboard = event.target.closest('[data-onboard-next]');
+    if (onboard) {
+      const form = onboard.closest('[data-onboarding]'), step = Number(onboard.dataset.onboardNext);
+      const current = onboard.closest('[data-onboard-step]');
+      if (step > Number(current.dataset.onboardStep)) {
+        for (const input of current.querySelectorAll('input,select')) if (!input.reportValidity()) return;
+        if (Number(current.dataset.onboardStep) === 0 && form.elements.password.value !== form.elements.confirm_password.value) { form.elements.confirm_password.setCustomValidity('Passwords do not match.'); form.elements.confirm_password.reportValidity(); form.elements.confirm_password.setCustomValidity(''); return; }
+      }
+      form.dataset.onboardActive = 'yes';
+      for (const section of form.querySelectorAll('[data-onboard-step]')) section.hidden = Number(section.dataset.onboardStep) !== step;
+      for (const marker of form.querySelectorAll('[data-onboard-marker]')) { if (Number(marker.dataset.onboardMarker) === step) marker.setAttribute('aria-current','step'); else marker.removeAttribute('aria-current'); }
+      form.querySelector('[data-onboard-review]').textContent = 'Username: '+form.elements.username.value+' · Name: '+(form.elements.display_name.value || form.elements.username.value)+' · Email: '+(form.elements.email.value || 'Not provided')+' · Time zone: '+form.elements.timezone.value;
+      form.querySelector('[data-onboard-step="'+step+'"]').querySelector('input,select,button')?.focus();
+      return;
+    }
+    const updateOpener = event.target.closest('[data-update-open]');
+    if (updateOpener) { document.getElementById(updateOpener.dataset.updateOpen).showModal(); return; }
+    const updateStep = event.target.closest('[data-update-next]');
+    if (updateStep) {
+      const form = updateStep.closest('[data-update-wizard]'), step = Number(updateStep.dataset.updateNext);
+      form.dataset.updateActive = 'yes';
+      for (const section of form.querySelectorAll('[data-update-step]')) section.hidden = Number(section.dataset.updateStep) !== step;
+      for (const marker of form.querySelectorAll('[data-update-marker]')) { if (Number(marker.dataset.updateMarker) === step) marker.setAttribute('aria-current','step'); else marker.removeAttribute('aria-current'); }
+      form.querySelector('[data-update-step="'+step+'"]').querySelector('button')?.focus();
+      return;
+    }
     const opener = event.target.closest('[data-tools-open]');
-    if (opener) { opener.parentElement.querySelector('.tools-wizard').showModal(); return; }
+    if (opener) { opener.parentElement.querySelector('[aria-labelledby="tools-title"]').showModal(); return; }
     const closer = event.target.closest('[data-tools-close]');
     if (closer) { closer.closest('dialog').close(); return; }
     const stepButton = event.target.closest('[data-tools-next]');
@@ -135,7 +178,7 @@
         panel.dataset.updateState = state.state;
         message.textContent = state.state + ': ' + (state.message || '');
       }
-      message.classList.toggle('error', state.state === 'failed');
+      for (const other of panel.querySelectorAll('[data-update-status]')) { other.textContent = message.textContent; other.classList.toggle('error', state.state === 'failed'); }
       for (const button of panel.querySelectorAll('[data-start-update] button')) button.disabled = ['running','starting'].includes(panel.dataset.updateState);
       if (['complete','failed'].includes(state.state) && (result.version !== panel.dataset.updateVersion || (['vmtools', 'vmtools-cd'].includes(state.kind) && [state.kind, state.state, state.at || ''].join(':') !== panel.dataset.toolsResult) || (state.review && ((state.review.commit || '') + ':' + (state.review.state || '')) !== panel.dataset.review))) visit(location.href, {}, 'replace', true);
     } catch (_) {

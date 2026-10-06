@@ -19,7 +19,7 @@ The [Alpine installer](docs/alpine-install.md) remains available for existing de
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.22.0](packages/addons/1.22.0/) and
+Download `.sraddon` files from [packages/addons/1.23.0](packages/addons/1.23.0/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -67,3 +67,9 @@ Later releases can be installed from Administration → System → Portal and ho
 If an older GUI update leaves the portal returning 502 with `No module named voiceservices.server`, run `git pull` followed by `sudo bash repair-rocky.sh` in this checkout. The repair restores service-group access to the root-owned runtime, verifies imports under the service account, and restarts the portal without resetting configuration, users or uploads. Future updates repeat this verification before restarting.
 
 Root console recovery: `sudo serviceready-admin-reset <administrator>` prompts for a new password, optional two-factor reset and confirmation, then revokes that administrator’s portal sessions. It works without the web server or portal Python environment. Enrolled Linux-backed administrators have their OS password updated too.
+
+### Invited registration and IPv6
+
+Create a single-use invitation in Administration → Users and Accounts → Account invitations. Give the code to the new user, who enters it during account onboarding. Codes can expire after 1, 7 or 30 days and can be revoked before use. Registration must also be enabled in Security. Existing accounts and administrator-created accounts continue to work.
+
+Network and time supports IPv4 and IPv6 independently. Keep existing settings when changing only the other protocol; IPv6 supports automatic addressing, DHCPv6, static addresses and disabling. Network changes must still be confirmed within 90 seconds or the original profile is restored. The managed HTTPS proxy listens on both protocols and refreshes certificate addresses from current host interfaces.

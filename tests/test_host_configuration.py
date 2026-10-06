@@ -97,3 +97,27 @@ class HostConfigurationTests(unittest.TestCase):
    with patch.object(control,'CONFIG',config),patch.object(control,'STATE',Path(root)/'state.json'),patch.object(control.subprocess,'check_output',side_effect=output):
     state=control.snapshot('network')
    self.assertEqual(state['connections'],'Ethernet:uuid:eth0');self.assertEqual(state['timezone'],'UTC')
+
+ def test_ipv6_static_and_dhcp_configuration_validation(self):
+  valid={'kind':'network','connection':'a'*36,'mode':'auto','ipv6_mode':'manual','ipv6_address':'2001:db8::20/64','ipv6_gateway':'fe80::1','ipv6_dns':'2001:db8::53'}
+  control.validate(valid)
+  for key,value in [('ipv6_address','192.0.2.1/24'),('ipv6_gateway','host;reboot'),('ipv6_dns','192.0.2.1'),('ipv6_mode','invalid')]:
+   with self.assertRaises(ValueError):control.validate(dict(valid,**{key:value}))
+  control.validate(dict(valid,mode='disabled',ipv6_mode='dhcp'))
+  control.validate(dict(valid,mode='keep'))
+  with self.assertRaises(ValueError):control.validate(dict(valid,mode='disabled',ipv6_mode='disabled'))
+
+ def test_ipv6_only_change_keeps_ipv4_and_retains_rollback(self):
+  with tempfile.TemporaryDirectory() as root:
+   state=Path(root)/'job.json';calls=[]
+   def command(args):
+    calls.append(args)
+    if args[0]=='hostname':return 'old-host'
+    if args[:3]==['nmcli','-g','connection.uuid']:return '22222222-2222-2222-2222-222222222222'
+    return ''
+   original='11111111-1111-1111-1111-111111111111'
+   with patch.object(control,'STATE',state),patch.object(control,'run',side_effect=command),patch.object(control.os,'geteuid',return_value=0),patch.object(control.time,'monotonic',side_effect=[0,91]):
+    control.main({'kind':'network','connection':original,'mode':'keep','ipv6_mode':'manual','ipv6_address':'2001:db8::20/64','ipv6_gateway':'fe80::1','ipv6_dns':'2001:db8::53'})
+   update=next(c for c in calls if 'ipv6.method' in c)
+   self.assertNotIn('ipv4.method',update);self.assertIn('2001:db8::20/64',update)
+   self.assertEqual(json.loads(state.read_text())['state'],'rolled-back')

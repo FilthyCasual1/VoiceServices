@@ -1,5 +1,10 @@
 # Voice Services changelog
 
+## 1.23.0
+
+- Package for INSAP 1.23.0. No functional addon changes; IPv6 configuration and invited account onboarding are core features.
+
+
 ## 1.22.0
 
 - Package for INSAP 1.22.0. No functional addon changes; guided tools setup and host network/time controls are core features.

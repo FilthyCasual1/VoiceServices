@@ -56,9 +56,18 @@ def validate(p):
  elif kind=='network':
   import re
   if not re.fullmatch(r'[a-fA-F0-9-]{36}',p.get('connection','')):raise ValueError('Select an active connection UUID.')
-  if p.get('mode') not in ('auto','manual'):raise ValueError('Choose DHCP or static IPv4.')
-  if p['mode']=='manual':ipaddress.IPv4Interface(p['address']);ipaddress.IPv4Address(p['gateway'])
-  for value in p.get('dns','').split():ipaddress.ip_address(value)
+  if p.get('mode') not in ('keep','auto','manual','disabled'):raise ValueError('Choose DHCP or static IPv4.')
+  if p['mode']=='manual':
+   ipaddress.IPv4Interface(p['address'])
+   if p.get('gateway'):ipaddress.IPv4Address(p['gateway'])
+  for value in p.get('dns','').split():ipaddress.IPv4Address(value)
+  if p.get('mode')=='disabled' and p.get('ipv6_mode')=='disabled':raise ValueError('Keep at least one IP protocol enabled.')
+  if p.get('ipv6_mode'):
+   if p['ipv6_mode'] not in ('auto','dhcp','manual','disabled'):raise ValueError('Choose an IPv6 address method.')
+   if p['ipv6_mode']=='manual':
+    ipaddress.IPv6Interface(p.get('ipv6_address',''))
+    if p.get('ipv6_gateway'):ipaddress.IPv6Address(p['ipv6_gateway'])
+   for value in p.get('ipv6_dns','').split():ipaddress.IPv6Address(value)
   if p.get('hostname') and not re.fullmatch(r'(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?',p['hostname']):raise ValueError('Invalid hostname.')
  elif kind=='power':
   if p.get('operation') not in ('restart','shutdown') or p.get('confirm')!=p.get('operation'):raise ValueError('Choose and confirm restart or shutdown.')
@@ -140,10 +149,12 @@ def main(p):
     original=p['connection'];name='serviceready-rollback-'+str(int(time.time()))
     run(['nmcli','connection','clone',original,name]);rollback=run(['nmcli','-g','connection.uuid','connection','show',name])
     run(['nmcli','connection','modify',rollback,'connection.autoconnect','no'])
-    args=['nmcli','connection','modify',original,'ipv4.method',p['mode'],'ipv4.addresses',p.get('address','') if p['mode']=='manual' else '', 'ipv4.gateway',p.get('gateway','') if p['mode']=='manual' else '', 'ipv4.dns',','.join(p.get('dns','').split()),'ipv4.ignore-auto-dns','yes' if p.get('dns') else 'no']
+    args=['nmcli','connection','modify',original]
+    if p['mode']!='keep':args+=['ipv4.method',p['mode'],'ipv4.addresses',p.get('address','') if p['mode']=='manual' else '', 'ipv4.gateway',p.get('gateway','') if p['mode']=='manual' else '', 'ipv4.dns',','.join(p.get('dns','').split()),'ipv4.ignore-auto-dns','yes' if p.get('dns') else 'no']
+    if p.get('ipv6_mode'):args+=['ipv6.method',p['ipv6_mode'],'ipv6.addresses',p.get('ipv6_address','') if p['ipv6_mode']=='manual' else '', 'ipv6.gateway',p.get('ipv6_gateway','') if p['ipv6_mode']=='manual' else '', 'ipv6.dns',','.join(p.get('ipv6_dns','').split()),'ipv6.ignore-auto-dns','yes' if p.get('ipv6_dns') else 'no']
     oldhost=run(['hostname']);marker=STATE.with_suffix('.confirmed');marker.unlink(missing_ok=True)
     try:
-     run(args)
+     if len(args)>4:run(args)
      if p.get('hostname'):run(['hostnamectl','set-hostname',p['hostname']])
      run(['nmcli','connection','up',original]);status('pending','Network changed. Reconnect at the new address and confirm within 90 seconds or settings will roll back.')
      deadline=time.monotonic()+90

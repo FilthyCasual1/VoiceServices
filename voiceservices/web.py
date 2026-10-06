@@ -195,19 +195,25 @@ class App:
                 try:
                     if not re.fullmatch(r'[A-Za-z0-9_.-]{3,64}',username): raise ValueError('Use 3–64 letters, numbers, dots, underscores or hyphens for your username.')
                     if data.get('password') != data.get('confirm_password'): raise ValueError('Passwords do not match.')
-                    self.store.create_user(username,data.get('password',''),'user')
+                    from . import onboarding
+                    details=onboarding.profile(data,self)
+                    self.store.create_user(username,data.get('password',''),'user',invitation=data.get('invitation',''),profile=details)
                     session = self.store.login(username,data['password'])
                     duration=security.duration(self)
                     with self.store.connect() as db: db.execute('UPDATE sessions SET expires=? WHERE token=?',(int(time.time())+duration,session))
                     suffix = '; Secure' if self.secure else ''
-                    return send('303 See Other','',extra=[('Location','/'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
+                    return send('303 See Other','',extra=[('Location','/welcome'),('Set-Cookie',f'vs_session={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age={duration}'+suffix),('Set-Cookie','vs_signup=; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=0'+suffix)])
                 except (ValueError,sqlite3.IntegrityError) as exc:
                     message = 'That username is already in use.' if isinstance(exc,sqlite3.IntegrityError) else str(exc)
                     error = '<p class="notice error">'+E(message)+'</p>'
             nonce = nonce if re.fullmatch(r'[A-Za-z0-9_-]{43}',nonce) else secrets.token_urlsafe(32)
             suffix = '; Secure' if self.secure else ''
-            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login"><form method="post"><input type="hidden" name="csrf" value="'+E(nonce)+'"><label>Username</label><input name="username" autocomplete="username" minlength="3" maxlength="64" required><label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required><label>Confirm password</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><br><button>Create account</button></form></div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
+            from . import onboarding
+            form = error+'<div class="signin-card"><div class="signin-banner"><strong>'+E(box_title)+'</strong><small>'+E(box_subtitle)+'</small></div><div class="panel login">'+onboarding.form(self,nonce,data)+'</div><p class="signin-help">Already registered? <a href="/login">Sign in</a>.</p></div>'
             return send('200 OK',self.page('Create an account',form,None),extra=[('Set-Cookie',f'vs_signup={nonce}; HttpOnly; SameSite=Lax; Path=/create-account; Max-Age=900'+suffix)])
+        if path == '/welcome':
+            if not user or user['role']=='guest':return send('303 See Other','',extra=[('Location','/login')])
+            return send('200 OK',self.page('Welcome','<div class="signin-card"><div class="signin-banner"><strong>Your account is ready</strong><small>Welcome to your network services portal.</small></div><div class="panel"><p>You are signed in. Choose your next step:</p><p><a class="button" href="/account">Finish your profile</a></p><p><a href="/account/security">Set up two-factor authentication</a></p><p><a href="/">Explore your services</a></p></div></div>',user))
         if path == '/logged-out':
             session_text=branding.defaults(self)
             return send('200 OK',self.page('You have been logged out','<div class="signin-card"><div class="signin-banner"><strong>'+E(session_text['logged_out_title'])+'</strong><small>'+E(session_text['logged_out_subtitle'])+'</small></div><div class="panel"><p>'+E(session_text['logged_out_message'])+'</p><p class="signin-help"><a href="/login">'+E(session_text['logged_out_link'])+'</a></p></div></div>',None),extra=[('Refresh','5; url=/login')])

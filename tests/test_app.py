@@ -183,17 +183,19 @@ class PortalTests(unittest.TestCase):
         import re
         page = self.request('/create-account')
         nonce = re.search('name="csrf" value="([^"]+)"',page['body'])[1]
-        data = {'csrf':nonce,'username':'new-user','password':'a-new-long-password','confirm_password':'a-new-long-password','role':'admin'}
+        import hashlib,time
+        with self.app.store.connect() as db:db.execute('INSERT INTO invitations(digest,created,expires) VALUES(?,?,?)',(hashlib.sha256(b'test-code').hexdigest(),int(time.time()),int(time.time())+3600))
+        data = {'invitation':'test-code','csrf':nonce,'username':'new-user','password':'a-new-long-password','confirm_password':'a-new-long-password','role':'admin'}
         self.assertEqual(self.request('/create-account','POST',data)['status'],'403 Forbidden')
         result = self.request('/create-account','POST',data,'unused; vs_signup='+nonce)
-        self.assertEqual(result['headers']['Location'],'/')
+        self.assertEqual(result['headers']['Location'],'/welcome')
         token = self.app.store.login('new-user','a-new-long-password')
         user = self.app.store.session(token)
         self.assertEqual(user['role'],'user')
         self.assertIn('Hello, new-user.',self.request(token=token)['body'])
         self.assertIn('Log out',self.request(token=token)['body'])
         duplicate = self.request('/create-account','POST',data,'unused; vs_signup='+nonce)
-        self.assertIn('already in use',duplicate['body'])
+        self.assertIn('already used',duplicate['body'])
 
 
     def test_login_form_survives_another_tab_and_expired_form_recovers(self):

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.23.0 — 2026-10-06
+
+Add IPv6 host configuration, invitation-gated account onboarding with single-use expiring administrator codes, and compact user management actions.
+
+## 1.22.1 — 2026-10-06
+
+Center My Account beneath the profile picture. Make wizard dialogs draggable within the viewport. Move OS and INSAP update actions into guided dialogs, including changelog review and proceed/decline decisions, to declutter host maintenance.
+
 ## 1.22.0 — 2026-10-06
 
 Show detected platform and tools versions on Overview too. Hide unknown hypervisor and tools version rows. Add VMware-aware tools version reporting and a modal guided tools wizard; rename Update INSAP, restore host timezone selection and hide loopback connections.

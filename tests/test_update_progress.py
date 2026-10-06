@@ -104,3 +104,12 @@ class UpdateProgressTests(unittest.TestCase):
   self.app.store.accounts.call.return_value={'tools_live':{'provider':'vmware','host_version':'','version':'13.0.5'}}
   body=self.request('/admin',token=token)['body']
   self.assertIn('VMware Tools version',body);self.assertIn('13.0.5',body);self.assertNotIn('VMware version',body)
+
+ def test_updates_use_dialog_wizards_and_keep_release_review(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'idle','review':{'state':'ready','version':'2.0.0','commit':'a'*40,'changelog':'Changes <script>'}}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertIn('id="update-os" class="tools-wizard"',body);self.assertIn('id="update-insap" class="tools-wizard"',body)
+  self.assertIn('data-update-ready',body);self.assertIn('Changes &lt;script&gt;',body)
+  self.assertIn('Proceed with update',body);self.assertIn('Decline this version',body)
+  self.assertIn('data-update-step="1"',body)

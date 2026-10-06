@@ -313,9 +313,9 @@ class CoreAdminTests(unittest.TestCase):
         token,user=self.user('admin')
         body=self.request('/admin',token=token)['body']
         self.assertIn('ServiceReady is powered by:',body);self.assertIn('/host/distro-logo',body);self.assertIn('Installed INSAP version:',body)
-        self.assertNotIn('>Update OS</button>',body);self.assertNotIn('>Grab INSAP update</button>',body);self.assertNotIn('data-update-state',body)
+        self.assertNotIn('>Update OS</button>',body);self.assertNotIn('>Update INSAP</button>',body);self.assertNotIn('data-update-state',body)
         updates=self.request('/admin/system-updates',token=token)['body']
-        self.assertIn('>Update OS</button>',updates);self.assertIn('>Grab INSAP update</button>',updates)
+        self.assertIn('>Update OS</button>',updates);self.assertIn('>Update INSAP</button>',updates)
         with patch('voiceservices.maintenance.change') as change:
             response=self.request('/admin','POST',{'csrf':user['csrf'],'update':'insap'},token)
         self.assertEqual(response['status'],'400 Bad Request');change.assert_not_called()
