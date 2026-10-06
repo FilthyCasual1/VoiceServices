@@ -45,7 +45,9 @@
         const opened = [...document.querySelectorAll('main details[open]')].map(el => el.querySelector('summary')?.textContent);
         for (const el of main.querySelectorAll('details')) if (opened.includes(el.querySelector('summary')?.textContent)) el.open = true;
       }
+      window.ServiceReadyTerminal?.stop();
       document.querySelector('main').replaceWith(main);
+      window.ServiceReadyTerminal?.boot();
       refreshControl();
       morph(document.querySelector('header'), parsed.querySelector('header'));
       morph(document.querySelector('nav'), parsed.querySelector('nav'));
@@ -68,7 +70,7 @@
     const link = event.target.closest('a');
     if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download') || link.hasAttribute('data-full-navigation')) return;
     const url = new URL(link.href, location.href);
-    if (url.origin !== location.origin || /^(\/files\/|\/pxe\/|\/phone\/|\/branding\/|\/static\/)/.test(url.pathname)) return;
+    if (url.origin !== location.origin || url.pathname === '/admin/terminal' || /^(\/files\/|\/pxe\/|\/phone\/|\/branding\/|\/static\/)/.test(url.pathname)) return;
     if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
     event.preventDefault(); visit(url.href);
   });
@@ -76,6 +78,7 @@
     const form = event.target;
     if (event.defaultPrevented || form.target || new URL(form.action).origin !== location.origin) return;
     event.preventDefault();
+    if (form.hasAttribute('data-terminal-open')) return;
     const data = new FormData(form);
     if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
     if (form.method.toLowerCase() === 'get') { const url = new URL(form.action); url.search = new URLSearchParams(data); visit(url.href); return; }

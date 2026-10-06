@@ -5,8 +5,31 @@ ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-acc
 def status(kind,state,message):
     temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':int(time.time())}));os.chmod(temporary,0o600);temporary.replace(STATE)
 def run(args): subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1800)
+def clean_temp(folder):
+    removed=0
+    if folder.is_symlink():raise ValueError('Temporary directory must not be a symlink.')
+    if folder.exists():
+        for path in folder.iterdir():
+            if not path.is_symlink() and path.is_file() and path.stat().st_mtime<time.time()-7*86400:
+                fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+                try:
+                    metadata=os.fstat(fd)
+                    if metadata.st_mtime<time.time()-7*86400 and metadata.st_ino==path.lstat().st_ino:path.unlink();removed+=1
+                finally:os.close(fd)
+    return removed
+def trim_logs(folder):
+    trimmed=0
+    if folder.is_symlink():raise ValueError('Log directory must not be a symlink.')
+    for path in folder.glob('*.log'):
+        if path.is_symlink() or not path.is_file():continue
+        fd=os.open(path,os.O_RDWR|os.O_NOFOLLOW)
+        with os.fdopen(fd,'r+b') as log:
+            fcntl.flock(log,fcntl.LOCK_EX);size=os.fstat(log.fileno()).st_size
+            if size>1024*1024:
+                log.seek(-1024*1024,2);tail=log.read();log.seek(0);log.write(tail);log.truncate();trimmed+=1
+    return trimmed
 def main(kind):
-    if kind not in ('os','insap') or os.geteuid()!=0 or not pathlib.Path('/etc/alpine-release').is_file(): raise ValueError('Alpine root update worker required.')
+    if kind not in ('os','insap','package-cache','portal-temp','portal-logs') or os.geteuid()!=0 or not pathlib.Path('/etc/alpine-release').is_file(): raise ValueError('Alpine root update worker required.')
     with open('/run/serviceready-accounts/maintenance.lock','w') as lock:
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError: return
@@ -17,6 +40,15 @@ def main(kind):
                 status(kind,'running','Upgrading installed Alpine packages');run(['/sbin/apk','upgrade'])
                 status(kind,'complete','Alpine packages updated. A restart may be needed for kernel or service changes; no reboot was performed.')
                 return
+            if kind=='package-cache':
+                status(kind,'running','Cleaning unused Alpine package cache');run(['/sbin/apk','cache','clean'])
+                status(kind,'complete','Unused package cache cleaned. Installed packages retained.');return
+            if kind=='portal-temp':
+                removed=clean_temp(pathlib.Path('/var/lib/serviceready/tmp'))
+                status(kind,'complete',str(removed)+' portal temporary files older than seven days removed.');return
+            if kind=='portal-logs':
+                trimmed=trim_logs(pathlib.Path('/var/log/serviceready'))
+                status(kind,'complete',str(trimmed)+' portal logs trimmed to their latest 1 MiB.');return
             source=ROOT/'source'
             for path in (ROOT,source,source/'.git'):
                 meta=path.stat()

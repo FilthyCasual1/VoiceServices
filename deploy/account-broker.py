@@ -40,6 +40,70 @@ def set_password(username,password):
         raise ValueError('Password must contain 12–1024 characters and no line breaks.')
     subprocess.run(['/usr/sbin/chpasswd','-c','SHA512'],input=f'{username}:{password}\n',text=True,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
+# In-memory PTY sessions: never run the user's shell as the root broker.
+TERMINALS={}
+def terminal_close(key):
+    import signal
+    session=TERMINALS.pop(key,None)
+    if not session:return
+    try:os.killpg(session['process'].pid,signal.SIGHUP)
+    except ProcessLookupError:pass
+    try:session['process'].wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        try:os.killpg(session['process'].pid,signal.SIGKILL)
+        except ProcessLookupError:pass
+        session['process'].wait(timeout=1)
+    os.close(session['fd'])
+def terminal_expire():
+    now=time.monotonic()
+    for key,s in list(TERMINALS.items()):
+        if now-s['touched']>60 or now-s['created']>1800 or s['process'].poll() is not None:terminal_close(key)
+def terminal_handle(request):
+    import base64,fcntl,pty,secrets,termios
+    terminal_expire()
+    username=request.get('username','');action=request['action']
+    try:payload=json.loads(request.get('new_password','{}'))
+    except (TypeError,ValueError):raise ValueError('Invalid terminal request.')
+    if not isinstance(payload,dict) or not re.fullmatch(r'[a-f0-9]{64}',payload.get('session','')):raise ValueError('Invalid terminal session binding.')
+    binding=payload['session']
+    if action=='terminal-open':
+        if not authenticate(username,request.get('password','')):raise ValueError('Confirm your local Alpine password.')
+        if len(TERMINALS)>=4:raise ValueError('Maximum four host terminals. Close another session first.')
+        entry=pwd.getpwnam(username)
+        master,slave=pty.openpty()
+        fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',24,80,0,0))
+        def child():
+            os.setsid();fcntl.ioctl(slave,termios.TIOCSCTTY,0)
+            os.initgroups(username,entry.pw_gid);os.setgid(entry.pw_gid);os.setuid(entry.pw_uid)
+        environment={'HOME':entry.pw_dir,'USER':username,'LOGNAME':username,'TERM':'xterm-256color','PATH':'/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C.UTF-8'}
+        try:process=subprocess.Popen(['/bin/sh','-l'],stdin=slave,stdout=slave,stderr=slave,env=environment,cwd=entry.pw_dir if os.path.isdir(entry.pw_dir) else '/',preexec_fn=child,close_fds=True)
+        except Exception:os.close(master);raise
+        finally:os.close(slave)
+        os.set_blocking(master,False);key=secrets.token_urlsafe(32)
+        TERMINALS[key]={'process':process,'fd':master,'username':username,'binding':binding,'created':time.monotonic(),'touched':time.monotonic()}
+        return {'ok':True,'status':{'token':key}}
+    key=payload.get('token','');session=TERMINALS.get(key)
+    if not session or session['username']!=username or session['binding']!=binding:raise ValueError('Terminal expired or belongs to another session.')
+    session['touched']=time.monotonic()
+    if action=='terminal-close':terminal_close(key);return {'ok':True,'status':{'closed':True}}
+    if action=='terminal-write':
+        try:raw=base64.b64decode(payload.get('data',''),validate=True)
+        except ValueError:raise ValueError('Invalid terminal input.')
+        if len(raw)>2048:raise ValueError('Terminal input exceeds 2048 bytes.')
+        try:written=os.write(session['fd'],raw)
+        except BlockingIOError:raise ValueError('Terminal input buffer full. Try again.')
+        return {'ok':True,'status':{'written':written}}
+    if action=='terminal-resize':
+        rows=int(payload.get('rows',24));cols=int(payload.get('cols',80))
+        if not 10<=rows<=100 or not 20<=cols<=240:raise ValueError('Invalid terminal dimensions.')
+        fcntl.ioctl(session['fd'],termios.TIOCSWINSZ,struct.pack('HHHH',rows,cols,0,0))
+        return {'ok':True,'status':{}}
+    if action!='terminal-read':raise ValueError('Unknown terminal operation.')
+    try:raw=os.read(session['fd'],4096)
+    except BlockingIOError:raw=b''
+    except OSError:terminal_close(key);return {'ok':True,'status':{'closed':True}}
+    return {'ok':True,'status':{'data':base64.b64encode(raw).decode()}}
+
 def handle(request):
     if request.get('action') in ('maintenance-start','maintenance-status'):
         from pathlib import Path
@@ -47,7 +111,7 @@ def handle(request):
         state=json.loads(state_path.read_text()) if state_path.exists() else {'state':'idle','message':'No updates started.'}
         if request['action']=='maintenance-status': return {'ok':True,'status':state}
         kind=request.get('username')
-        if kind not in ('os','insap'): raise ValueError('Unknown update operation.')
+        if kind not in ('os','insap','package-cache','portal-temp','portal-logs'): raise ValueError('Unknown update operation.')
         if state.get('state')=='running': raise ValueError('An update is already running.')
         worker=Path('/opt/serviceready/maintenance-worker.py')
         if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022: raise ValueError('Update worker not installed safely.')
@@ -57,6 +121,7 @@ def handle(request):
     if not re.fullmatch('[a-z_][a-z0-9_-]{2,31}',username): raise ValueError('System usernames use 3–32 lowercase letters, numbers, underscores or hyphens.')
     if not isinstance(password,str) or len(password)>1024 or '\x00' in password: raise ValueError('Invalid password.')
     action=request.get('action')
+    if action.startswith('terminal-'):return terminal_handle(request)
     if action=='create':
         try: pwd.getpwnam(username)
         except KeyError: pass
@@ -92,9 +157,11 @@ def main():
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as server:
         server.bind(SOCKET)
         os.chown(SOCKET,0,grp.getgrnam('serviceready').gr_gid);os.chmod(SOCKET,0o660)
-        server.listen(8)
+        server.listen(8);server.settimeout(1)
         while True:
-            connection,_=server.accept()
+            terminal_expire()
+            try:connection,_=server.accept()
+            except socket.timeout:continue
             with connection:
                 connection.settimeout(15)
                 _,uid,_=struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))

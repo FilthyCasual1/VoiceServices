@@ -59,7 +59,7 @@ class App:
             if isinstance(body, str): body = body.encode()
             headers = [('Content-Type',mime),('Content-Length',str(len(body))),('Cache-Control','no-store'),
                        ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
-                       ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
+                       ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'"+(" 'unsafe-inline'" if env.get('PATH_INFO')=='/admin/terminal' else "")+"; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
             if mime.startswith(('image/','text/css','text/javascript')):
                 etag='"'+hashlib.sha256(body).hexdigest()+'"'
                 headers=[h for h in headers if h[0] not in ('Cache-Control','Content-Length')]
@@ -100,8 +100,9 @@ class App:
         if path == '/host/distro-logo':
             from . import distro
             return send('200 OK',distro.logo(self),'image/svg+xml')
-        if path=='/static/portal.js':
-            return send('200 OK',Path(__file__).with_name('static').joinpath('portal.js').read_bytes(),'text/javascript')
+        if path=='/static/xterm.css':return send('200 OK',(Path(__file__).with_name('static')/'xterm.css').read_bytes(),'text/css; charset=utf-8')
+        if path in ('/static/portal.js','/static/host-terminal.js','/static/xterm.js'):
+            return send('200 OK',Path(__file__).with_name('static').joinpath(path.rsplit('/',1)[1]).read_bytes(),'text/javascript')
         if path=='/branding/style.css':
             brand=branding.defaults(self)
             masthead=brand.get('masthead',__version__);fill=brand.get('header-fill','none')
@@ -301,6 +302,9 @@ class App:
                 except ValueError as exc: return send('400 Bad Request',self.page('My Account',account.render(self,user,token,str(exc),section),user))
                 return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
             return send('200 OK',self.page('My Account',account.render(self,user,token,section=section),user))
+        if path in ('/admin/terminal/io','/admin/host') and (path.endswith('/io') or method=='POST'):
+            if not self.modules.installed('host-tools'):return send('404 Not Found','Host tools addon is not installed.')
+            return self.modules.load('host-tools').page(self,path,method,data,user,env,send)
         if path=='/admin' or path.startswith('/admin/'):
             try: content=administration.render(self,path,user,data,method,self.modules.services())
             except PermissionError as exc: return send('403 Forbidden',self.page('Access denied',E(exc),user))
@@ -360,4 +364,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>([^<]*)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(self.host_label)+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script><script defer src="/static/host-terminal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(self.host_label)+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

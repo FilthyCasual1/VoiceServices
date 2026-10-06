@@ -3,8 +3,8 @@ import html
 from .modules import CATALOG
 from . import branding,overview,user_management,notifications,recovery,maintenance,security,update_schedule,external_auth
 E=lambda value:html.escape(str(value),quote=True)
-OPTIONAL={'snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
-HEADINGS={'authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
+OPTIONAL={'host':'host-tools','terminal':'host-tools','snmp':'snmp','smtp':'smtp-notifications','voice':'voice','settings':'server-management','downloads':'downloads','pxe':'pxe','updates':'ftp-updates','esxi':'esxi'}
+HEADINGS={'host':'Host maintenance','terminal':'Host terminal','authentication':'Account authentication','snmp':'SNMP monitoring','schedules':'Update schedules','security':'Security','smtp':'SMTP notifications','recovery':'Account recovery','notifications':'Send notifications','voice':'Phone account links','overview':'System overview','settings':'Service configuration','users':'Users and Accounts','addons':'Addons','updates':'Update repository','downloads':'Internal tool downloads','pxe':'Network boot and restoration','esxi':'ESXi management','branding':'Appearance','home':'Home page blocks'}
 def password_form(user,app):
     if external_auth.identity(app,user): return '<p>Your password is managed by your identity provider.</p>'
     csrf='<input type="hidden" name="csrf" value="'+E(user['csrf'])+'">'
@@ -38,6 +38,7 @@ def render(app,path,user,data,method,services):
     elif section=='security': content+=security.render(app,user)
     elif section=='authentication': content+=external_auth.render(app,user)
     elif section=='users': content+=user_management.render(app,user)+'<details class="settings-section" id="recovery"'+(' open' if data.get('action')=='authorize-recovery' else '')+'><summary>Account recovery</summary><div class="panel">'+recovery.render(app,user)+'</div></details>'
+    elif section=='terminal': content+=app.modules.load('host-tools').terminal_render(app,user)
     elif section in OPTIONAL: content+=app.modules.load(OPTIONAL[section]).admin_render(app,user,services)
     elif section=='addons':
         content+='<div class="panel"><form action="/admin/addons/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Addon package (.sraddon)</label><input type="file" name="file" accept=".sraddon" required><br><button>Install package</button></form><p>Install official packages built for this core release. Installation adds executable module files; uninstall removes them.</p></div>'

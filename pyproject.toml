@@ -13,7 +13,7 @@ dependencies = ["pyotp==2.9.0", "segno==1.6.6"]
 voiceservices = "voiceservices.__main__:main"
 
 [tool.setuptools.package-data]
-voiceservices = ["addon_catalog.json", "static/*.css", "static/*.js", "static/*.png", "static/*.svg"]
+voiceservices = ["addon_catalog.json", "static/*.css", "static/*.js", "static/*.png", "static/*.svg", "static/*LICENSE.txt"]
 
 [tool.setuptools.dynamic]
 version = {attr = "voiceservices.version.__version__"}

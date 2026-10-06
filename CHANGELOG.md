@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.0 — 2026-10-06
+
+Add installable host cleanup tools and a session-bound browser PTY terminal running as the local Alpine administrator OS account.
+
 ## 1.13.3 — 2026-10-06
 
 Show host domain/hostname in the account header when the host has a configured domain.
