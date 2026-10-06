@@ -35,7 +35,7 @@ class AlpineInstallerTests(unittest.TestCase):
             config.write_text(json.dumps({'public_url':'https://192.168.56.20','listen_port':8080}))
             script=script.replace('/etc/serviceready/config.json',str(config)).replace('/etc/caddy/Caddyfile',str(caddy))
             exec(compile(script,'installer-tls','exec'),{})
-            self.assertEqual(caddy.read_text(),'https://192.168.56.20 {\n    tls internal\n    reverse_proxy 127.0.0.1:8080\n}\n')
+            self.assertEqual(caddy.read_text(),'# ServiceReady managed address configuration\nhttps://192.168.56.20 {\n    tls internal\n    reverse_proxy 127.0.0.1:8080\n}\n')
             self.assertEqual(json.loads(config.read_text())['listen_host'],'127.0.0.1')
     def test_blank_url_follows_address_by_default(self):
         for tls,expected in [(0,'http://192.168.56.20:8080'),(1,'https://192.168.56.20')]:

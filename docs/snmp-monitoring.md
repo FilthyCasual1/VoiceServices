@@ -1,6 +1,6 @@
 # SNMP monitoring addon
 
-Upload `packages/addons/1.14.2/snmp-1.14.2.sraddon` in Administration → Addons. Configuration appears under System → SNMP monitoring. Uninstall removes executable addon files and the menu while preserving settings and history.
+Upload `packages/addons/1.14.3/snmp-1.14.3.sraddon` in Administration → Addons. Configuration appears under System → SNMP monitoring. Uninstall removes executable addon files and the menu while preserving settings and history.
 
 This release supports read-only SNMPv2c GET polling and SNMPv2c traps/informs, following RFC 3416 (https://www.rfc-editor.org/rfc/rfc3416). It does not implement SNMP SET, MIB uploads/walks, SNMPv1 or SNMPv3. Community values are stored locally with portal settings and never echoed in page fields. SNMPv2c is unencrypted: use read-only communities on an isolated management network.
 

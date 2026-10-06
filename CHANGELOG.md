@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.3 — 2026-10-06
+
+Repair Alpine installer repository preflight, staged logging, resumable setup and verified HTTPS startup.
+
 ## 1.14.2 — 2026-10-06
 
 Default blank installer URL to current host addresses; follow DHCP/static changes in portal URLs and managed local HTTPS without restarting the portal.

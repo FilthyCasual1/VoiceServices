@@ -11,8 +11,8 @@ On a fresh Alpine/OpenRC VM, clone the repository's main branch and run:
 ```
 
 The installer asks for the portal URL and first administrator credentials.
-Alpine accounts remain the authentication source. `--bare` refuses an existing
-configured installation. Run the installer without that flag for an upgrade;
+Alpine accounts remain the authentication source. `--bare` can be used to resume an interrupted installation; it never resets an existing
+configured installation. Rerun the installer for an upgrade;
 existing configuration and saved data are preserved. Old bundled-module flags
 no longer install features; upload matching packages after upgrading to 0.6.0.
 
