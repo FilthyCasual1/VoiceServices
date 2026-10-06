@@ -13,6 +13,8 @@ class Library(Updates):
     def serve(self,env,start_response,name,attachment=False):
         if not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,199}',name): return self.error(start_response,'404 Not Found')
         row=next((row for row in self.files() if row['name']==name),None)
+        try:self.require_volume()
+        except ValueError:return self.error(start_response,'503 Service Unavailable')
         path=self.root/name
         if not row or not path.is_file() or path.is_symlink(): return self.error(start_response,'404 Not Found')
         size=path.stat().st_size;start=0;end=size-1;status='200 OK'

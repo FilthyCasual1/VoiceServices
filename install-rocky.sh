@@ -28,13 +28,13 @@ if [[ $use_menu == 1 ]]; then
     [[ -t 0 && -t 1 ]] || { echo 'Use a terminal for the menu, or --no-menu for console prompts.'; exit 1; }
     if [[ -f /etc/serviceready/config.json ]]; then
         portal_url=$(python3 -c 'import json; c=json.load(open("/etc/serviceready/config.json")); print("" if c.get("automatic_public_url") else c.get("public_url",""))')
-        selected_addons=$(python3 -c 'import json; from pathlib import Path; c=json.load(open("/etc/serviceready/config.json")); p=Path(c.get("addon_directory","/var/lib/serviceready/addons")); print("\n".join(d.name for d in p.iterdir() if d.is_dir()))' 2>/dev/null || true)
+        selected_addons=$(python3 -c 'import json; from pathlib import Path; c=json.load(open("/etc/serviceready/config.json")); p=Path(c.get("addon_directory","/var/lib/serviceready/addons")); print("\n".join(d.name for d in p.iterdir() if d.is_dir() and d.name != "host-tools"))' 2>/dev/null || true)
     fi
     source "$source_dir/deploy/rocky-menu.sh"
     rocky_menu || { echo 'Setup cancelled; no portal settings or accounts changed.'; exit 0; }
     progress_ui=1
 fi
-packages=(python3 python3-pip python3-devel gcc make krb5-workstation krb5-devel libffi-devel openssl nginx iproute git shadow-utils libxcrypt dnsmasq policycoreutils policycoreutils-python-utils firewalld)
+packages=(python3 python3-pip python3-devel gcc make chrony e2fsprogs util-linux NetworkManager krb5-workstation krb5-devel libffi-devel openssl nginx iproute git shadow-utils libxcrypt dnsmasq policycoreutils policycoreutils-python-utils firewalld)
 run dnf -y --downloadonly install "${packages[@]}"
 step 'Install dependencies'
 run dnf -y install "${packages[@]}"
@@ -65,7 +65,7 @@ fi
 run python3 -m venv /opt/serviceready/venv
 run /opt/serviceready/venv/bin/pip install --disable-pip-version-check "$source_dir[identity]" waitress==3.0.2 pyftpdlib==2.1.0 aiosmtpd==1.4.6
 chgrp -R serviceready /opt/serviceready/venv; chmod -R g+rX /opt/serviceready/venv
-for file in account-broker.py maintenance-worker.py; do install -m 0700 "$source_dir/deploy/$file" "/opt/serviceready/$file"; done
+for file in account-broker.py maintenance-worker.py host-control.py; do install -m 0700 "$source_dir/deploy/$file" "/opt/serviceready/$file"; done
 for file in "$source_dir"/deploy/systemd/*.service; do install -m 0644 "$file" /etc/systemd/system/; done
 run systemctl daemon-reload
 run systemctl enable --now serviceready-accounts
@@ -86,7 +86,7 @@ if [[ -n $selected_addons ]]; then
     step 'Install selected addon files'
     version=$(/opt/serviceready/venv/bin/python -c 'from voiceservices.version import __version__; print(__version__)')
     while IFS= read -r addon; do
-        case "$addon" in host-tools|downloads|smtp-notifications|snmp|voice|esxi|server-management|ftp-updates|pxe) ;; *) echo "Unknown addon: $addon"; exit 1;; esac
+        case "$addon" in downloads|smtp-notifications|snmp|voice|esxi|server-management|ftp-updates|pxe) ;; *) echo "Unknown addon: $addon"; exit 1;; esac
         package="$source_dir/packages/addons/$version/$addon-$version.sraddon"
         if [[ -d /var/lib/serviceready/addons/$addon ]]; then
             run /opt/serviceready/venv/bin/python -m voiceservices --config /etc/serviceready/config.json uninstall-addon "$addon"

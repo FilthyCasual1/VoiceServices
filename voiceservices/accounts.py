@@ -16,4 +16,4 @@ class LinuxAccounts:
             result=json.loads(response)
         except (OSError,ValueError): raise ValueError('System account service is unavailable.') from None
         if not result.get('ok'): raise ValueError(result.get('error','Account operation failed.'))
-        return result.get('status',{}) if action=='maintenance-status' or action.startswith('terminal-') else True
+        return result.get('status',{}) if action in ('maintenance-status','host-status') or action.startswith('terminal-') else True

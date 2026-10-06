@@ -1,4 +1,4 @@
-"""Optional Linux maintenance controls and authenticated user PTY terminal."""
+"""Core Linux maintenance controls and authenticated user PTY terminal."""
 import hashlib,html,json,time
 E=lambda v:html.escape(str(v),quote=True)
 TASKS={'package-cache':('Clean package cache','Remove unused cached Linux packages; keep installed packages.'),'portal-temp':('Clean old temporary files','Remove regular files older than seven days from the portal temporary directory.'),'portal-logs':('Trim portal logs','Keep only the latest 1 MiB of each portal log; older log content is removed.')}

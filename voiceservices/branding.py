@@ -127,7 +127,8 @@ def image_type(raw):
 
 def upload_logo(app,raw,kind='logo'):
     suffix=image_type(raw)
-    root=Path(app.store.path).parent/'branding';root.mkdir(parents=True,exist_ok=True)
+    from .data_volume import folder
+    root=folder(app,'branding');root.mkdir(parents=True,exist_ok=True)
     name=secrets.token_hex(16)+'.'+suffix;(root/name).write_bytes(raw)
     value=defaults(app);old=value.get(kind);value[kind]=name;save(app,value)
     if old and re.fullmatch('[a-f0-9]{32}\\.(png|jpg)',old): (root/old).unlink(missing_ok=True)
@@ -135,7 +136,9 @@ def upload_logo(app,raw,kind='logo'):
 def logo(app,kind='logo'):
     name=defaults(app).get(kind,'')
     if not re.fullmatch('[a-f0-9]{32}\\.(png|jpg)',name): return None
-    path=Path(app.store.path).parent/'branding'/name
+    from .data_volume import folder
+    try:path=folder(app,'branding')/name
+    except ValueError:return None
     if not path.is_file() or path.is_symlink(): return None
     return path.read_bytes(),'image/png' if name.endswith('.png') else 'image/jpeg'
 

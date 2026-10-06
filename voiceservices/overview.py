@@ -39,7 +39,12 @@ def render(app):
     now=time.time()
     def table(rows): return '<table><tr><th>Item</th><th>Status / details</th></tr>'+''.join('<tr><td>'+E(k)+'</td><td>'+E(v)+'</td></tr>' for k,v in rows)+'</table>'
     usage=shutil.disk_usage(Path(app.store.path).parent)
-    resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',readable_uptime(now-app.started_at)),('Data disk',readable_size(usage.free)+' available of '+readable_size(usage.total)),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
+    resources=[('Portal','Running; version '+__version__),('Host',socket.gethostname()),('Portal uptime',readable_uptime(now-app.started_at)),('Boot disk',readable_size(usage.free)+' available of '+readable_size(usage.total)),('Authentication','Host system accounts' if app.store.accounts else 'Local portal accounts')]
+    if app.config.get('data_mount'):
+        from .data_volume import require
+        try:
+            require(app.config);data=shutil.disk_usage(app.config['data_mount']);resources.append(('Upload disk',readable_size(data.free)+' available of '+readable_size(data.total)))
+        except ValueError:resources.append(('Upload disk','Unavailable; uploaded content access is blocked'))
     resources.extend([('Operating system',platform.freedesktop_os_release().get('PRETTY_NAME',platform.system()) if hasattr(platform,'freedesktop_os_release') and Path('/etc/os-release').is_file() else platform.system()),('Kernel',platform.release()),('Architecture',platform.machine()),('Logical CPUs',str(os.cpu_count() or 'Unknown')),('Python',platform.python_version())])
     try:
         cpu=next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith(('model name','Hardware'))),'Unknown')

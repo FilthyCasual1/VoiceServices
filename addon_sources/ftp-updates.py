@@ -54,6 +54,11 @@ def worker_main():
     logging.getLogger('pyftpdlib').setLevel(logging.CRITICAL)
     server=None;previous=None;dropped=False;heartbeat=0
     while updates.modules.installed('ftp-updates'):
+        from voiceservices.data_volume import require
+        try:require(config)
+        except ValueError:
+            if server:server.close_all();server=None
+            previous=None;time.sleep(2);continue
         settings=updates.settings()
         if settings!=previous:
             if dropped: return  # OpenRC restarts the worker to rebind under root, then drop again.

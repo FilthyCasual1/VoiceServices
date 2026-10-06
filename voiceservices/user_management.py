@@ -46,7 +46,7 @@ def change(app,actor,data):
 
 def render(app,actor):
     csrf='<input type="hidden" name="csrf" value="'+E(actor['csrf'])+'">'
-    backend='Alpine system accounts' if app.store.accounts else 'Local portal accounts'
+    backend='Linux system accounts' if app.store.accounts else 'Local portal accounts'
     content='<p>Authentication: <strong>'+backend+'</strong>. <a href="/account">Change your password</a>.</p><table><tr><th>Username</th><th>Portal access</th><th>Actions</th></tr>'
     with app.store.connect() as db:
         for row in db.execute('SELECT id,username,role FROM users ORDER BY username'):
@@ -58,5 +58,5 @@ def render(app,actor):
                 content+='<form method="post">'+hidden+'<select name="role"><option value="user">User</option><option value="admin"'+(' selected' if row['role']=='admin' else '')+'>Administrator</option></select><button name="action" value="role">Save role</button></form><form method="post">'+hidden+'<label class="inline"><input type="checkbox" name="confirm" value="yes" required> Confirm deletion</label><button name="action" value="delete">Delete user</button></form>'
             content+='</td></tr>'
     content+='</table><h2>Create a user</h2><div class="panel"><form method="post">'+csrf+'<input name="action" type="hidden" value="create"><label>Username</label><input name="username" autocomplete="off" required><label>Display name (optional)</label><input name="display_name" maxlength="100"><label>Password</label><input name="password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm password</label><input name="confirm_password" type="password" minlength="12" autocomplete="new-password" required><label>Portal role</label><select name="role"><option value="user">User</option><option value="admin">Administrator</option></select><br><button>Create user</button></form></div>'
-    content+='<p>Deletion removes personal portal data and revokes sessions. On Alpine it also deletes the enrolled system account, preserving its home directory. Portal administrator roles do not grant operating-system administrator privileges.</p>'
+    content+='<p>Deletion removes personal portal data and revokes sessions. On Linux it also deletes the enrolled system account, preserving its home directory. Portal administrator roles do not grant operating-system administrator privileges.</p>'
     return content

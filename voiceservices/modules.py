@@ -10,19 +10,22 @@ import tempfile
 import threading
 import types
 import zipfile
-ROUTES={'host-tools':{'exact':('/admin/host','/admin/terminal','/admin/terminal/io'),'prefix':()},'snmp':{'exact':('/admin/snmp',),'prefix':()},'smtp-notifications':{'exact':('/admin/smtp',),'prefix':()},'downloads':{'exact':('/downloads','/admin/downloads'),'prefix':('/files/downloads/','/admin/downloads/')},
+ROUTES={'snmp':{'exact':('/admin/snmp',),'prefix':()},'smtp-notifications':{'exact':('/admin/smtp',),'prefix':()},'downloads':{'exact':('/downloads','/admin/downloads'),'prefix':('/files/downloads/','/admin/downloads/')},
         'pxe':{'exact':('/admin/pxe',),'prefix':('/pxe/','/admin/pxe/')},
         'voice':{'exact':('/admin/voice','/my-phone','/register-phone','/self-care','/preferences','/directory','/applications','/recordings'),'prefix':('/phone/',)},
         'server-management':{'exact':('/admin/settings','/network'),'prefix':()},
         'ftp-updates':{'exact':('/admin/updates',),'prefix':('/admin/updates/',)},
         'esxi':{'exact':('/esxi','/admin/esxi'),'prefix':()}}
-CATALOG={'host-tools':('Host Maintenance and Terminal','Linux cleanup tasks and an administrator OS-account browser terminal.'),'snmp':('SNMP Monitoring','Read-only device polling and trap reception.'),'smtp-notifications':('SMTP Notifications','Receive application email as portal inbox notifications.'),'downloads':('Downloads','Internal tool and application distribution.'),'pxe':('PXE and Image Deployment','ISO boot and interactive image restoration.'),'voice':('Voice Services','Phone setup, XML services and directories.'),'server-management':('Server Management','Service configuration and administration links.'),'ftp-updates':('FTP Update Repository','Upload updates for read-only FTP retrieval.'),'esxi':('ESXi Management','Host inventory and virtual machine power controls.')}
+CATALOG={'snmp':('SNMP Monitoring','Read-only device polling and trap reception.'),'smtp-notifications':('SMTP Notifications','Receive application email as portal inbox notifications.'),'downloads':('Downloads','Internal tool and application distribution.'),'pxe':('PXE and Image Deployment','ISO boot and interactive image restoration.'),'voice':('Voice Services','Phone setup, XML services and directories.'),'server-management':('Server Management','Service configuration and administration links.'),'ftp-updates':('FTP Update Repository','Upload updates for read-only FTP retrieval.'),'esxi':('ESXi Management','Host inventory and virtual machine power controls.')}
 _lock=threading.RLock()
 class Modules:
     def __init__(self,store,initial_modules=None,config=None):
         self.store=store;self.config=config or {}
         self.root=Path(self.config.get('addon_directory',str(Path(str(store.path)+'.addons'))))
         self.root.mkdir(parents=True,exist_ok=True)
+        # Host tools graduated into the core; retire the old executable package.
+        legacy=self.root/'host-tools'
+        if legacy.exists() and not legacy.is_symlink():shutil.rmtree(legacy)
         self.approved=json.loads(Path(__file__).with_name('addon_catalog.json').read_text())
         self.cache={};self.resources={}
         with store.connect() as db:

@@ -37,7 +37,6 @@ rocky_menu() {
                     if printf '%s\n' "$selected_addons" | grep -qx "$tag"; then state=ON; fi
                     items+=("$tag" "$description" "$state")
                 done <<'ADDONS'
-host-tools|Host cleanup and OS-account terminal
 downloads|Internal applications and tools
 smtp-notifications|Application email into portal inboxes
 snmp|SNMP monitoring and traps

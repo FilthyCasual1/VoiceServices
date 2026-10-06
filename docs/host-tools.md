@@ -1,6 +1,6 @@
 # Host maintenance and browser terminal
 
-Install `packages/addons/1.15.1/host-tools-1.15.1.sraddon` under Addons. System then includes Host maintenance and Host terminal. Uninstall removes these executable addon files and menus. This addon requires the Linux account broker; deployments using local portal-only authentication display an unavailable message.
+Host maintenance and Host terminal are now built into the core; no addon installation is needed. Both require the Linux account broker. See [Host configuration](host-configuration.md) for disk, network and NTP setup.
 
 Host maintenance shares the existing update worker and lock. Each task requires administrator access, CSRF validation, password confirmation and an explicit checkbox:
 

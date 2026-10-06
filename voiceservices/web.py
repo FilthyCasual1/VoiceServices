@@ -27,11 +27,6 @@ class App:
         self.started_at = time.time()
         from .network_address import Addresses
         self.addresses = Addresses()
-        hostname=socket.gethostname().rstrip('.')
-        try: fqdn=socket.getfqdn().rstrip('.')
-        except OSError: fqdn=hostname
-        short,separator,domain=fqdn.partition('.')
-        self.host_label=domain+'/'+hostname.split('.')[0] if separator else hostname
         accounts=LinuxAccounts(config.get('account_socket','/run/serviceready-accounts/socket')) if config.get('auth_backend') in ('alpine','system') else None
         self.store = Store(config.get('database','data/voiceservices.sqlite3'),accounts)
         self.updates = Updates(self.store,config)
@@ -52,6 +47,13 @@ class App:
         twofactor.initialize(self)
         from . import recovery
         recovery.initialize(self)
+
+    @property
+    def host_label(self):
+        hostname=socket.gethostname().rstrip('.')
+        fqdn=socket.getfqdn().rstrip('.')
+        _,separator,domain=fqdn.partition('.')
+        return domain+'/'+hostname.split('.')[0] if separator else hostname
 
     def __call__(self, env, start_response):
         def send(status, body, mime='text/html; charset=utf-8', extra=()):
@@ -309,8 +311,8 @@ class App:
                 return send('303 See Other','',extra=[('Location','/login'),('Set-Cookie','vs_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')])
             return send('200 OK',self.page('My Account',account.render(self,user,token,section=section),user))
         if path in ('/admin/terminal/io','/admin/host') and (path.endswith('/io') or method=='POST'):
-            if not self.modules.installed('host-tools'):return send('404 Not Found','Host tools addon is not installed.')
-            return self.modules.load('host-tools').page(self,path,method,data,user,env,send)
+            from . import host_tools
+            return host_tools.page(self,path,method,data,user,env,send)
         if path=='/admin' or path.startswith('/admin/'):
             try: content=administration.render(self,path,user,data,method,self.modules.services())
             except PermissionError as exc: return send('403 Forbidden',self.page('Access denied',E(exc),user))
@@ -359,7 +361,7 @@ class App:
             count=sum(row['total'] for row in unread)
             if count:
                 level=next((level for level in ('urgent','caution','info') if any(row['priority']==level for row in unread)),'info')
-                account+='<a class="notification-indicator priority-'+level+'" href="/account/inbox" aria-label="'+str(count)+' unread notifications; highest priority '+level+'">'+str(count)+' unread</a>'
+                account=account.removesuffix('</div>')+'<a class="notification-indicator priority-'+level+'" href="/account/inbox" aria-label="'+str(count)+' unread notifications; highest priority '+level+'">'+str(count)+' unread</a></div>'
             logout='<form class="inline" action="/logout" method="post"><input type="hidden" name="csrf" value="'+E(user['csrf'])+'"><button>Log out</button></form>'
         links = [('/','Home'),('/my-phone','My Phone'),('/directory','Directory'),('/applications','Applications'),('/recordings','Recordings'),('/downloads','Downloads')]
         if not self.modules.installed('voice'): links = [('/', 'Home'),('/downloads','Downloads')]
@@ -370,4 +372,4 @@ class App:
         if not user or user['role'] == 'guest': links = [('/', 'Home')]+([('/downloads','Downloads')] if self.modules.installed('downloads') else [])
         content = re.sub(r'<label>([^<]*)</label><(input|select) name="([^"]+)"', lambda m: '<label for="field-'+m[3]+'">'+m[1]+'</label><'+m[2]+' id="field-'+m[3]+'" name="'+m[3]+'"', content)
         nav = ''.join('<a href="'+url+'">'+label+'</a>' for url,label in links)
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script><script defer src="/static/host-terminal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(self.host_label)+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>'+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+E(title)+' - '+E(brand['title'])+'</title><link rel="stylesheet" href="/static/style.css"><link data-brand-style rel="stylesheet" href="'+E(brand_style)+'"><script defer src="/static/portal.js?v='+E(__version__)+'"></script><script defer src="/static/host-terminal.js?v='+E(__version__)+'"></script></head><body><header class="masthead-'+('compact' if brand.get('masthead_layout')=='compact' else 'wide')+'"><div class="brand">'+('<img class="wide-photo" src="'+E(masthead_url)+'" alt="">' if brand.get('masthead_layout')!='compact' else '')+'<img class="brand-arrow" src="'+E(logo)+'" alt=""><div><strong>'+E(brand['title'])+'</strong><small>'+E(brand['subtitle'])+'</small></div></div>'+('<div class="masthead-image" aria-hidden="true"></div>' if brand.get('masthead_layout')=='compact' else '')+'<div class="account">'+('<div class="account-picture"><img class="account-avatar" src="'+E(avatar_url)+'" alt="">'+logout+'</div>' if user and user['role']!='guest' else '')+'<div class="account-details"><div><span>System:</span> '+E(self.host_label)+'</div>'+account+'</div></div></header><nav>'+nav+'</nav><div class="layout"><main><div class="crumb">'+E(brand['title'])+' &gt; '+E(title)+'</div><h1>'+E(title)+'</h1>'+content+'</main></div><footer>Copyright &copy; '+str(time.localtime().tm_year)+' CasualNetworks. &nbsp; '+E(footer)+' &nbsp; | &nbsp; Version '+E(__version__)+' '+E(__codename__)+'</footer></body></html>'

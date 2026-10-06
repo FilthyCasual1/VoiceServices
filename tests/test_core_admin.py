@@ -43,7 +43,7 @@ class CoreAdminTests(unittest.TestCase):
         self.request('/account','POST',{'csrf':user['csrf'],'action':'profile','display_name':'Alice <Example>'},token)
         self.assertIn('Hello, Alice &lt;Example&gt;.',self.request(token=token)['body'])
         token,_=self.user('admin');body=self.request('/admin',token=token)['body']
-        for item in ('Accounts','Host memory','Active portal sessions','Downloads','Voice Services','Data disk','Installed addons'): self.assertIn(item,body)
+        for item in ('Accounts','Host memory','Active portal sessions','Downloads','Voice Services','Boot disk','Installed addons'): self.assertIn(item,body)
         self.assertNotIn('Open application',body)
     def test_broker_delete_is_enrolled_only(self):
         import test_account_broker
@@ -75,7 +75,7 @@ class CoreAdminTests(unittest.TestCase):
     def test_crystalblue_brand_attribution_and_block_legend(self):
         body=self.request()['body']
         self.assertIn('<strong>CasualNetworks</strong>',body)
-        self.assertIn('<footer>CasualNetworks Service Ready',body)
+        self.assertIn('CasualNetworks Service Ready',body)
         from voiceservices.version import __version__,__codename__
         self.assertIn(__version__+' '+__codename__,body)
         token,user=self.user('admin')
@@ -83,7 +83,7 @@ class CoreAdminTests(unittest.TestCase):
         for phrase in ('Page links legend','/create-account','/account','/my-phone'): self.assertIn(phrase,legend)
         self.request('/admin/branding','POST',{'csrf':user['csrf'],'title':'Example Network','subtitle':'My services'},token)
         body=self.request()['body'];self.assertIn('<strong>Example Network</strong>',body)
-        self.assertIn('<footer>Example Network | Powered By CasualNetworks ServiceReady',body)
+        self.assertIn('Example Network | Powered By CasualNetworks ServiceReady',body)
 
     def test_overview_hides_uninstalled_addons(self):
         token,_=self.user('admin')
@@ -304,5 +304,7 @@ class CoreAdminTests(unittest.TestCase):
         from voiceservices.web import App
         with patch('voiceservices.web.socket.gethostname',return_value='portal'),patch('voiceservices.web.socket.getfqdn',return_value='portal.example.org'):
             app=App({'database':self.tmp.name+'/domain.sqlite','secure_cookies':False})
-        self.assertEqual(app.host_label,'example.org/portal')
-        self.assertIn('example.org/portal',app.page('Home','',None))
+            self.assertEqual(app.host_label,'example.org/portal')
+            self.assertIn('example.org/portal',app.page('Home','',None))
+        with patch('voiceservices.web.socket.gethostname',return_value='new'),patch('voiceservices.web.socket.getfqdn',return_value='new.example.net'):
+            self.assertEqual(app.host_label,'example.net/new')

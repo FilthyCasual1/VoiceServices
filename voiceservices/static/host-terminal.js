@@ -40,7 +40,7 @@
         state.token = opened.token;
         if (active !== state) { fetch('/admin/terminal/io', {method:'POST',credentials:'same-origin',body:new URLSearchParams({csrf:state.csrf,action:'close',token:state.token})}).catch(()=>{}); return; }
         state.term = new window.Terminal({rows:24,cols:80,scrollback:1000,fontSize:14,allowProposedApi:false});
-        state.term.open(screen); await request(state,'resize',dimensions(state)); state.term.focus(); form.hidden = true; close.disabled = false; status.textContent = 'Connected as your Alpine account';
+        state.term.open(screen); await request(state,'resize',dimensions(state)); state.term.focus(); form.hidden = true; close.disabled = false; status.textContent = 'Connected as your Linux account';
         state.term.onData(data => {
           const bytes = new TextEncoder().encode(data);
           for (let offset = 0; offset < bytes.length; offset += 2048) {

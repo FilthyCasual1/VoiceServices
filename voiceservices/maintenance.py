@@ -9,9 +9,9 @@ def change(app,user,data):
     app.store.accounts.call('maintenance-start',kind,'')
     return 'Update started. Refresh this page to see progress.'
 def render(app,user):
-    content='<h2>Portal and host updates</h2><div class="panel host-updates"><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"><p>OS updates use the installed host update provider to upgrade system packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
+    content='<h2>Portal and host updates</h2><div class="panel host-updates"><div class="distro-powered"><span>Powered by</span><img class="distro-logo" src="/host/distro-logo" alt="Host distribution logo"></div><p>OS updates use the installed host update provider to upgrade system packages. INSAP updates install the approved main branch, preserve settings, and refresh installed addons. Updating INSAP briefly restarts the portal.</p>'
     if not app.store.accounts: return content+'<p class="muted">No host update provider is connected. One-click updates are unavailable on this deployment.</p><button disabled>Update OS</button><button disabled>Update INSAP</button></div>'
-    content+='<p class="muted">Connected update provider: Alpine Linux.</p>'
+    content+='<p class="muted">Connected update provider: host operating system.</p>'
     try: state=app.store.accounts.call('maintenance-status','','')
     except ValueError as exc: return content+'<p class="notice error">'+E(exc)+'</p></div>'
     content+='<p class="notice">'+E(state.get('state','idle'))+': '+E(state.get('message','No updates started.'))+'</p>'

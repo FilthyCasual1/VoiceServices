@@ -45,7 +45,8 @@ def main(kind):
                 status(kind,'running','Cleaning host package cache');run(['/usr/bin/dnf','clean','packages'] if rocky else ['/sbin/apk','cache','clean'])
                 status(kind,'complete','Unused package cache cleaned. Installed packages retained.');return
             if kind=='portal-temp':
-                removed=clean_temp(pathlib.Path('/var/lib/serviceready/tmp'))
+                config=json.loads(pathlib.Path('/etc/serviceready/config.json').read_text())
+                removed=clean_temp(pathlib.Path(config.get('data_mount','/var/lib/serviceready'))/'tmp')
                 status(kind,'complete',str(removed)+' portal temporary files older than seven days removed.');return
             if kind=='portal-logs':
                 trimmed=trim_logs(pathlib.Path('/var/log/serviceready'))
@@ -62,11 +63,11 @@ def main(kind):
             with sqlite3.connect(config['database']) as original,sqlite3.connect(backup/'portal.sqlite') as copy: original.backup(copy)
             status(kind,'running','Fetching INSAP from the approved main branch');run(['git','-C',str(source),'fetch','origin','main'])
             run(['git','-C',str(source),'merge','--ff-only','origin/main'])
-            run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
+            run(['/usr/bin/dnf','-y','install','krb5-devel','gcc','make','python3-devel','libffi-devel','iproute','chrony','e2fsprogs','util-linux','NetworkManager'] if rocky else ['/sbin/apk','add','--no-cache','krb5','krb5-dev','build-base','python3-dev','libffi-dev','iproute2']);status(kind,'running','Installing INSAP and its dependencies');run([str(ROOT/'venv/bin/pip'),'install','--disable-pip-version-check',str(source)+'[identity]','aiosmtpd==1.4.6'])
             # Refresh installed official addons only; absent addons remain absent.
             script="""import json\nfrom pathlib import Path\nfrom voiceservices.web import App\napp=App(json.loads(Path('/etc/serviceready/config.json').read_text()))\nfor key in app.modules.approved:\n if (app.modules.root/key).exists():\n  from voiceservices.version import __version__\n  package=Path('/opt/serviceready/source/packages/addons')/__version__/(key+'-'+__version__+'.sraddon')\n  if not package.is_file(): raise RuntimeError('Matching addon package missing')\n  app.modules.change(key,False);app.modules.install(package.read_bytes())\n"""
             run([str(ROOT/'venv/bin/python'),'-c',script])
-            for name in ('account-broker.py','maintenance-worker.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
+            for name in ('account-broker.py','maintenance-worker.py','host-control.py'): shutil.copy2(source/'deploy'/name,ROOT/name);os.chmod(ROOT/name,0o700)
             if rocky:
                 for unit in (source/'deploy/systemd').glob('*.service'):
                     shutil.copy2(unit,pathlib.Path('/etc/systemd/system')/unit.name)

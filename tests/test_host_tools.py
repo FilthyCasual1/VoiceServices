@@ -10,13 +10,12 @@ class HostToolTests(unittest.TestCase):
     request=test_app.PortalTests.request
     user=test_app.PortalTests.user
     def test_optional_routes_and_admin_only(self):
-        install(self.app,'host-tools');token,user=self.user('admin')
+        token,user=self.user('admin')
         page=self.request('/admin/terminal',token=token)['body'];self.assertIn('Linux host account broker',page)
         self.assertEqual(self.request('/admin/host',token=self.user('alice')[0])['status'],'403 Forbidden')
-        self.app.modules.change('host-tools',False)
-        self.assertEqual(self.request('/admin/terminal',token=token)['status'],'404 Not Found')
+        self.assertEqual(self.request('/admin/terminal',token=token)['status'],'200 OK')
     def test_terminal_api_and_binding(self):
-        install(self.app,'host-tools');token,user=self.user('admin')
+        token,user=self.user('admin')
         self.app.base='https://portal.example';self.app.secure=True
         self.app.store.accounts=Mock();self.app.store.accounts.call.return_value={'token':'test'}
         response=self.request('/admin/terminal/io','POST',{'csrf':user['csrf'],'action':'open','password':'secret'},token)

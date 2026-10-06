@@ -19,7 +19,7 @@ The [Alpine installer](docs/alpine-install.md) remains available for existing de
 
 ## Addons
 
-Download `.sraddon` files from [packages/addons/1.15.1](packages/addons/1.15.1/) and
+Download `.sraddon` files from [packages/addons/1.16.5](packages/addons/1.16.5/) and
 upload them through **Administration > Addons**. Available packages: Downloads,
 Voice Services, Server Management, FTP Update Repository, PXE and Image Deployment,
 and ESXi Management. Uninstall removes package files while retaining saved data.
@@ -59,3 +59,5 @@ telephony provisioning, CTI and recording adapters remain incomplete.
 [Login rate limiting and optional Fail2ban setup](docs/login-protection.md).
 
 [Scheduled portal and OS updates](docs/update-schedules.md).
+
+Host maintenance, terminal, network/NTP settings and upload disk setup are part of the core. See [host configuration](docs/host-configuration.md). To upgrade an existing Rocky installation to this release, pull main and rerun `sudo bash install-rocky.sh` so the new root host worker and OS dependencies are installed. Settings and accounts are retained.

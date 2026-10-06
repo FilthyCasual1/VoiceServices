@@ -129,3 +129,12 @@ header.masthead-compact{grid-template-columns:minmax(332px,1fr) 600px 250px}
 .account .notification-indicator{color:#fff;background:#1e5578;border-color:#a8c8dc;font-size:10px;line-height:1.2;padding:3px 5px;box-shadow:none}.account .notification-indicator.priority-caution{color:#302400;background:#ffdb66;border-color:#fff1b5}.account .notification-indicator.priority-urgent{color:#fff;background:#a51c28;border-color:#ffc1c6}.account .notification-indicator:hover,.account .notification-indicator:focus{outline:1px solid #fff;text-decoration:underline}
 
 .compact-settings .settings-section{margin:0 0 8px;border:1px solid #a5b5be}.settings-section>summary{padding:7px 9px;font-weight:bold;cursor:pointer;background:#d7e1e7}.settings-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px;padding:10px}.setting-field{min-width:0}.setting-field label{margin:0 0 4px}.setting-field input,.setting-field select{width:100%}.setting-wide{grid-column:1/-1}.compact-settings .panel{padding:8px 10px}.compact-settings .panel .settings-grid{padding:0}.compact-settings button{margin-top:8px;margin-bottom:8px}.image-upload-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px}.image-upload-grid .muted{font-size:11px;margin:6px 0}.image-upload-grid input{width:100%}.settings-section summary .muted{font-weight:normal;font-size:11px}@media(max-width:900px){.image-upload-grid{grid-template-columns:1fr}}@media(max-width:720px){.settings-grid{grid-template-columns:1fr}}
+
+.distro-powered{float:right;text-align:center;margin-left:16px;width:96px}.distro-powered span{display:block;font-size:11px;margin-bottom:5px}.distro-powered .distro-logo{float:none;width:64px;height:64px;margin:0}
+
+/* Inbox activity belongs to the action row, never on top of identity fields. */
+.account .account-links{position:static;display:flex!important;flex-wrap:wrap;align-items:center;margin-top:auto;padding-top:4px;gap:4px}
+.account .notification-indicator{position:static;white-space:nowrap;font-size:9px;padding:2px 4px}
+.account{padding-bottom:5px;min-height:76px;height:auto}
+.account-picture .inline{position:static;margin-top:auto;padding-top:4px}
+@media(max-width:720px){.account{min-height:88px}.account .account-links{gap:3px}.account-details>div{line-height:1.35}}

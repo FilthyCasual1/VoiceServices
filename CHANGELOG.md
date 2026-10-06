@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.16.5 — 2026-10-06
+
+Graceful missing upload-volume status and portal setup of a blank replacement disk.
+
+## 1.16.4 — 2026-10-06
+
+Keep inbox activity in the header action row without covering account identity on narrow displays.
+
+## 1.16.3 — 2026-10-06
+
+Profile location, address and multiple phone contact fields.
+
+## 1.16.2 — 2026-10-06
+
+Offline Rocky distro logo with Powered by caption.
+
+## 1.16.1 — 2026-10-06
+
+Footer copyright notice.
+
+## 1.16.0 — 2026-10-06
+
+Core host maintenance and terminal, Rocky network/NTP controls, and dedicated upload disk configuration.
+
 ## 1.15.1 — 2026-10-06
 
 Show installer stage progress, elapsed time, current activity and live log output in a gauge, with console progress fallback.

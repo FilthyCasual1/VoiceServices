@@ -73,7 +73,7 @@ def terminal_handle(request):
     if not isinstance(payload,dict) or not re.fullmatch(r'[a-f0-9]{64}',payload.get('session','')):raise ValueError('Invalid terminal session binding.')
     binding=payload['session']
     if action=='terminal-open':
-        if not authenticate(username,request.get('password','')):raise ValueError('Confirm your local Alpine password.')
+        if not authenticate(username,request.get('password','')):raise ValueError('Confirm your local Linux password.')
         if len(TERMINALS)>=4:raise ValueError('Maximum four host terminals. Close another session first.')
         entry=pwd.getpwnam(username)
         master,slave=pty.openpty()
@@ -111,6 +111,23 @@ def terminal_handle(request):
     return {'ok':True,'status':{'data':base64.b64encode(raw).decode()}}
 
 def handle(request):
+    if request.get('action') in ('host-status','host-start','host-confirm'):
+        import importlib.util,base64
+        from pathlib import Path
+        worker=Path('/opt/serviceready/host-control.py')
+        if not worker.is_file() or worker.is_symlink() or worker.stat().st_uid!=0 or worker.stat().st_mode&0o022:raise ValueError('Host controls are not installed safely.')
+        spec=importlib.util.spec_from_file_location('host_control',worker);control=importlib.util.module_from_spec(spec);spec.loader.exec_module(control)
+        if request['action']=='host-status':return {'ok':True,'status':control.snapshot()}
+        if not authenticate(request.get('username',''),request.get('password','')):raise ValueError('Confirm your local administrator password.')
+        if request['action']=='host-confirm':
+            if control.snapshot()['job']['state']!='pending':raise ValueError('No network change awaiting confirmation.')
+            control.STATE.with_suffix('.confirmed').touch();return {'ok':True}
+        state=control.snapshot()['job']
+        if state['state'] in ('running','pending'):raise ValueError('A host operation is already running.')
+        payload=json.loads(request.get('new_password','{}'));control.validate(payload)
+        control.status('running','Starting host operation')
+        subprocess.Popen(['/usr/bin/python3',str(worker),base64.b64encode(json.dumps(payload).encode()).decode()],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+        return {'ok':True}
     if request.get('action') in ('maintenance-start','maintenance-status'):
         from pathlib import Path
         state_path=Path('/run/serviceready-accounts/maintenance.json')

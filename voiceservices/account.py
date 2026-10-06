@@ -5,7 +5,11 @@ from . import regional
 from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 E=lambda value:html.escape(str(value),quote=True)
 def initialize(app):
-    with app.store.connect() as db: db.execute("CREATE TABLE IF NOT EXISTS account_profiles(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,email TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',timezone TEXT NOT NULL DEFAULT 'UTC')")
+    with app.store.connect() as db:
+        db.execute("CREATE TABLE IF NOT EXISTS account_profiles(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,email TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',timezone TEXT NOT NULL DEFAULT 'UTC')")
+        columns={r[1] for r in db.execute('PRAGMA table_info(account_profiles)')}
+        for column in ('location','address','mobile_phone','work_phone','other_phone'):
+            if column not in columns:db.execute("ALTER TABLE account_profiles ADD COLUMN "+column+" TEXT NOT NULL DEFAULT ''")
 def initialize_extras(app):
     with app.store.connect() as db:
         db.execute('CREATE TABLE IF NOT EXISTS account_photos(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,image BLOB NOT NULL,mime TEXT NOT NULL)')
@@ -26,16 +30,25 @@ def inbox(app,user):
 def photo(app,user):
     with app.store.connect() as db:
         row=db.execute('SELECT image,mime FROM account_photos WHERE user_id=?',(user['id'],)).fetchone()
+        if row and not row[0] and app.config.get('data_mount'):
+            from .data_volume import folder
+            try:return (folder(app,'photos')/str(user['id'])).read_bytes(),row[1]
+            except (OSError,ValueError):return None
         return (bytes(row[0]),row[1]) if row else None
 def upload_photo(app,user,raw):
     from .branding import image_type
     suffix=image_type(raw)
+    if app.config.get('data_mount'):
+        from .data_volume import folder
+        root=folder(app,'photos');root.mkdir(exist_ok=True)
+        import os,secrets
+        temporary=root/secrets.token_hex(16);temporary.write_bytes(raw);os.chmod(temporary,0o600);temporary.replace(root/str(user['id']));raw=b''
     with app.store.connect() as db: db.execute('INSERT OR REPLACE INTO account_photos VALUES(?,?,?)',(user['id'],raw,'image/png' if suffix=='png' else 'image/jpeg'))
     notify(app,user['id'],'Profile picture updated','Your new profile picture is now in use.')
 def profile(app,user):
     with app.store.connect() as db:
         row=db.execute('SELECT * FROM account_profiles WHERE user_id=?',(user['id'],)).fetchone()
-        return dict(row) if row else {'email':'','phone':'','timezone':'UTC'}
+        return dict(row) if row else {'email':'','phone':'','timezone':'UTC','location':'','address':'','mobile_phone':'','work_phone':'','other_phone':''}
 def change(app,user,data,token):
     from . import twofactor
     result=twofactor.change(app,user,data,token)
@@ -57,11 +70,15 @@ def change(app,user,data,token):
     if action=='profile':
         name=data.get('display_name','').strip();email=data.get('email','').strip();phone=data.get('phone','').strip();tz=data.get('timezone','UTC').strip() or 'UTC'
         if len(name)>100 or len(email)>254 or (email and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email)) or len(phone)>40 or (phone and not re.fullmatch(r'[+0-9() .-]+',phone)): raise ValueError('Check display name, email address and contact number.')
+        extra={key:data.get(key,'').strip() for key in ('location','address','mobile_phone','work_phone','other_phone')}
+        if len(extra['location'])>160 or len(extra['address'])>1000:raise ValueError('Location must be at most 160 characters and address at most 1000.')
+        for key in ('mobile_phone','work_phone','other_phone'):
+            if len(extra[key])>40 or (extra[key] and not re.fullmatch(r'[+0-9() .-]+',extra[key])):raise ValueError('Check the additional phone numbers.')
         try: ZoneInfo(tz)
         except (ZoneInfoNotFoundError,ValueError): raise ValueError('Use an IANA time zone such as UTC or America/Chicago.')
         with app.store.connect() as db:
             db.execute('UPDATE users SET display_name=? WHERE id=?',(name,user['id']))
-            db.execute('INSERT OR REPLACE INTO account_profiles VALUES(?,?,?,?)',(user['id'],email,phone,tz))
+            db.execute('INSERT OR REPLACE INTO account_profiles(user_id,email,phone,timezone,location,address,mobile_phone,work_phone,other_phone) VALUES(?,?,?,?,?,?,?,?,?)',(user['id'],email,phone,tz,extra['location'],extra['address'],extra['mobile_phone'],extra['work_phone'],extra['other_phone']))
         return 'Profile saved.'
     if action=='revoke-sessions':
         with app.store.connect() as db: db.execute('DELETE FROM sessions WHERE user_id=? AND token!=?',(user['id'],token))
@@ -87,7 +104,7 @@ def render(app,user,token,note='',section='profile'):
     picture='<div class="panel profile-picture"><img class="avatar" src="/account/photo" alt="Profile picture"><form action="/account/photo/upload" method="post" enctype="multipart/form-data">'+csrf+'<label>Profile picture (PNG or JPEG, up to 1 MiB)</label><input type="file" name="file" accept="image/png,image/jpeg" required><br><button>Upload picture</button></form><form method="post">'+csrf+'<button name="action" value="remove-photo">Remove picture</button></form></div>'
     content+='<section><h2 id="profile">Your profile</h2><div class="panel account-profile-grid">'+picture
     content+='<div class="profile-details"><p>Username: <strong>'+E(user['username'])+'</strong><br>Access: '+E(user['role'])+'<br>Authentication: '+(E(external_auth.KINDS[external['provider']])+' account' if external else 'Linux system account' if app.store.accounts else 'Local portal account')+'</p><form method="post">'+csrf+'<input name="action" type="hidden" value="profile">'
-    for key,label,entry in [('display_name','Display name',user['display_name']),('email','Email address',value['email']),('phone','Contact number',value['phone']),('timezone','Time zone',value['timezone'])]: content+='<label>'+label+'</label>'+(regional.timezone_select(key,entry or 'UTC') if key=='timezone' else '<input name="'+key+'" value="'+E(entry or '')+'">')
+    for key,label,entry in [('display_name','Display name',user['display_name']),('email','Email address',value['email']),('location','Location',value['location']),('address','Address',value['address']),('phone','Primary phone',value['phone']),('mobile_phone','Mobile phone',value['mobile_phone']),('work_phone','Work phone',value['work_phone']),('other_phone','Other phone',value['other_phone']),('timezone','Time zone',value['timezone'])]: content+='<label>'+label+'</label>'+(regional.timezone_select(key,entry or 'UTC') if key=='timezone' else '<textarea name="address" rows="3">'+E(entry or '')+'</textarea>' if key=='address' else '<input name="'+key+'" value="'+E(entry or '')+'">')
     content+='<br><button>Save profile</button></form></div></div></section>'
     profile_content=content;content=''
     content+='<h2 id="inbox">Notification inbox</h2>'

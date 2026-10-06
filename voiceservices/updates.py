@@ -17,10 +17,14 @@ class Updates:
         from .modules import Modules
         self.modules=Modules(store,config=config)
         self.root=Path(config.get(namespace+'_directory',str(Path(store.path).parent/namespace)))
+        self.volume_config=config
         self.limit=int(config.get('update_upload_limit',8*1024**3))
         with store.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS addons(id TEXT PRIMARY KEY, settings TEXT NOT NULL)')
             db.execute(f'CREATE TABLE IF NOT EXISTS {self.table}(name TEXT PRIMARY KEY, size INTEGER, sha256 TEXT)')
+    def require_volume(self):
+        from .data_volume import require
+        require(self.volume_config)
     def settings(self):
         if not self.modules.installed('ftp-updates'): return None
         with self.store.connect() as db:
@@ -49,6 +53,7 @@ class Updates:
         enabled=data.get('enabled')=='yes'
         if enabled and not settings.get('password'): raise ValueError('Set an FTP password before enabling the server.')
         settings.update(enabled=enabled,username=username,port=port,passive_start=start,passive_end=end,address=address)
+        self.require_volume()
         self.root.mkdir(parents=True,exist_ok=True)
         with self.store.connect() as db: db.execute("UPDATE addons SET settings=? WHERE id='ftp-updates'",(json.dumps(settings),))
     def files(self):
@@ -87,6 +92,7 @@ class Updates:
         suffix=b'\r\n--'+boundary+b'--\r\n'
         remaining=size-consumed-len(suffix)
         if not 0<remaining<=self.limit: raise ValueError('Empty file or file too large.')
+        self.require_volume()
         self.root.mkdir(parents=True,exist_ok=True)
         if shutil.disk_usage(self.root).free<remaining+1024**2: raise ValueError('Insufficient repository disk space.')
         target=self.root/name

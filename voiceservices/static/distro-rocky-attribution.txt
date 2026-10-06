@@ -1,0 +1,4 @@
+Rocky Linux icon: https://github.com/rocky-linux/branding/blob/main/logo/src/icon-primary.svg
+Authors: Rocky Linux branding contributors. Intrinsic width and height reduced to 192 pixels; artwork unchanged.
+Licensed CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
+Rocky Linux is a trademark of its respective owner; use identifies the host OS.

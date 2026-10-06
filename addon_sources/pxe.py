@@ -112,6 +112,11 @@ def worker_main():
     process=None;previous=None
     try:
         while modules.installed('pxe'):
+            from voiceservices.data_volume import require
+            try:require(config)
+            except ValueError:
+                if process:process.terminate();process.wait(timeout=5);process=None
+                previous=None;time.sleep(2);continue
             with store.connect() as db:
                 db.execute('CREATE TABLE IF NOT EXISTS pxe_settings(id INTEGER PRIMARY KEY,settings TEXT)')
                 row=db.execute('SELECT settings FROM pxe_settings WHERE id=1').fetchone()

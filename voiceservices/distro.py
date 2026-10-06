@@ -9,6 +9,7 @@ def detected():
     except (AttributeError,OSError): return {'ID':'linux','PRETTY_NAME':platform.system()}
 def logo(app):
     distro=detected();identifier=distro.get('ID','linux').lower();slug=ICONS.get(identifier)
+    if identifier=='rocky':return Path(__file__).with_name('static').joinpath('distro-rocky.svg').read_bytes()
     root=Path(app.store.path).parent/'distro-logos';root.mkdir(parents=True,exist_ok=True)
     cache=root/((slug or 'linux')+'.svg')
     if cache.is_file() and not cache.is_symlink() and time.time()-cache.stat().st_mtime<86400: return cache.read_bytes()
