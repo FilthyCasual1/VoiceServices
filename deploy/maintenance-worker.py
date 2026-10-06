@@ -4,7 +4,36 @@ import fcntl,json,re,os,pathlib,shutil,sqlite3,subprocess,sys,tempfile,time
 ROOT=pathlib.Path('/opt/serviceready');STATE=pathlib.Path('/run/serviceready-accounts/maintenance.json')
 def status(kind,state,message):
     temporary=STATE.with_suffix('.tmp');temporary.write_text(json.dumps({'kind':kind,'state':state,'message':message,'at':time.time()}));os.chmod(temporary,0o600);temporary.replace(STATE)
-def run(args): subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1800)
+UPDATE_LOG=pathlib.Path('/run/serviceready-accounts/update.log')
+def run(args):
+    fd=os.open(UPDATE_LOG,os.O_WRONLY|os.O_CREAT|os.O_APPEND|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'ab') as log:
+        os.fchmod(log.fileno(),0o600);log.write(('\nRunning: '+' '.join(args)+'\n').encode());log.flush()
+        subprocess.run(args,check=True,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,timeout=1800)
+def restart_portal(rocky):
+    command=lambda service: ['/usr/bin/systemctl','restart',service] if rocky else ['/sbin/rc-service',service,'restart']
+    run(command('serviceready'))
+    from urllib.request import build_opener,ProxyHandler
+    from urllib.error import URLError
+    config=json.loads(pathlib.Path('/etc/serviceready/config.json').read_text())
+    host=config.get('listen_host','127.0.0.1')
+    if host=='0.0.0.0':host='127.0.0.1'
+    if host=='::':host='::1'
+    if ':' in host:host='['+host+']'
+    health_url='http://'+host+':'+str(int(config.get('listen_port',8080)))+'/healthz'
+    opener=build_opener(ProxyHandler({}))
+    for attempt in range(30):
+        try:
+            with opener.open(health_url,timeout=2) as response:
+                if response.status==200:break
+        except (OSError,URLError):pass
+        time.sleep(1)
+    else:raise ValueError('Updated portal did not respond to its health check. Expand Installer output for details.')
+    warnings=[]
+    for service in ('serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'):
+        try:run(command(service))
+        except (OSError,subprocess.SubprocessError):warnings.append(service)
+    return warnings
 TOOLS_LOG=pathlib.Path('/run/serviceready-accounts/vm-tools.log')
 def tools_run(args):
     fd=os.open(TOOLS_LOG,os.O_WRONLY|os.O_CREAT|os.O_APPEND|os.O_NOFOLLOW,0o600)
@@ -66,6 +95,7 @@ def main(kind,approved_commit=''):
         except BlockingIOError:
             status(kind,'failed','Another host operation is running. Wait for it to finish before starting an update.');return
         try:
+            fd=os.open(UPDATE_LOG,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600);os.fchmod(fd,0o600);os.close(fd)
             status(kind,'running','Preparing update')
             if kind=='cleanup':
                 selected=json.loads(approved_commit)
@@ -151,9 +181,9 @@ def main(kind,approved_commit=''):
                     shutil.copy2(source/'deploy'/(service+'.initd'),'/etc/init.d/'+service);os.chmod('/etc/init.d/'+service,0o755)
                     run(['/sbin/rc-update','add',service,'default'])
             status(kind,'running','Restarting portal services')
-            for service in ('serviceready','serviceready-ftp','serviceready-pxe','serviceready-smtp','serviceready-snmp','serviceready-scheduler','serviceready-addresses'): run(['/usr/bin/systemctl','restart',service] if rocky else ['/sbin/rc-service',service,'restart'])
+            warnings=restart_portal(rocky)
             review['state']='installed';write_review(review)
-            status(kind,'complete','INSAP and installed addons updated successfully. Database/configuration backup saved in '+str(backup)+'.')
+            status(kind,'complete','INSAP and installed addons updated successfully. Database/configuration backup saved in '+str(backup)+'.'+(' Auxiliary services need attention: '+', '.join(warnings)+'. See Installer output.' if warnings else ''))
             # Reload the broker last, after publishing the completion status.
             subprocess.Popen(['/usr/bin/systemctl','restart','serviceready-accounts'] if rocky else ['/sbin/rc-service','serviceready-accounts','restart'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         except Exception as exc:
@@ -166,5 +196,5 @@ def main(kind,approved_commit=''):
                 status(kind,'failed','Guest tools installation failed. Expand Installer output below for the actual error. Kernel dependencies must match the running kernel. No reboot was performed.');return
             if kind in ('vmtools','vmtools-cd'):
                 status(kind,'failed','Guest tools operation failed: '+str(exc)+'. No reboot was performed.');return
-            status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed. Inspect the host and retry; database/configuration backups are retained if created. No automatic rollback was performed.')
+            status(kind,'failed',str(exc) if isinstance(exc,ValueError) else 'Update failed: '+str(exc)+'. Expand Installer output for details; backups are retained if created. No automatic rollback was performed.')
 if __name__=='__main__': main(sys.argv[1],sys.argv[2] if len(sys.argv)>2 else '')

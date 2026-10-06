@@ -170,6 +170,11 @@ def handle(request):
                 if log.is_file() and not log.is_symlink():
                     with log.open('rb') as file:
                         file.seek(0,2);file.seek(max(0,file.tell()-8192));state['tools_log']=file.read().decode('utf-8','replace')
+            if state.get('kind') not in ('vmtools','vmtools-cd'):
+                log=Path('/run/serviceready-accounts/update.log')
+                if log.is_file() and not log.is_symlink():
+                    with log.open('rb') as file:
+                        file.seek(0,2);file.seek(max(0,file.tell()-8192));state['tools_log']=file.read().decode('utf-8','replace')
             state['review']=review;return {'ok':True,'status':state}
         if request['action']=='maintenance-decline':
             import fcntl

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.27.5 — 2026-10-06
+
+Allow the account panel to expand into desktop masthead space so account details and actions fit without wrapping.
+
+## 1.27.4 — 2026-10-06
+
+Verify portal health before update completion, report auxiliary restart problems as warnings, and expose actual update command output instead of generic failures.
+
 ## 1.27.3 — 2026-10-06
 
 Restore single-disk formatting for unused disks with existing filesystems using explicit erase confirmation; show current upload disk reformat controls directly.

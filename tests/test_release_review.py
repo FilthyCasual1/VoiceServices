@@ -107,3 +107,17 @@ class ReleaseReviewTests(unittest.TestCase):
   self.app.modules.install(package('downloads'),replace=True)
   self.assertTrue(self.app.modules.installed('downloads'))
   with self.app.store.connect() as db:self.assertIn('preserved',db.execute("SELECT settings FROM addons WHERE id='downloads'").fetchone()[0])
+
+ def test_auxiliary_restart_failure_is_warning_after_health_passes(self):
+  import subprocess
+  response=Mock();response.status=200;response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+  opener=Mock();opener.open.return_value=response
+  def command(args):
+   if args[-1]=='serviceready-ftp':raise subprocess.CalledProcessError(1,args)
+  with patch.object(worker,'run',side_effect=command),patch.object(Path,'read_text',return_value='{"listen_port":8081}'),patch('urllib.request.build_opener',return_value=opener):
+   self.assertEqual(worker.restart_portal(True),['serviceready-ftp'])
+   opener.open.assert_called_with('http://127.0.0.1:8081/healthz',timeout=2)
+ def test_unhealthy_portal_never_reports_success(self):
+  opener=Mock();opener.open.side_effect=OSError('refused')
+  with patch.object(worker,'run'),patch.object(Path,'read_text',return_value='{}'),patch('urllib.request.build_opener',return_value=opener),patch.object(worker.time,'sleep'):
+   with self.assertRaisesRegex(ValueError,'did not respond'):worker.restart_portal(True)
