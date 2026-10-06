@@ -173,6 +173,8 @@ class HostConfigurationTests(unittest.TestCase):
     for values in ({'raid_mode':'zfs'},{'confirm':'yes'},{'erase_confirm':''},{'members':payload['members'][:1]},{'members':[payload['members'][0]]*2},{'members':[{'disk':'/dev/sda','fingerprint':'boot'},payload['members'][1]]}):
      with self.assertRaises(ValueError):control.validate(dict(payload,**values))
     with patch.object(control,'run',return_value='{"signatures":[{}]}'):
+     control.validate(payload) # Explicit RAID erasure permits old filesystem signatures.
+    with patch.object(control,'disks',return_value=[dict(disks[0],raid_eligible=False),disks[1]]):
      with self.assertRaises(ValueError):control.validate(payload)
  def test_smart_failure_and_unsupported_virtual_disks(self):
   from types import SimpleNamespace

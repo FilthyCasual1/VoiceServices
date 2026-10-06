@@ -19,6 +19,7 @@ def disks():
  for d in rows:
   if d['type']!='disk' or system_disk(d):continue
   d['eligible']=d['type']=='disk' and not d.get('ro') and not any(d.get(k) for k in ('children','fstype','pttype')) and not any(d.get('mountpoints') or [])
+  d['raid_eligible']=not d.get('ro') and not d.get('children') and not any(d.get('mountpoints') or [])
   d['fingerprint']=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
   result.append(d)
  return result
@@ -94,7 +95,7 @@ def snapshot(section='storage'):
    except (OSError,subprocess.SubprocessError) as exc:
     result[key]='Unavailable';result['errors'].append(key+': '+str(exc)[-400:])
  return result
-def validate(p):
+def validate(p,raid_member=False):
  kind=p.get('kind')
  if kind=='storage-raid':
   if p.get('raid_mode') not in ('mirror','stripe'):raise ValueError('Choose mirrored or combined storage.')
@@ -103,12 +104,12 @@ def validate(p):
   if p.get('confirm')!='CREATE ARRAY' or p.get('erase_confirm')!='yes':raise ValueError('Confirm erasing all selected disks and type CREATE ARRAY.')
   if pathlib.Path(ARRAY).exists():raise ValueError('An upload RAID array already exists.')
   if not shutil.which('mdadm'):raise ValueError('Update host integration to install software RAID support first.')
-  for member in members:validate(dict(member,kind='storage',confirm='FORMAT '+member.get('disk','')))
+  for member in members:validate(dict(member,kind='storage',confirm='FORMAT '+member.get('disk','')),raid_member=True)
  elif kind=='storage':
   d=next((d for d in disks() if d['path']==p.get('disk')),None)
-  if not d or not d['eligible'] or d['fingerprint']!=p.get('fingerprint'):raise ValueError('Disk is in use, contains data, or has changed. Reload the disk list.')
+  if not d or not (d.get('raid_eligible',d['eligible']) if raid_member else d['eligible']) or d['fingerprint']!=p.get('fingerprint'):raise ValueError('Disk is in use, contains data, or has changed. Reload the disk list.')
   if p.get('confirm')!='FORMAT '+d['path']:raise ValueError('Type FORMAT followed by the exact disk path.')
-  if json.loads(run(['wipefs','--no-act','--json',d['path']])).get('signatures'):raise ValueError('Disk has existing signatures. Only blank disks are accepted.')
+  if not raid_member and json.loads(run(['wipefs','--no-act','--json',d['path']])).get('signatures'):raise ValueError('Disk has existing signatures. Only blank disks are accepted.')
   cfg=json.loads(CONFIG.read_text())
   if cfg.get('data_mount') and os.path.ismount(cfg['data_mount']):raise ValueError('An upload disk is already mounted. Detach it before configuring a replacement.')
   if MOUNT.exists() and any(MOUNT.iterdir()):raise ValueError('The upload mount directory is not empty.')
@@ -219,6 +220,7 @@ def main(p):
    elif p['kind'] in ('storage','storage-raid'):
     if p['kind']=='storage-raid':
      status('running','Creating upload disk array')
+     for member in p['members']:run(['wipefs','--all',member['disk']])
      run(['mdadm','--create',ARRAY,'--run','--metadata=1.2','--level='+('1' if p['raid_mode']=='mirror' else '0'),'--raid-devices='+str(len(p['members']))]+[member['disk'] for member in p['members']])
      disk=ARRAY
      detail=run(['mdadm','--detail','--scan',ARRAY]);lines=[line for line in detail.splitlines() if line.startswith('ARRAY '+ARRAY+' ')]

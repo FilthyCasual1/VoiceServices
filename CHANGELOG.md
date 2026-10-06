@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.2 — 2026-10-06
+
+Match addon action buttons and expose software RAID creation in Storage, with explicit disk erasure, protected boot/mounted disks, and clear availability guidance.
+
 ## 1.27.1 — 2026-10-06
 
 Retain the OpenWrt appliance preparation, OVA/console/browser setup paths and guest-tool profiles while avoiding repeated writes to persistent TLS state when DHCP addresses and certificates are unchanged.

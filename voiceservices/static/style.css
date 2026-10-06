@@ -217,3 +217,5 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 .installed-addon-table .button{display:inline-block;padding:4px 8px;background:#718e9d;border:1px solid #a7bbc5;color:#fff;text-decoration:none;font-weight:bold;margin-right:6px}
 .installed-addon-table button{margin:0}
 @media(max-width:700px){.installed-addon-table .addon-row-actions{white-space:normal}.installed-addon-table .button{margin-bottom:4px}}
+
+.installed-addon-table .addon-row-actions>a.button,.installed-addon-table .addon-row-actions>button{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;height:24px;margin:2px 6px 2px 0;padding:3px 8px;font:bold 12px Arial,Tahoma,sans-serif;line-height:16px;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4;color:#fff;text-decoration:none;border-radius:0}.installed-addon-table .addon-row-actions>:last-child{margin-right:0}
