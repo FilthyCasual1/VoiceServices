@@ -1,5 +1,10 @@
 # ESXi Management changelog
 
+## 1.21.1
+
+- Package for INSAP 1.21.1. No functional addon changes; hypervisor and tools version display is a core change.
+
+
 ## 1.21.0
 
 - Package for INSAP 1.21.0. No functional addon changes; the guest-tools setup wizard is a core feature.

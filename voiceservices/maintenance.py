@@ -31,6 +31,8 @@ def render(app,user,started=False):
     if not isinstance(review,dict):review={}
     live=state.get('tools_live',{})
     if isinstance(live,dict) and live.get('provider')=='virtualbox':
+        versions='<span class="update-version">VirtualBox '+E(live.get('host_version') or 'version unavailable')+'</span><span class="update-version">Guest Additions '+E(live.get('version') or 'not detected')+'</span>'
+        content=content.replace('<span class="update-version">INSAP '+E(__version__)+'</span>', '<span class="update-version">INSAP '+E(__version__)+'</span>'+versions)
         content+='<p class="tools-live-status">Guest tools now: <strong>VirtualBox '+E(live.get('version',''))+' — '+E(live.get('state','Unknown'))+'</strong></p>'
         if live.get('state')=='Running' and not live.get('communication',True):content+='<p class="muted">Guest service and driver are running. Hypervisor version property is unavailable; this does not indicate an installation failure.</p>'
     watch='starting' if started else state.get('state','idle')

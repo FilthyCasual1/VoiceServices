@@ -1,41 +1,41 @@
 {
   "downloads": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "651bcb35748f6f294ae1b0c0101ca892c7786324c07c107b4c24e1c3142c2e8a"
   },
   "esxi": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "73ea34bf094f01f854d9c040d89800c2b08c8b9ff8b77d526cb8efc8869ddbaf"
   },
   "ftp-updates": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "f6924f8cdaf8abb6a6a0655868558b40bbe07f4fb7b17f6aa460cd92db7be58e"
   },
   "pxe": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "e69feaa449eeb7f693381dc3c18dc3e83419df833e4e5fc9ed6df7b76b2c502d"
   },
   "server-management": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "e2b1c05fc009f9c8d9e1c9e7a4b62ef0dc60c9f656a3a6525817944e5e80b805"
   },
   "smtp-notifications": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "430b9206562b9a009e40b87c448b513410b7064bc20966f120f818c8fad937eb"
   },
   "snmp": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "429be42faa3d5fca6e9d898ca31d71d76f1c58e6315d6ca6db096f3969af596f"
   },
   "voice": {
-    "version": "1.21.0",
+    "version": "1.21.1",
     "api": 1,
     "sha256": "fc2dbe5d406bc106176a0b4afc9cbe767da04039ceaa546ebfb0f1af6728a047"
   }

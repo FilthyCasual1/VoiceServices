@@ -78,3 +78,10 @@ class UpdateProgressTests(unittest.TestCase):
   body=self.request('/admin/host',token=token)['body']
   self.assertIn('1. Hypervisor',body);self.assertIn('2. Installation method',body);self.assertIn('3. Review and install',body)
   self.assertNotIn('>Update VM tools</button>',body);self.assertIn('Start tools setup',body)
+
+ def test_hypervisor_and_tools_versions_below_insap(self):
+  token,user=self.user('admin');self.app.store.accounts=Mock()
+  self.app.store.accounts.call.return_value={'state':'idle','tools_live':{'provider':'virtualbox','version':'7.2.18','host_version':'7.2.20','state':'Running'}}
+  body=self.request('/admin/host',token=token)['body']
+  self.assertLess(body.index('update-version">INSAP'),body.index('update-version">VirtualBox 7.2.20'))
+  self.assertLess(body.index('update-version">VirtualBox 7.2.20'),body.index('update-version">Guest Additions 7.2.18'))

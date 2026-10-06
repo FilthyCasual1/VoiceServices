@@ -68,10 +68,13 @@ def live_status():
     except (OSError,subprocess.SubprocessError):return {'provider':'virtualbox','state':'Unavailable','version':''}
     if not re.fullmatch(r'\d+\.\d+\.\d+',version):return {'provider':'virtualbox','state':'Unrecognized version','version':''}
     service=virtualbox_service(version)
-    try:communication=bool(re.match(r'Value:\s*\d+\.\d+\.\d+(?:\s|$)',output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer'])))
-    except (OSError,subprocess.SubprocessError):communication=False
+    try:
+        match=re.match(r'Value:\s*(\d+\.\d+\.\d+)(?:\s|$)',output([control,'guestproperty','get','/VirtualBox/HostInfo/VBoxVer']))
+        host_version=match[1] if match else ''
+    except (OSError,subprocess.SubprocessError):host_version=''
+    communication=bool(host_version)
     driver=pathlib.Path('/sys/module/vboxguest').is_dir()
-    return {'provider':'virtualbox','version':version,'state':'Running' if service and driver else 'Installed; guest service or driver not verified','service':service,'communication':communication,'driver':driver}
+    return {'provider':'virtualbox','version':version,'state':'Running' if service and driver else 'Installed; guest service or driver not verified','service':service,'communication':communication,'driver':driver,'host_version':host_version}
 
 def virtualbox_running(version):
     live=live_status()

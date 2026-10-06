@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.21.1 — 2026-10-06
+
+Display detected VirtualBox host and Guest Additions versions below INSAP in the powered-by panel, with clear unavailable values.
+
 ## 1.21.0 — 2026-10-06
 
 Replace direct guest-tools buttons with a compact hypervisor, method and review wizard; validate selected platform and CD before starting host tools setup.
