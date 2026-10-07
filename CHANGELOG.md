@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.15 — 2026-10-06
+
+Cache allowlisted bundled asset reads and hashes, bypass settings queries for static requests, and remove superseded interface styles.
+
 ## 1.27.14 — 2026-10-06
 
 Require the full regression suite on every update and include browser wizard regression tests in the release-gating GitHub checks.

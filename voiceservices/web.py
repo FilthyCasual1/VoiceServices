@@ -56,7 +56,7 @@ class App:
         return domain+'/'+hostname.split('.')[0] if separator else hostname
 
     def __call__(self, env, start_response):
-        def send(status, body, mime='text/html; charset=utf-8', extra=()):
+        def send(status, body, mime='text/html; charset=utf-8', extra=(), asset_etag=None):
             if mime.startswith('text/html') and status[0] in '45' and isinstance(body,str) and not body.lstrip().lower().startswith('<!doctype'):
                 title={'400':'Check your request','403':'Access denied','404':'Page not found','405':'Action unavailable','429':'Please wait'}.get(status[:3],'Unable to complete your request')
                 body=self.page(title,'<p class="notice error">'+E(body)+'</p><p><a href="/">Return home</a> &nbsp; | &nbsp; <a href="/login">Sign in again</a></p>',None)
@@ -65,13 +65,17 @@ class App:
                        ('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer'),
                        ('Content-Security-Policy',"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'"+(" 'unsafe-inline'" if env.get('PATH_INFO') in ('/admin/terminal','/admin/host') else "")+"; img-src 'self'; form-action 'self'; frame-ancestors 'none'")]
             if mime.startswith(('image/','text/css','text/javascript')):
-                etag='"'+hashlib.sha256(body).hexdigest()+'"'
+                etag=asset_etag or '"'+hashlib.sha256(body).hexdigest()+'"'
                 headers=[h for h in headers if h[0] not in ('Cache-Control','Content-Length')]
                 headers+=[('Cache-Control','private, max-age=0, must-revalidate'),('ETag',etag)]
                 if env.get('HTTP_IF_NONE_MATCH')==etag and status=='200 OK': status='304 Not Modified';body=b''
                 headers.append(('Content-Length',str(len(body))))
             start_response(status, headers+list(extra))
             return [body]
+        from .static_assets import get as static_asset
+        asset=static_asset(env.get('PATH_INFO','/'))
+        if asset:
+            return send('200 OK',asset[0],asset[1],asset_etag=asset[2])
         with self.store.connect() as db:
             for row in db.execute('SELECT key,value FROM portal_settings'): self.config[row['key']]=json.loads(row['value'])
         if self.config.get('automatic_public_url'):
@@ -101,27 +105,14 @@ class App:
             asset=branding.logo(self,path.rsplit('/',1)[-1])
             if path.endswith('/masthead') and not asset: asset=(Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
             return send('200 OK',asset[0],asset[1]) if asset else send('404 Not Found','Logo unavailable.')
-        if path in ('/static/casualnetworks-arrow.svg','/static/provider-virtualbox.svg','/static/provider-vmware.svg'):
-            return send('200 OK',Path(__file__).with_name('static').joinpath(path.rsplit('/',1)[1]).read_bytes(),'image/svg+xml')
-        if path == '/static/brand-arrow.svg':
-            return send('200 OK',Path(__file__).with_name('static').joinpath('brand-arrow.svg').read_bytes(),'image/svg+xml')
-        if path == '/static/session-background.png':
-            return send('200 OK',Path(__file__).with_name('static').joinpath('session-background.png').read_bytes(),'image/png')
-        if path == '/static/masthead.png':
-            return send('200 OK',Path(__file__).with_name('static').joinpath('masthead.png').read_bytes(),'image/png')
         if path == '/host/distro-logo':
             from . import distro
             return send('200 OK',distro.logo(self),'image/svg+xml')
-        if path=='/static/xterm.css':return send('200 OK',(Path(__file__).with_name('static')/'xterm.css').read_bytes(),'text/css; charset=utf-8')
-        if path in ('/static/portal.js','/static/host-terminal.js','/static/xterm.js'):
-            return send('200 OK',Path(__file__).with_name('static').joinpath(path.rsplit('/',1)[1]).read_bytes(),'text/javascript')
         if path=='/branding/style.css':
             brand=branding.defaults(self)
             masthead=brand.get('masthead',__version__);fill=brand.get('header-fill','none')
             box_css=''.join('main:has(.signin-card.'+kind+'){background-image:linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url("/branding/'+kind+'?v='+brand[kind]+'")}' for kind in branding.BOX_IMAGES if brand.get(kind))
             return send('200 OK',box_css+'.masthead-compact .masthead-image{background-image:url("/branding/masthead?v='+masthead+'")}.masthead-wide:not(.masthead-full) .brand{background-image:url("/branding/header-fill?v='+fill+'")}', 'text/css')
-        if path == '/static/style.css':
-            return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
         if path in ('/admin/addons/upload','/admin/branding/upload','/admin/branding/masthead/upload','/admin/branding/header-fill/upload','/account/photo/upload',*('/admin/branding/'+kind+'/upload' for kind in branding.BOX_IMAGES)):
             cookie=SimpleCookie()
             try: cookie.load(env.get('HTTP_COOKIE',''))

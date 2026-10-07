@@ -214,26 +214,22 @@ footer{display:flex;justify-content:space-between;align-items:baseline;flex-wrap
 .addon-config-wizard section{padding:12px}.addon-config-wizard section[hidden]{display:none}
 .addon-config-wizard footer{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
 .installed-addon-table .addon-row-actions{white-space:nowrap;width:1%}
-.installed-addon-table .button{display:inline-block;padding:4px 8px;background:#718e9d;border:1px solid #a7bbc5;color:#fff;text-decoration:none;font-weight:bold;margin-right:6px}
-.installed-addon-table button{margin:0}
 @media(max-width:700px){.installed-addon-table .addon-row-actions{white-space:normal}.installed-addon-table .button{margin-bottom:4px}}
 
 .installed-addon-table .addon-row-actions>a.button,.installed-addon-table .addon-row-actions>button{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;height:24px;margin:2px 6px 2px 0;padding:3px 8px;font:bold 12px Arial,Tahoma,sans-serif;line-height:16px;border:1px solid #8497a3;border-top-color:#c3d1da;background:linear-gradient(#91aaba,#68889b);box-shadow:inset 1px 1px #b7c9d4;color:#fff;text-decoration:none;border-radius:0}.installed-addon-table .addon-row-actions>:last-child{margin-right:0}
 
 /* Let account content claim masthead space instead of wrapping inside a fixed strip. */
-@media(min-width:721px){header{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:340px;width:max-content;max-width:60vw}.account-details>div{grid-template-columns:68px max-content;white-space:nowrap;overflow-wrap:normal}.account-actions{flex-wrap:nowrap}.account-actions .notification-indicator{max-width:none}header.masthead-compact{grid-template-columns:minmax(180px,1fr) minmax(0,600px) max-content}.masthead-compact .masthead-image{display:block;width:100%;min-width:0}.account:has(.account-picture){grid-template-columns:64px max-content}}
+@media(min-width:721px){header{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:0;width:max-content;max-width:none;padding-right:12px}.account-details>div{grid-template-columns:68px max-content;white-space:nowrap;overflow-wrap:normal}.account-actions{flex-wrap:nowrap}.account-actions .notification-indicator{max-width:none}header.masthead-compact{grid-template-columns:minmax(180px,1fr) minmax(0,600px) max-content}.masthead-compact .masthead-image{display:block;width:100%;min-width:0}.account:has(.account-picture){grid-template-columns:64px max-content}}
 header.masthead-compact{border-bottom:0}
 
 @media(min-width:721px){header.masthead-wide{grid-template-columns:minmax(0,1fr) max-content}.account{min-width:0;max-width:none;padding-right:12px}.account-actions .inline{margin-left:12px}.account:has(.account-picture){grid-template-columns:64px max-content}.masthead-wide .brand{min-width:0}}
 
 .masthead-full .brand{background-image:none}.masthead-full .wide-photo{width:100%;height:100%;top:0;transform:none;object-fit:cover;object-position:center 43%;border-right:0}
 
-.signin-card.login-background,.signin-card.logout-background,.signin-card.loggedout-background{background-size:cover;background-position:center}.signin-card.login-background>.panel,.signin-card.logout-background>.panel,.signin-card.loggedout-background>.panel{background:rgba(244,245,246,.9)}.signin-card.login-background>.signin-help{background:rgba(244,245,246,.9);margin:0;padding:12px}.signin-card.login-background>.signin-banner,.signin-card.logout-background>.signin-banner,.signin-card.loggedout-background>.signin-banner{background:rgba(38,78,96,.88)}
 
-.signin-card.login-background,.signin-card.logout-background,.signin-card.loggedout-background{background-image:url("/static/session-background.png")}
 
 /* Session imagery belongs in the surrounding page, not inside the dialog. */
-.signin-card.login-background,.signin-card.logout-background,.signin-card.loggedout-background{background-image:none;background-color:#f4f5f6}.signin-card.login-background>.panel,.signin-card.logout-background>.panel,.signin-card.loggedout-background>.panel{background:#f4f5f6}.signin-card.login-background>.signin-help{background:#f4f5f6}.signin-card.login-background>.signin-banner,.signin-card.logout-background>.signin-banner,.signin-card.loggedout-background>.signin-banner{background:linear-gradient(110deg,#294957,#376d80 70%,#91aab5)}
+.signin-card.login-background,.signin-card.logout-background,.signin-card.loggedout-background{background-image:none;background-color:#f4f5f6}.signin-card.login-background>.panel,.signin-card.logout-background>.panel,.signin-card.loggedout-background>.panel{background:#f4f5f6}.signin-card.login-background>.signin-help{background:#f4f5f6;margin:0;padding:12px}.signin-card.login-background>.signin-banner,.signin-card.logout-background>.signin-banner,.signin-card.loggedout-background>.signin-banner{background:linear-gradient(110deg,#294957,#376d80 70%,#91aab5)}
 main:has(.signin-card.login-background),main:has(.signin-card.logout-background),main:has(.signin-card.loggedout-background){background-image:linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url("/static/session-background.png");background-position:center;background-size:cover;background-repeat:no-repeat;min-height:calc(100vh - 185px)}
 main:has(.signin-card.login-background)>.crumb,main:has(.signin-card.logout-background)>.crumb,main:has(.signin-card.loggedout-background)>.crumb{background:#fff;margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}
 @media(max-width:720px){main:has(.signin-card.login-background)>.crumb,main:has(.signin-card.logout-background)>.crumb,main:has(.signin-card.loggedout-background)>.crumb{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}
