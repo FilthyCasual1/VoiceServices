@@ -11,6 +11,9 @@ def change(app,user,data):
  if data.get('kind')=='storage-raid':
   payload['members']=[{'disk':data[key],'fingerprint':data.get('raid_fingerprint_'+key.removeprefix('raid_disk_'),'')} for key in sorted(data) if key.startswith('raid_disk_') and data[key]]
  app.store.accounts.call('host-confirm' if data.get('kind')=='confirm-network' else 'host-start',user['username'],data.get('current_password',''),json.dumps(payload))
+ if data.get('kind')=='timezone':
+  from . import branding,update_schedule
+  value=branding.defaults(app);value['global_timezone']=data['timezone'];value['greeting_timezone']=data['timezone'];branding.save(app,value);update_schedule.rebase_global(app)
  with app.store.connect() as db:db.execute('INSERT INTO audit(at,user_id,action) VALUES(?,?,?)',(int(time.time()),user['id'],'Host configuration: '+data.get('kind','')))
  return 'Host operation accepted. Refresh this page to see progress.'
 def render(app,user,section):
@@ -51,6 +54,6 @@ def render(app,user,section):
   text+=form('network','<h3>IP configuration</h3><label>Active connection</label><select name="connection">'+options+'</select><label>Address method</label><select name="mode"><option value="keep">Keep existing settings</option><option value="auto">DHCP</option><option value="manual">Static</option><option value="disabled">Disabled (IPv6 only)</option></select><label>Static address / prefix</label><input name="address" placeholder="192.168.1.20/24"><label>Static gateway</label><input name="gateway"><label>DNS servers (space separated; blank uses DHCP)</label><input name="dns"><label>Hostname (blank retains current host setting)</label><input name="hostname"><h4>IPv6</h4><label>Address method</label><select name="ipv6_mode"><option value="">Keep existing settings</option><option value="auto">Automatic (router advertisements / SLAAC)</option><option value="dhcp">DHCPv6</option><option value="manual">Static</option><option value="disabled">Disabled</option></select><label>Static IPv6 address / prefix</label><input name="ipv6_address" placeholder="2001:db8::20/64"><label>IPv6 gateway (optional)</label><input name="ipv6_gateway"><label>IPv6 DNS servers (space separated)</label><input name="ipv6_dns"><p>Confirm at the new address within 90 seconds, otherwise the previous connection is restored.</p>','Apply network settings')
   if job['state']=='pending':text+=form('confirm-network','<p>Confirm that this connection works.</p>','Keep network settings')
   from . import regional
-  text+=form('timezone','<h3>Host time zone</h3><label>Time zone</label>'+regional.timezone_select('timezone',state.get('timezone') if state.get('timezone') not in (None,'Unavailable') else regional.settings(app)['timezone']),'Save time zone')
+  text+=form('timezone','<h3>System and portal time zone</h3><label>Time zone</label>'+regional.timezone_select('timezone',state.get('timezone') if state.get('timezone') not in (None,'Unavailable') else regional.settings(app)['timezone']),'Save time zone')
   text+=form('ntp','<h3>Time synchronization</h3><label>NTP servers (space separated)</label><input name="servers" required placeholder="time.example.net">','Save NTP servers')
  return text

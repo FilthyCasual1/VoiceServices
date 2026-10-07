@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.13 — 2026-10-06
+
+Fix Appearance saves exceeding the form field limit, consolidate portal timezone into Network and Time, and suppress transient update reconnect error pages.
+
 ## 1.27.12 — 2026-10-06
 
 Keep session-page breadcrumb strips solid white above the faded background area.

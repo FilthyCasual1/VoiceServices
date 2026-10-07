@@ -228,4 +228,15 @@ class PortalTests(unittest.TestCase):
         self.assertIn('login-background',self.request('/login')['body'])
         self.assertIn('loggedout-background',self.request('/logged-out')['body'])
 
+    def test_appearance_form_accepts_all_settings(self):
+        token,user=self.user('admin')
+        data={'csrf':user['csrf'],'title':'Test portal','subtitle':'Test','masthead_layout':'full'}
+        data.update({'extra_'+str(i):'no' for i in range(32)})
+        response=self.request('/admin/branding','POST',data,token)
+        self.assertNotEqual(response['status'],'400 Bad Request')
+        from voiceservices import branding
+        self.assertEqual(branding.defaults(self.app)['masthead_layout'],'full')
+        page=self.request('/admin/branding',token=token)['body']
+        self.assertNotIn('name="global_timezone"',page)
+
 if __name__=='__main__': unittest.main()

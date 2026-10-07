@@ -166,10 +166,10 @@ def render(app,section,user):
         for key,label,reset in [('reset_logo','Logo','Use default arrow'),('reset_masthead','Masthead image','Use default image'),('reset_header_fill','Secondary masthead','Clear secondary masthead')]:
             identity+=field(label,'<select name="'+key+'"><option value="no">Keep current image</option><option value="yes">'+reset+'</option></select>')
         groups=group('Brand and masthead',identity,True)
-        locale=field('Global time zone',regional.timezone_select('global_timezone',value['global_timezone']))
+        locale=''
         for key,label,options in [('date_format','Date format',regional.DATE_FORMATS),('time_format','Time format',regional.TIME_FORMATS)]:
             locale+=field(label,'<select name="'+key+'">'+''.join('<option value="'+code+'"'+(' selected' if value[key]==code else '')+'>'+E(item[1])+'</option>' for code,item in options.items())+'</select>')
-        groups+=group('Date, time and time zone',locale)
+        groups+=group('Date and time formats',locale)
         for kind,label in [('login','Sign-in box'),('create','Create-account box')]:
             body=text_field(kind+'_title','Heading')+text_field(kind+'_subtitle','Subtitle')
             body+=field('Greeting','<select name="'+kind+'_greeting"><option value="custom">Use custom heading</option><option value="time"'+(' selected' if value[kind+'_greeting']=='time' else '')+'>Good morning / afternoon / evening</option></select>')

@@ -170,7 +170,7 @@ class App:
             return send('413 Content Too Large','Request too large.')
         try:
             raw = env['wsgi.input'].read(size).decode() if method == 'POST' else env.get('QUERY_STRING','')
-            data = {k:v[0] for k,v in parse_qs(raw, max_num_fields=30).items()}
+            data = {k:v[0] for k,v in parse_qs(raw, max_num_fields=96 if path=='/admin/branding' else 30).items()}
         except (ValueError, UnicodeError):
             return send('400 Bad Request','Invalid request.')
         if path.startswith('/phone/'):

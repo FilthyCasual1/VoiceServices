@@ -42,6 +42,7 @@
     navigating = true; const revision = ++generation; clearTimeout(redirectTimer);
     try {
       const response = await fetch(url, {credentials: 'same-origin', ...options});
+      if (options.updateReconnect && !response.ok) throw new Error('Portal reconnecting');
       if (!response.headers.get('Content-Type')?.includes('text/html')) { location.assign(url); return; }
       const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
       const main = parsed.querySelector('main');
@@ -191,7 +192,7 @@
       const dialog = form.closest('dialog');
       if (dialog) { const progress = document.createElement('p'); progress.className='notice'; progress.setAttribute('role','status'); progress.textContent=form.hasAttribute('data-addon-install')?'Installing selected addons… Results will appear when installation finishes.':'Starting…'; form.append(progress); }
     }
-    visit(form.action, {method: 'POST', body}, 'push', true);
+    visit(form.action, {method: 'POST', body, updateReconnect:form.hasAttribute('data-start-update')}, 'push', true);
   });
   window.addEventListener('popstate', () => visit(location.href, {}, 'replace'));
   let updatePolling = false;
