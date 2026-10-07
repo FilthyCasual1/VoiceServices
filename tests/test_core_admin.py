@@ -244,7 +244,7 @@ class CoreAdminTests(unittest.TestCase):
         self.assertEqual(regional.format_timestamp(self.app,stamp),'02/01/2026 09:04 AM CST')
         self.assertEqual(update_schedule.settings(self.app)['os']['effective_timezone'],'America/Chicago')
         token,user=self.user('admin');page=self.request('/admin/branding',token=token)['body']
-        self.assertIn('name="global_timezone"',page);self.assertIn('name="date_format"',page)
+        self.assertNotIn('name="global_timezone"',page);self.assertIn('name="date_format"',page)
         with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,date_format='unsafe'))
         with self.assertRaises(ValueError): branding.change(self.app,'branding',dict(values,global_timezone='Invalid/Zone'))
 
@@ -289,7 +289,7 @@ class CoreAdminTests(unittest.TestCase):
 
     def test_timezone_dropdowns_and_friendly_defaults(self):
         token,_=self.user('admin')
-        for path,name in [('/admin/branding','global_timezone'),('/account','timezone'),('/admin/schedules','os_timezone')]:
+        for path,name in [('/account','timezone'),('/admin/schedules','os_timezone')]:
             page=self.request(path,token=token)['body']
             self.assertRegex(page,r'<select[^>]*name="'+name+r'"')
             self.assertIn('value="America/Chicago"',page)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.14 — 2026-10-06
+
+Require the full regression suite on every update and include browser wizard regression tests in the release-gating GitHub checks.
+
 ## 1.27.13 — 2026-10-06
 
 Fix Appearance saves exceeding the form field limit, consolidate portal timezone into Network and Time, and suppress transient update reconnect error pages.

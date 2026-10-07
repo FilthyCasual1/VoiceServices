@@ -255,3 +255,11 @@ class HostConfigurationTests(unittest.TestCase):
     with self.assertRaises(ValueError):control.validate(dict(payload,confirm=''))
     with patch.object(control,'run',return_value='boot'):
      with self.assertRaises(ValueError):control.validate(payload)
+
+ def test_network_time_owns_timezone_dropdown(self):
+  from voiceservices.host_configuration import render
+  from types import SimpleNamespace
+  state={'job':{'state':'idle','message':''},'hostname':'host','connections':'','time':'','timezone':'America/Chicago'}
+  app=SimpleNamespace(store=SimpleNamespace(accounts=SimpleNamespace(call=lambda *args:state)))
+  page=render(app,{'csrf':'token'},'network-host')
+  self.assertIn('System and portal time zone',page);self.assertIn('name="timezone"',page);self.assertIn('value="America/Chicago" selected',page)
