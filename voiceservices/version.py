@@ -1,8 +1,8 @@
 """ServiceReady release version; update with tools/bump_version.py."""
-__version__ = '1.27.11'
+__version__ = '1.27.12'
 __codename__ = 'CrystalBlue'
 
-__build__ = 15
+__build__ = 16
 import json,re
 from pathlib import Path
 try:

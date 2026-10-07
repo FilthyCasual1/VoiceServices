@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.12 — 2026-10-06
+
+Keep session-page breadcrumb strips solid white above the faded background area.
+
 ## 1.27.11 — 2026-10-06
 
 Move faded session background imagery into the surrounding page whitespace and restore solid dialog backgrounds.
