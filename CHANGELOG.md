@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.27.11 — 2026-10-06
+
+Move faded session background imagery into the surrounding page whitespace and restore solid dialog backgrounds.
+
 ## 1.27.10 — 2026-10-06
 
 Use the supplied glass-lobby image as the default login and session box background; retain Appearance overrides.

@@ -182,7 +182,7 @@ def render(app,section,user):
         groups+=group('Session-ended box', ''.join(text_field(key,label) for key,(label,_) in SESSION_TEXT.items() if key.startswith('logged_out_')))
         content='<div class="compact-settings"><form method="post">'+csrf+groups+'<button>Save Appearance</button></form><details class="settings-section"><summary>Upload images</summary><div class="image-upload-grid">'
         images=[('/admin/branding/upload','Brand logo','40 × 40 px recommended; 30 × 30 px on narrow screens.'),('/admin/branding/masthead/upload','Masthead image','Wide: 1284 × 963 px recommended, fixed 963 px height cropped into a 68 px header. Compact: 600 × 68 px window, fixed 700 px image width.'),('/admin/branding/header-fill/upload','Secondary masthead','600 × 68 px recommended; fixed 68 px height, cropped to the available width and aligned right.')]
-        images.extend(('/admin/branding/'+kind+'/upload',label,'1200 × 800 px recommended; cropped to cover the box, with an overlay for readable text.') for kind,label in BOX_IMAGES.items())
+        images.extend(('/admin/branding/'+kind+'/upload',label,'1200 × 800 px recommended; cropped to cover the surrounding page and faded behind the box.') for kind,label in BOX_IMAGES.items())
         for url,label,help_text in images:
             content+='<div class="panel"><form action="'+url+'" method="post" enctype="multipart/form-data">'+csrf+'<label>'+label+' (PNG or JPEG, up to 1 MiB)</label><p class="muted">'+help_text+'</p><input type="file" name="file" accept="image/png,image/jpeg" required><button>Upload '+label.lower()+'</button></form></div>'
         return content+'</div></details><p class="muted">Appearance changes apply to all portal pages.</p></div>'

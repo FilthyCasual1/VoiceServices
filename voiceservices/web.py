@@ -118,7 +118,7 @@ class App:
         if path=='/branding/style.css':
             brand=branding.defaults(self)
             masthead=brand.get('masthead',__version__);fill=brand.get('header-fill','none')
-            box_css=''.join('.signin-card.'+kind+'{background-image:url("/branding/'+kind+'?v='+brand[kind]+'")}' for kind in branding.BOX_IMAGES if brand.get(kind))
+            box_css=''.join('main:has(.signin-card.'+kind+'){background-image:linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url("/branding/'+kind+'?v='+brand[kind]+'")}' for kind in branding.BOX_IMAGES if brand.get(kind))
             return send('200 OK',box_css+'.masthead-compact .masthead-image{background-image:url("/branding/masthead?v='+masthead+'")}.masthead-wide:not(.masthead-full) .brand{background-image:url("/branding/header-fill?v='+fill+'")}', 'text/css')
         if path == '/static/style.css':
             return send('200 OK',Path(__file__).with_name('static').joinpath('style.css').read_bytes(),'text/css')
